@@ -1,11 +1,11 @@
 'use client';
 
-import Header from './components/Header';
-import HeroSection from './components/HeroSection';
-import UseCasesGrid from './components/UseCasesGrid';
-import PricingSection from './components/PricingSection';
-import CTASection from './components/CTASection';
-import Footer from './components/Footer';
+import Header from '@/app/components/Header';
+import HeroSection from '@/app/components/HeroSection';
+import UseCasesGrid from '@/app/components/UseCasesGrid';
+import PricingSection from '@/app/components/PricingSection';
+import CTASection from '@/app/components/CTASection';
+import Footer from '@/app/components/Footer';
 
 export default function Home() {
   return (
