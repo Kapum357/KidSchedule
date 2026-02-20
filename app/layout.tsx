@@ -1,38 +1,31 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "900"],
+  display: "optional",
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  display: "optional",
 });
 
 export const metadata: Metadata = {
-  title: "KidSchedule - Family Calendar & Co-Parenting App",
+  title: "KidSchedule – Co-Parenting Calendar & Custody Tracker",
   description:
-    "Coordinate schedules, expenses, and communication in one secure place. Built for modern families who need to handle the chaos so they can enjoy the moments.",
-  keywords: [
-    "family calendar",
-    "co-parenting",
-    "schedule management",
-    "family organization",
-  ],
-  authors: [{ name: "KidSchedule Inc." }],
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: "https://kidschedule.com",
-    siteName: "KidSchedule",
-    title: "KidSchedule - Family Calendar & Co-Parenting App",
-    description:
-      "Coordinate schedules, expenses, and communication in one secure place.",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
+    "The trusted co-parenting platform for shared custody scheduling, expense splitting, and conflict-free communication.",
 };
+
+/*
+  The app intentionally inlines Google font links in the app layout to
+  ensure the fonts load early for all pages. Disable the Next.js ESLint
+  rule that expects custom fonts in `pages/_document`.
+*/
+/* eslint-disable @next/next/no-page-custom-font */
 
 export default function RootLayout({
   children,
@@ -42,12 +35,21 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta charSet="utf-8" />
-        <link rel="icon" href="/favicon.ico" />
+        {/* Material Symbols – variable font used by the dashboard UI */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=optional"
+        />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;500;600;700&display=optional"
+        />
       </head>
-      <body className={`${inter.variable} antialiased font-sans`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
       </body>
     </html>
   );
 }
+
+/* eslint-enable @next/next/no-page-custom-font */

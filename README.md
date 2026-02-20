@@ -1,368 +1,436 @@
-# KidSchedule — Product Requirements & Functional Specification (Architectural View Model)
+# KidSchedule PRD (Architectural + Functional Specification)
 
-**Author:** Krish Aaron Purmessur Moros (Kapum)
-**Date:** 2026-02-18  
-**Version:** 1.1
+**Author:** Krish Aaron Purmessur Moros   
+**Date:** 2026-02-19  
+**Version:** 1.2 
 
-## 1) Purpose and Scope
+This document defines:
+- product/business goals,
+- functional and non-functional requirements,
+- architecture using a 4+1 view model with Mermaid diagrams,
+- delivery milestones, KPIs, risks, and evolution path.
 
-KidSchedule is a co-parenting coordination platform for families who need a reliable, low-conflict way to manage calendars, expenses, parenting-time changes, mediation artifacts, and shared communication.
+It is explicitly mapped to these existing routes/modules:
 
-### Business purpose
+- Marketing & legal: index, `blog`, `privacy`, `terms`, `pta`
+- Auth & account access: `login`, `signup`, `forgot-password`, `messages` (phone verification)
+- Core app: `family`, index, `calendar/schedule-wizard`
+- Coordination workflows: index, create
+- Finance: index, create
+- Conflict resolution: index, `mediation/court-report`, `mediation/session/6`
+- Family memories: index, create
 
-- Reduce scheduling conflicts and missed commitments.
-- Improve trust and traceability in parent-to-parent communication.
-- Support legal and mediation workflows with auditable records.
+---
 
-### Technical purpose
+## Purpose and scope
 
-- Provide a scalable web system with clear separation of concerns (UI, API, data).
-- Optimize for:
-	- **Memory usage** (predictable backend/runtime footprint)
-	- **Code readability** (maintainable modules and naming conventions)
-	- **SQL query performance** (index-aware, low-latency query patterns)
+### Business perspective
 
-### In-scope capabilities
+KidSchedule aims to be the **operational system of record for co-parenting**:
+1. reduce coordination conflict,
+2. increase schedule reliability,
+3. provide documented evidence trails (e.g., mediation and reports),
+4. improve retention through daily value loops (calendar, messages, moments, expenses).
 
-- Family profiles and role-based access.
-- Shared calendar and schedule wizard.
-- Change requests workflow.
-- Expense tracking.
-- Messaging and moments.
-- Mediation and court-report support.
+### Technical perspective
 
-### Out of scope (for this release)
+Build and operate a secure, scalable web platform with:
+- strong identity + consent handling,
+- family-scoped data isolation,
+- resilient workflows across scheduling, communication, expenses, and mediation,
+- integration with Stripe, Twilio, and Claude-driven conflict support.
 
-- Native mobile applications.
-- Realtime video conferencing.
-- AI-generated legal advice.
+### In-scope
 
-## 2) Product Overview and Use Cases
+- End-to-end journey from acquisition → onboarding → active co-parenting use.
+- Functional coverage for all listed pages and their backend capabilities.
+- Analytics and operational observability foundations.
 
-### Product modules
+### Out-of-scope (for this PRD cycle)
 
-- Calendar (`calendar/index`, `calendar/schedule-wizard`)
-- Change requests (`change-requests/create`, `change-requests/index`)
-- Expenses (`expenses/create`, `expenses/index`)
-- Mediation (`mediation/index`, `mediation/court-report`, `mediation/session/#`)
-- Messaging and moments (`messages`, `moments/index`, `moments/create`)
+- Native mobile apps (web/PWA first).
+- Multi-tenant enterprise admin panel.
+- Full legal advice automation (mediation assist only).
 
-### Claude API Integration
+---
 
-KidSchedule integrates **Claude API** (Anthropic) to enhance intelligent processing and content generation across key workflows:
+## Market assessment & target demographics
 
-- **`calendar/schedule-wizard`**: Claude analyzes proposed schedules for conflict detection, intelligently suggests optimal timeslots based on family preferences and constraints.
-- **`change-requests/create`**: Claude generates contextual summaries of change requests, identifies potential mediator talking points, and drafts neutral communication suggestions.
-- **`expenses/create`**: Claude classifies expense categories via receipt analysis, detects anomalous spending patterns, and suggests fair split calculations.
-- **`mediation/court-report`**: Claude synthesizes family interactions into court-ready narrative summaries, highlights disputed events with neutral language, and generates executive summaries.
-- **`mediation/session/#`**: Claude summarizes live mediation session notes in real-time, flags escalation risks, and proposes de-escalation language.
-- **`moments/create`**: Claude enriches family memory timestamps with smart tagging, generates kid-safe captions, and suggests related moments for family narrative building.
+### Market snapshot
+- Family-tech + co-parenting workflows are underserved, fragmented across calendar, chat, and finance tools.
+- Pain point concentration: high-friction communication and accountability gaps.
 
-**Integration approach:** Claude API calls are wrapped in a facade service (`services/claude-integration.ts`) with request/response caching, token budgeting, and graceful fallbacks. All AI-generated content is clearly attributed and requires human review before finalization.
+### Target segments
+1. **Separated/divorced co-parents** with shared custody schedules.
+2. Families needing **documented, neutral communication records**.
+3. Budget-conscious users (free/trial-first), then premium upgrades.
 
-**Challenges addressed:** Token consumption optimization via streaming and selective context windows; latency budgets for real-time mediation sessions (target < 2s completion); privacy guardrails to prevent inadvertent PII exposure in prompts.
+### Positioning
+“Calm, transparent co-parenting operations platform” vs generic messaging/calendar apps.
 
-**Project benefits:** Reduces manual mediation work by 30–40%, improves schedule conflict resolution accuracy, provides evidential audit trails (prompt + response logs) for legal workflows, and enhances user experience with intelligent suggestions while maintaining human oversight.
+---
 
-### Core use cases
+## Product overview & use cases
 
-1. Parent proposes a schedule change and the other parent accepts/declines.
-2. Parent logs a child-related expense and submits reimbursement request.
-3. Co-parents exchange messages attached to schedule events.
-4. Mediator exports a court-ready report from approved events and requests.
+### Core product capabilities
+- Shared custody calendar and schedule wizard.
+- Change request lifecycle with response tracking.
+- Expense entry and split tracking.
+- In-app messaging and phone verification.
+- Moments (photo sharing with privacy controls).
+- Mediation center with AI-assisted conflict handling + court report generation.
+
+### Key use cases
+1. Parent proposes schedule change; other parent responds; calendar updates.
+2. Parent logs expense and split; co-parent gets notified.
+3. Parent uploads a child moment and controls visibility.
+4. Communication warning triggers mediation session and summary/report.
+5. User signs up, verifies phone, configures family/schedule, becomes active.
+
+---
+
+## Requirements
+
+### Functional requirements
+
+- **FR-01 Auth lifecycle:** signup/login/reset-password/phone verification.
+- **FR-02 Family model:** create/manage family unit, members, children.
+- **FR-03 Calendar:** view, create, and update custody events.
+- **FR-04 Schedule wizard:** guided setup for recurring custody plans.
+- **FR-05 Change requests:** create/respond/track status transitions.
+- **FR-06 Expenses:** add categorized expenses, split metadata, settlement status.
+- **FR-07 Messaging:** send/receive conversation items with verification gating.
+- **FR-08 Moments:** upload media, caption, visibility scope, reactions, deletion.
+- **FR-09 Mediation:** detect warnings, create sessions, continue threads, escalate.
+- **FR-10 Court report:** generate communication climate report by period and filters.
+- **FR-11 Notifications:** unread count, feed dropdown, link-out.
+- **FR-12 Consent & analytics:** GDPR-aware defaults and event instrumentation.
+
+### Usability requirements
+
+- Mobile-first responsive design for all app pages.
+- Max 3 steps for primary actions (e.g., request creation, expense add).
+- Clear state labels (pending/resolved/escalated/closed).
+- Accessibility baseline: keyboard navigation, semantic forms, color contrast.
+
+### Technical requirements
+
+- Family-scoped authorization on all domain objects.
+- CSRF protection on mutating requests.
+- Object/media upload validation (type + size).
+- Idempotent mutation patterns for retries.
+- Auditable event trail for legal-sensitive modules (mediation/reports).
+
+### Environmental requirements
+
+- Web runtime with CDN/edge delivery.
+- Separate Dev/Staging/Prod environments.
+- Secure secret management and API key rotation.
+- Backup/restore strategy for relational and media data.
+
+### Support requirements
+
+- In-product bug report widget with screenshot support.
+- Basic support channels and report references.
+- Operational runbook for Twilio/Stripe/AI outages.
+
+### Interaction requirements
+
+- Parent-to-parent interactions via requests/messages/moments.
+- Parent-to-system interactions: scheduling, expense tracking, verification.
+- System-to-external APIs: payments, notifications, AI conflict support.
+
+---
+
+## 4+1 Architectural View Model
+
+### 1) Logical view (class model)
 
 ```mermaid
-flowchart LR
-		P1[Parent A] --> UC1((Manage Calendar))
-		P2[Parent B] --> UC1
-		P1 --> UC2((Create Change Request))
-		P2 --> UC3((Approve/Reject Request))
-		P1 --> UC4((Track Expense))
-		P2 --> UC5((Review Reimbursement))
-		M[Mediator] --> UC6((Generate Court Report))
-```
-
-## 3) Baseline Software Analysis (Current Repository)
-
-### Current technical baseline
-
-- **Backend:** Next.js 15 API routes (`pages/api`, serverless functions).
-- **Frontend:** Next.js 15 with React 19 + TypeScript (`pages`, `components`).
-- **Current status:** Boilerplate-level implementation, no persistent data layer wired yet.
-
-### Observed gaps
-
-- No domain model implementation in API.
-- No SQL schema, indexes, query abstraction, or migrations.
-- No performance budgets for memory/latency.
-- No structured API contract between frontend and backend.
-
-## 4) Requirements
-
-### 4.1 Functional requirements
-
-- FR-01: Create and manage family units with role-based permissions.
-- FR-02: Create recurring and one-time calendar entries.
-- FR-03: Submit, approve, reject, and audit change requests.
-- FR-04: Record expenses with categories, attachments, and status.
-- FR-05: Persist and search message threads by family and date range.
-- FR-06: Generate mediation/court reports with immutable audit trail.
-
-### 4.2 Usability requirements
-
-- UR-01: First meaningful action in under 2 minutes for new users.
-- UR-02: Key tasks (create event, submit request, log expense) in ≤ 4 clicks.
-- UR-03: Responsive UI for common mobile viewport widths.
-
-### 4.3 Technical requirements
-
-- TR-01: REST API with consistent error schema and pagination.
-- TR-02: SQL-backed persistence with indexed foreign keys and date columns.
-- TR-03: Backend memory guardrails (heap monitoring + leak detection checks).
-- TR-04: Readability guardrails (linting, naming conventions, max function complexity).
-
-### 4.4 Environmental requirements
-
-- ER-01: Runs on Windows/macOS/Linux dev environments.
-- ER-02: Node.js LTS runtime.
-- ER-03: CI builds and tests on each merge to main.
-
-### 4.5 Support requirements
-
-- SR-01: User-facing error IDs for support traceability.
-- SR-02: Structured logs with request correlation IDs.
-- SR-03: Admin tooling for report regeneration and account diagnostics.
-
-### 4.6 Interaction requirements
-
-- IR-01: Parent-to-parent updates must be near-real-time (polling or websocket-ready abstraction).
-- IR-02: Report exports must preserve event ordering and immutable IDs.
-- IR-03: Notification events must map to domain actions (create/update/approve/reject).
-
-## 5) Architecture — View Model
-
-### 5.1 Logical view (class + state)
-
-```mermaid
+---
+config:
+  look: neo
+  theme: neo
+---
 classDiagram
-		class Family {
-			+id: UUID
-			+name: string
-			+timezone: string
-		}
-		class ParentUser {
-			+id: UUID
-			+email: string
-			+role: string
-		}
-		class Child {
-			+id: UUID
-			+firstName: string
-			+dob: date
-		}
-		class ScheduleEntry {
-			+id: UUID
-			+startAt: datetime
-			+endAt: datetime
-			+status: string
-		}
-		class ChangeRequest {
-			+id: UUID
-			+reason: string
-			+status: string
-			+createdAt: datetime
-		}
-		class Expense {
-			+id: UUID
-			+amount: decimal
-			+category: string
-			+status: string
-		}
+class User {
+  +uuid id
+  +string email
+  +string phone
+  +enum role
+  +bool isVerified
+}
+class Family {
+  +uuid id
+  +string name
+  +string status
+}
+class Child {
+  +uuid id
+  +string name
+  +date dob
+}
+class Message {
+  +uuid id
+  +text body
+  +datetime sentAt
+  +enum channel
+}
+class CalendarEvent {
+  +uuid id
+  +datetime startAt
+  +datetime endAt
+  +enum custodyType
+}
+class ChangeRequest {
+  +uuid id
+  +enum type
+  +enum status
+}
+class Expense {
+  +uuid id
+  +decimal amount
+  +enum category
+  +enum settlementStatus
+}
+class Moment {
+  +uuid id
+  +string mediaUrl
+  +enum visibility
+}
+class MediationSession {
+  +uuid id
+  +string topic
+  +enum status
+}
+class WarningSignal {
+  +uuid id
+  +enum severity
+}
+class CourtReport {
+  +uuid id
+  +date periodStart
+  +date periodEnd
+}
 
-		Family  --> ParentUser : has
-		Family  --> Child : includes
-		Child  --> ScheduleEntry : has
-		ScheduleEntry --> "0..*" ChangeRequest : may trigger
-		Family --> Expense : tracks
+Family "1" --> "*" User : members
+Family "1" --> "*" Child
+Family "1" --> "*" CalendarEvent
+Family "1" --> "*" ChangeRequest
+Family "1" --> "*" Expense
+Family "1" --> "*" Message
+Family "1" --> "*" Moment
+Family "1" --> "*" MediationSession
+MediationSession "1" --> "*" WarningSignal
+MediationSession "1" --> "0..1" CourtReport
+User "1" --> "*" Message : sender
+User "1" --> "*" Expense : payer
+Child "1" --> "*" Moment
 ```
 
+### 1b) Logical state model (change request lifecycle)
+
 ```mermaid
+---
+config:
+  theme: neo
+  look: neo
+---
 stateDiagram-v2
-		[*] --> Draft
-		Draft --> Submitted: submit
-		Submitted --> Approved: approve
-		Submitted --> Rejected: reject
-		Approved --> Archived: close
-		Rejected --> Draft: edit and resubmit
-		Archived --> [*]
+[*] --> Draft
+Draft --> Submitted: submit()
+Submitted --> PendingReview: validateRules
+PendingReview --> NeedsResponse: notifyCoparent
+NeedsResponse --> Accepted: approve()
+NeedsResponse --> Declined: reject(reason)
+Accepted --> AppliedToCalendar: applyScheduleChange
+Declined --> Archived
+AppliedToCalendar --> Completed
+Completed --> [*]
+Archived --> [*]
 ```
 
-### 5.2 Process view (sequence + activity)
+### 2) Process view (sequence + activity/communication)
 
 ```mermaid
+---
+config:
+  look: neo
+  theme: neo
+---
 sequenceDiagram
-		autonumber
-		actor ParentA
-		actor ParentB
-		participant UI as Frontend UI
-		participant API as Backend API
-		participant DB as SQL DB
+  autonumber
+  actor P1 as Parent A
+  participant UI as Web UI
+  participant API as App API
+  participant CL as Claude API
+  participant DB as Data Store
+  participant TW as Twilio API
 
-		ParentA->>UI: Create change request
-		UI->>API: POST /change-requests
-		API->>DB: INSERT change_request
-		DB-->>API: request_id
-		API-->>UI: 201 Created
-		UI-->>ParentB: Notification
-		ParentB->>UI: Approve request
-		UI->>API: PATCH /change-requests/:id
-		API->>DB: UPDATE status='approved'
-		API-->>UI: 200 OK
+P1->>UI: Send message / create conflict note
+UI->>API: POST mutation
+API->>CL: Analyze conflict risk
+CL-->>API: Risk score + recommendation
+API->>DB: Persist thread/session/warning
+alt Critical warning
+  API->>TW: Send alert
+  TW-->>API: Delivery status
+end
+API-->>UI: Updated state + next actions
 ```
 
 ```mermaid
+---
+config:
+  look: neo
+  theme: neo
+---
 flowchart
-		A[User opens schedule wizard] --> B{Conflict detected?}
-		B -- No --> C[Save entry]
-		B -- Yes --> D[Create change request]
-		D --> E[Notify other parent]
-		E --> F{Decision}
-		F -- Approve --> G[Apply schedule update]
-		F -- Reject --> H[Keep current schedule]
-		G --> I[Write audit log]
-		H --> I
+A[Visitor lands on marketing] --> B{Has account?}
+B -- No --> C[Signup]
+C --> D[Phone verification]
+D --> E[Family setup]
+E --> F[Schedule wizard]
+F --> G[Calendar home]
+G --> H[Daily usage: requests expenses moments mediation]
+B -- Yes --> I[Login]
+I --> G
 ```
 
-### 5.3 Development view (package + component)
+### 3) Development view (package/component)
 
 ```mermaid
+---
+config:
+  look: neo
+  theme: neo
+---
 flowchart
-		subgraph Frontend[frontend/src]
-			FE1[pages]
-			FE2[components]
-			FE3[state]
-			FE4[api-client]
-		end
+subgraph FE[Frontend]
+  P1[Landing Blog Legal]
+  P2[Auth Pages]
+  P3[Family Calendar Requests]
+  P4[Expenses Moments Mediation]
+end
 
-		subgraph Backend[backend]
-			BE1[routes]
-			BE2[controllers]
-			BE3[services]
-			BE4[repositories]
-			BE5[db]
-		end
+subgraph BE[Domain Services]
+  S1[Auth]
+  S2[Family]
+  S3[Scheduling]
+  S4[Messaging]
+  S5[Expenses]
+  S6[Mediation]
+  S7[Media]
+  S8[Notifications]
+end
 
-		FE4 --> BE1
-		BE1 --> BE2 --> BE3 --> BE4 --> BE5
+subgraph DATA[Data]
+  D1[(Relational DB)]
+  D2[(Object Storage)]
+  D3[(Queue Cache)]
+end
+
+subgraph EXT[Integrations]
+  E1[Stripe]
+  E2[Twilio]
+  E3[Claude]
+end
+
+FE --> BE
+BE --> DATA
+S5 --> E1
+S8 --> E2
+S6 --> E3
 ```
+
+### 4) Physical view (deployment)
 
 ```mermaid
+---
+config:
+  look: neo
+  theme: neo
+---
 flowchart
-		C1[Auth Component]
-		C2[Calendar Component]
-		C3[Expense Component]
-		C4[Messaging Component]
-		C5[Mediation Report Component]
-		C6[Audit/Logging Component]
+U[Browser or PWA] --> CF[CDN Edge WAF]
+CF --> APP[Web App Runtime]
+APP --> API[API Layer]
+API --> DB[(Primary DB)]
+API --> OBJ[(Media Object Storage)]
+API --> MQ[(Queue Workers)]
+MQ --> NOTIF[Notification Worker]
+NOTIF --> TW[Twilio]
+API --> PAY[Stripe]
+API --> AI[Claude]
 
-		C1 --> C2
-		C1 --> C3
-		C1 --> C4
-		C2 --> C6
-		C3 --> C6
-		C4 --> C6
-		C5 --> C6
+subgraph ENV[Environments]
+  DEV[Dev]
+  STG[Staging]
+  PRD[Production]
+end
+
+DEV -. promote .-> STG
+STG -. release .-> PRD
 ```
 
-### 5.4 Physical view (deployment)
+## API integration specification
 
-```mermaid
-flowchart
-		U[User Browser] --> CDN[Static CDN / Frontend Host]
-		CDN --> VPS["VPS / App Host - v1.kidschedule.com"]
-		VPS --> API[Node.js API Service]
-		API --> SQL[(Managed SQL Database)]
-		API --> OBJ[(Object Storage for attachments)]
-		API --> OBS[(Logging and Metrics)]
-		VPS -.-> SSH["ssh root@76.13.106.248"]
-```
+### Claude
+- **Prerequisites:** API key, model entitlement, moderation policy.
+- **Available APIs:** message generation, classification/scoring, summarization.
+- **Authentication:** bearer token via server-side secret only.
+- **Client SDKs:** server SDK preferred; browser direct calls disallowed.
 
-## 6) Memory Usage, Readability, and SQL Query Optimization Strategy
+### Stripe
+- **Authentication & security:** secret key server-side; signed webhook verification.
+- **Make requests:** create customer/subscription/payment intent as needed.
+- **Testing & data:** isolated test mode, fixture seeding.
+- **Error handling:** idempotency keys, retry with exponential backoff, webhook reconciliation.
 
-### 6.1 Memory usage optimization
+### Twilio
+- **Make requests:** SMS/verification endpoints through backend proxy.
+- **API responses:** normalize status codes and delivery states.
+- **Mutations/conflicts:** deduplicate message sends with request IDs.
+- **Best practices:** rate limit, template governance, PII-minimized payloads.
 
-- Use paginated list endpoints by default (`limit`, `cursor`) to avoid unbounded payloads.
-- Stream large exports (court reports) instead of buffering full payloads in memory.
-- Avoid N+1 server data fetching by batching and projection.
-- Introduce memory budgets per API process and alert on threshold breaches.
+---
 
-### 6.2 Code readability optimization
+## Evaluation plan & metrics
 
-- Layered architecture: `routes -> controllers -> services -> repositories`.
-- Keep functions small and single-purpose (target cyclomatic complexity ≤ 10).
-- Enforce ESLint + TypeScript strictness for frontend and backend.
-- Shared naming standard: domain nouns (`ChangeRequest`, `ScheduleEntry`) and clear verbs (`approveRequest`).
+### Product KPIs
+- Activation: `% users reaching calendar within 24h of signup`.
+- Engagement: weekly active families, events created/week, messages/week.
+- Coordination quality: request response time, resolution rate, mediation escalation rate.
+- Retention: D30 family retention, paid conversion from trial.
 
-### 6.3 SQL query optimization
+### Technical KPIs
+- p95 page load and API latency,
+- upload success rate,
+- notification delivery success,
+- error budget burn rate,
+- webhook success/reconciliation lag.
 
-- Normalize core entities and use explicit foreign keys.
-- Add composite indexes aligned with high-frequency filters/sorts.
-- Prefer selective columns over `SELECT *`.
-- Use keyset pagination for long lists where possible.
+### Quality gates
+- Security checks on all mutation routes.
+- Contract tests for Stripe/Twilio/Claude adapters.
+- Accessibility regression checks before release.
 
-## 7) Assumptions
+---
 
-- Parents have stable internet access and modern browsers.
-- Legal/reporting needs require immutable event history.
-- Family units are relatively small (usually ≤ 10 active members).
+## Architectural rationale, alternatives, limitations, improvements
 
-## 8) Constraints
+### Why this design
+- Domain decomposition matches user mental model (family/calendar/expenses/moments/mediation).
+- Externalized integrations reduce coupling and improve incident isolation.
+- Event + warning flow supports both day-to-day UX and legal/accountability needs.
 
-- Initial engineering bandwidth is limited; phased delivery is required.
-- Legacy scaffold structure in backend imposes incremental refactoring path.
-- Privacy and compliance constraints limit data exposure in notifications.
+### Current limitations
+- AI mediation guidance can be probabilistic (must keep human control).
+- Legal-report semantics vary by jurisdiction.
+- Notification reliability depends on third-party uptime.
 
-## 9) Dependencies
-
-- Node.js LTS, Express runtime, React/Vite toolchain.
-- SQL database service (PostgreSQL-compatible preferred).
-- Object storage provider for attachments.
-- Observability stack (logs, metrics, tracing).
- - Twilio (programmable messaging/notifications for SMS/push/voice).
- - Stripe (payments, reimbursements, payouts for expense flows).
-
-## 10) High-Level Workflow, Timeline, and Milestones
-
-### Phase plan
-
-- **Phase 1 (Week 1):** Domain model, SQL schema, authentication, baseline API contracts.
-- **Phase 2 (Week 2):** Calendar + change requests + audit trail.
-- **Phase 3 (Week 3):** Expenses + messaging + notification framework.
-- **Phase 4 (Week 4):** Mediation reporting + hardening + performance tuning.
-
-### Milestones
-
-- M1: End-to-end schedule flow demo.
-- M2: Query performance baseline met on staging dataset.
-- M3: Release candidate with monitoring and support runbooks.
-
-## 11) Evaluation Plan and Performance Metrics
-
-### Product metrics
-
-- Monthly active families.
-- % of schedule changes resolved within 48 hours.
-- Expense dispute rate.
-
-### Engineering metrics
-
-- API p95 latency (target: < 300 ms on core endpoints).
-- SQL query p95 latency (target: < 100 ms for indexed reads).
-- Memory usage per API instance (steady-state target defined per environment).
-- Error budget and uptime.
-
-### Code quality metrics
-
-- Lint violations trend.
-- Cyclomatic complexity distribution.
-- Test coverage by domain module.
+### Improvement opportunities
+- Add policy engine for family-specific rules.
+- Introduce workflow orchestration for long-running mediations.
+- Expand analytics from event logs to cohort/causal insights.
+- Add role-based legal export packages with immutable signatures.
