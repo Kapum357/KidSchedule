@@ -272,6 +272,369 @@ export interface ConflictClimate {
   windowStart: string;
 }
 
+// ─── Blog ────────────────────────────────────────────────────────────────────
+
+export type BlogCategory =
+  | "custody_tips"
+  | "legal_advice"
+  | "emotional_wellness"
+  | "communication"
+  | "financial_planning"
+  | "featured";
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  preview: string; // 150–200 char summary
+  content: string; // Full markdown or HTML
+  categories: BlogCategory[];
+  author: {
+    name: string;
+    title: string; // e.g. "Child Psychologist"
+    avatarUrl?: string;
+  };
+  featuredImageUrl: string;
+  publishedAt: string; // ISO-8601 datetime
+  updatedAt?: string;
+  readTimeMinutes: number;
+  /** Engagement metrics for ranking */
+  viewCount: number;
+  shareCount: number;
+  commentCount: number;
+  /** Set by editorial team to pin to featured section */
+  isFeatured?: boolean;
+}
+
+export interface BlogPage {
+  posts: BlogPost[];
+  pageNumber: number;
+  totalPages: number;
+  totalPostCount: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface SearchResult {
+  post: BlogPost;
+  /** 0–100 relevance score for this search query */
+  relevanceScore: number;
+  /** Highlighted preview showing matched terms */
+  highlightedPreview: string;
+}
+
+export interface BlogRecommendation {
+  post: BlogPost;
+  reason: string; // e.g. "Similar to posts you've read", "Popular in Communication"
+  score: number;
+}
+
+// ─── Blog Article Reading ─────────────────────────────────────────────────────
+
+export interface ArticleReadingSession {
+  sessionId: string;
+  postId: string;
+  readerId?: string; // Anonymous if undefined
+  startedAt: Date;
+  lastActivityAt: Date;
+  scrollPercentage: number; // 0–100
+  isCompleted: boolean;
+  completedAt?: Date;
+  timeSpentSeconds: number;
+}
+
+export interface ArticleEngagementMetric {
+  postId: string;
+  viewCount: number;
+  uniqueViewers: number;
+  shareCount: number;
+  commentCount: number;
+  avgTimeSpentSeconds: number;
+  avgScrollPercentage: number;
+  completionRate: number; // 0–100 (% of readers who reached 90%+ scroll)
+}
+
+export interface ArticleTableOfContents {
+  id: string;
+  title: string;
+  level: 1 | 2 | 3; // h1, h2, h3
+  anchor: string; // `slug` or id for linking
+}
+
+export interface ArticleWithMetadata extends BlogPost {
+  toc: ArticleTableOfContents[]; // Table of contents extracted from headings
+  relatedPosts: BlogRecommendation[];
+  estimatedReadTime: number;
+  keyTakeaways?: string[]; // Extracted or hardcoded key points
+}
+
+// ─── Authentication ───────────────────────────────────────────────────────────
+
+export type AuthProvider = "email" | "google" | "apple";
+
+export type AuthErrorCode =
+  | "invalid_credentials"
+  | "account_locked"         // Too many failed attempts
+  | "rate_limited"           // Too many requests from IP
+  | "email_not_verified"
+  | "account_disabled"
+  | "token_expired"
+  | "token_invalid"
+  | "oauth_failed";
+
+export interface AuthCredentials {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}
+
+export interface SignupCredentials {
+  fullName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  agreedToTerms: boolean;
+}
+
+export interface SignupResult {
+  success: boolean;
+  session?: AuthSession;
+  error?: AuthErrorCode;
+  errorMessage?: string;
+  /** Field-specific errors (e.g. { email: "Email already registered" }) */
+  fieldErrors?: Record<string, string>;
+}
+
+export interface OAuthCredentials {
+  provider: "google" | "apple";
+  idToken: string;           // Provider-issued ID token
+  accessToken?: string;
+}
+
+export interface AuthSession {
+  sessionId: string;
+  userId: string;
+  parentId: ParentId;
+  email: string;
+  accessToken: string;       // Short-lived JWT (15 min)
+  refreshToken: string;      // Long-lived opaque token (30 days)
+  expiresAt: Date;           // Access token expiry
+  refreshExpiresAt: Date;    // Refresh token expiry
+  createdAt: Date;
+  rememberMe: boolean;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface AuthResult {
+  success: boolean;
+  session?: AuthSession;
+  error?: AuthErrorCode;
+  errorMessage?: string;
+  /** Number of attempts remaining before lockout */
+  attemptsRemaining?: number;
+  /** ISO datetime when lockout expires (if locked) */
+  lockedUntil?: string;
+}
+
+export interface RateLimitState {
+  key: string;               // IP address or email
+  attempts: number;
+  firstAttemptAt: Date;
+  lastAttemptAt: Date;
+  lockedUntil?: Date;
+}
+
+export interface PasswordResetRequest {
+  id: string;
+  email: string;
+  token: string;             // Hashed reset token
+  expiresAt: Date;
+  usedAt?: Date;
+  createdAt: Date;
+  ipAddress?: string;
+}
+
+// ─── Phone Verification ────────────────────────────────────────────────────────
+
+export interface PhoneVerificationRequest {
+  id: string;
+  phone: string;               // Full phone number (E.164 format: +1234567890)
+  phoneDisplay: string;        // Masked display (e.g., "+1 (555) ***-88")
+  otp: string;                 // Hashed OTP code
+  otpAttempts: number;         // Failed verification attempts
+  expiresAt: Date;             // OTP expiry (usually 5-10 minutes)
+  verifiedAt?: Date;           // Marked verified after valid OTP entry
+  createdAt: Date;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface PhoneVerificationResult {
+  success: boolean;
+  error?: "invalid_otp" | "otp_expired" | "too_many_attempts" | "rate_limited" | "phone_not_found";
+  errorMessage?: string;
+  attemptsRemaining?: number;
+  lockedUntil?: string;        // ISO datetime when rate limit expires
+  verificationId?: string;
+}
+
+export type OTPVerificationError =
+  | "invalid_otp"
+  | "otp_expired"
+  | "too_many_attempts"
+  | "rate_limited"
+  | "phone_not_found";
+
+// ─── School / PTA Portal ──────────────────────────────────────────────────────
+
+export type SchoolEventType =
+  | "pta_meeting"
+  | "bake_sale"
+  | "conference"
+  | "rehearsal"
+  | "performance"
+  | "parade"
+  | "field_trip"
+  | "sports"
+  | "other";
+
+export type VolunteerStatus = "open" | "assigned" | "completed" | "cancelled";
+
+export type DocumentStatus =
+  | "available"
+  | "pending_signature"
+  | "signed"
+  | "expired";
+
+export type ContactRole =
+  | "teacher"
+  | "principal"
+  | "vice_principal"
+  | "nurse"
+  | "counselor"
+  | "pta_board"
+  | "coach"
+  | "staff";
+
+export interface SchoolEvent {
+  id: string;
+  familyId: string;
+  title: string;
+  description?: string;
+  eventType: SchoolEventType;
+  startAt: string;              // ISO-8601 datetime
+  endAt: string;                // ISO-8601 datetime
+  location?: string;
+  isAllDay: boolean;
+  /** IDs of parents confirmed as attending */
+  attendingParentIds: ParentId[];
+  /** Requires user action (RSVP, sign permission slip, etc.) */
+  actionRequired: boolean;
+  actionDeadline?: string;      // ISO-8601 datetime
+  actionDescription?: string;
+  /** Volunteer task IDs nested under this event */
+  volunteerTaskIds: string[];
+  /** UI accent: teal = volunteering, amber = action required */
+  accentColor?: "teal" | "amber" | "blue" | "rose" | "purple";
+  /** Material symbols icon name */
+  icon?: string;
+}
+
+export interface VolunteerTask {
+  id: string;
+  familyId: string;
+  eventId: string;
+  title: string;
+  description?: string;
+  /** Undefined = open/unassigned */
+  assignedParentId?: ParentId;
+  status: VolunteerStatus;
+  /** Estimated commitment in hours */
+  estimatedHours: number;
+  scheduledFor: string;         // ISO-8601 datetime
+  completedAt?: string;
+  /** Material symbols icon name */
+  icon?: string;
+  /** Tailwind color class segment, e.g. "teal", "blue", "purple" */
+  iconColor?: string;
+}
+
+export interface SchoolContact {
+  id: string;
+  name: string;
+  /** 2–3 character avatar fallback */
+  initials: string;
+  role: ContactRole;
+  roleLabel: string;
+  email?: string;
+  phone?: string;
+  /** Tailwind color segment for avatar: "indigo", "rose", "emerald", "slate" */
+  avatarColor: string;
+}
+
+export interface SchoolVaultDocument {
+  id: string;
+  familyId: string;
+  title: string;
+  fileType: "pdf" | "image" | "archive" | "document" | "spreadsheet";
+  status: DocumentStatus;
+  /** Human-readable label e.g. "Added 2 days ago", "Pending Signature" */
+  statusLabel: string;
+  addedAt: string;              // ISO-8601 datetime
+  addedBy: ParentId;
+  sizeBytes?: number;
+  url?: string;
+  actionDeadline?: string;      // ISO-8601 datetime; set when signature required
+}
+
+export interface LunchMenuItem {
+  name: string;
+  description?: string;
+  isVegetarian?: boolean;
+  isGlutenFree?: boolean;
+}
+
+export interface LunchMenu {
+  date: string;                 // ISO-8601 date "YYYY-MM-DD"
+  mainOption: LunchMenuItem;
+  alternativeOption?: LunchMenuItem;
+  side?: string;
+  accountBalance: number;       // USD
+}
+
+/**
+ * Volunteer hour commitment per parent, used for fairness balancing.
+ * When suggesting who should take an open task, the engine prefers the
+ * parent with fewer totalHoursCommitted.
+ */
+export interface VolunteerBalance {
+  parentId: ParentId;
+  totalHoursCommitted: number;
+  completedHours: number;
+  upcomingHours: number;
+  taskCount: number;
+}
+
+/** Contact search result with relevance score */
+export interface ContactSearchResult {
+  contact: SchoolContact;
+  /** 0–100 relevance score */
+  score: number;
+}
+
+/** Aggregated PTA portal data for server component rendering */
+export interface PTAPortalData {
+  family: Family;
+  currentParent: Parent;
+  upcomingEvents: SchoolEvent[];
+  volunteerTasks: VolunteerTask[];
+  contacts: SchoolContact[];
+  vaultDocuments: SchoolVaultDocument[];
+  todayLunch?: LunchMenu;
+  volunteerBalances: VolunteerBalance[];
+}
+
 // ─── Dashboard Aggregate ──────────────────────────────────────────────────────
 
 export interface DashboardData {

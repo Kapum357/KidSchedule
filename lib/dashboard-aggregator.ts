@@ -80,79 +80,92 @@ function buildActivityFeed(
   input: Omit<AggregatorInput, "now" | "upcomingCount" | "activityCount">,
   limit: number
 ): ActivityItem[] {
-  const items: ActivityItem[] = [];
+  const expenseItems = input.expenses.map((expense) =>
+    createExpenseActivityItem(expense, input.family)
+  );
 
-  // ── Expenses ──────────────────────────────────────────────────────────────
-  for (const expense of input.expenses) {
-    const paidBy = input.family.parents.find(
-      (p) => p.id === expense.paidBy
-    );
-    const summary = paidBy
-      ? `${paidBy.name} added an expense of $${(expense.totalAmount / 100).toFixed(2)} for ${expense.title.toLowerCase()}.`
-      : `Expense of $${(expense.totalAmount / 100).toFixed(2)} added for ${expense.title.toLowerCase()}.`;
+  const messageItems = input.messages
+    .filter((msg) => msg.senderId !== input.currentParent.id)
+    .map((msg) => createMessageActivityItem(msg, input.family));
 
-    items.push({
-      id: `expense-${expense.id}`,
-      type: "expense_added",
-      actorId: expense.paidBy,
-      occurredAt: expense.createdAt,
-      entityId: expense.id,
-      summary,
-      meta: {
-        amountCents: expense.totalAmount,
-        currency: expense.currency,
-        paymentStatus: expense.paymentStatus,
-      },
-    });
-  }
+  const requestItems = input.changeRequests.map(createChangeRequestActivityItem);
 
-  // ── Messages ──────────────────────────────────────────────────────────────
-  for (const msg of input.messages) {
-    // Only show messages FROM the other parent in the activity feed.
-    if (msg.senderId === input.currentParent.id) continue;
+  const items = [...expenseItems, ...messageItems, ...requestItems];
 
-    const sender = input.family.parents.find((p) => p.id === msg.senderId);
-    const preview =
-      msg.body.length > 60 ? `"${msg.body.slice(0, 60)}…"` : `"${msg.body}"`;
-
-    items.push({
-      id: `msg-${msg.id}`,
-      type: "message_received",
-      actorId: msg.senderId,
-      occurredAt: msg.sentAt,
-      entityId: msg.id,
-      summary: sender
-        ? `${sender.name} sent: ${preview}`
-        : `New message: ${preview}`,
-      meta: { read: !!msg.readAt },
-    });
-  }
-
-  // ── Schedule Change Requests ──────────────────────────────────────────────
-  for (const req of input.changeRequests) {
-    items.push({
-      id: `req-${req.id}`,
-      type:
-        req.status === "accepted"
-          ? "schedule_change_accepted"
-          : req.status === "declined"
-          ? "schedule_change_declined"
-          : "schedule_change_requested",
-      actorId: req.requestedBy,
-      occurredAt: req.respondedAt ?? req.createdAt,
-      entityId: req.id,
-      summary: `Schedule change requested: ${req.title}`,
-      meta: { status: req.status },
-    });
-  }
-
-  // Sort newest-first and slice.
   items.sort(
     (a, b) =>
       new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()
   );
 
   return items.slice(0, limit);
+}
+
+function createExpenseActivityItem(
+  expense: Expense,
+  family: Family
+): ActivityItem {
+  const paidBy = family.parents.find((p) => p.id === expense.paidBy);
+  const summary = paidBy
+    ? `${paidBy.name} added an expense of $${(expense.totalAmount / 100).toFixed(2)} for ${expense.title.toLowerCase()}.`
+    : `Expense of $${(expense.totalAmount / 100).toFixed(2)} added for ${expense.title.toLowerCase()}.`;
+
+  return {
+    id: `expense-${expense.id}`,
+    type: "expense_added",
+    actorId: expense.paidBy,
+    occurredAt: expense.createdAt,
+    entityId: expense.id,
+    summary,
+    meta: {
+      amountCents: expense.totalAmount,
+      currency: expense.currency,
+      paymentStatus: expense.paymentStatus,
+    },
+  };
+}
+
+function createMessageActivityItem(msg: Message, family: Family): ActivityItem {
+  const sender = family.parents.find((p) => p.id === msg.senderId);
+  const preview = msg.body.length > 60 ? `"${msg.body.slice(0, 60)}…"` : `"${msg.body}"`;
+
+  return {
+    id: `msg-${msg.id}`,
+    type: "message_received",
+    actorId: msg.senderId,
+    occurredAt: msg.sentAt,
+    entityId: msg.id,
+    summary: sender
+      ? `${sender.name} sent: ${preview}`
+      : `New message: ${preview}`,
+    meta: { read: !!msg.readAt },
+  };
+}
+
+function createChangeRequestActivityItem(
+  req: ScheduleChangeRequest
+): ActivityItem {
+  return {
+    id: `req-${req.id}`,
+    type: getChangeRequestActivityType(req.status),
+    actorId: req.requestedBy,
+    occurredAt: req.respondedAt ?? req.createdAt,
+    entityId: req.id,
+    summary: `Schedule change requested: ${req.title}`,
+    meta: { status: req.status },
+  };
+}
+
+function getChangeRequestActivityType(
+  status: ScheduleChangeRequest["status"]
+): ActivityItem["type"] {
+  switch (status) {
+    case "accepted":
+      return "schedule_change_accepted";
+    case "declined":
+      return "schedule_change_declined";
+    default:
+      return "schedule_change_requested";
+  }
 }
 
 // ─── Main Aggregator Function ─────────────────────────────────────────────────

@@ -100,7 +100,7 @@ function resolveBlock(
   schedule: CustodySchedule,
   thresholds: number[]
 ): BlockPosition {
-  const cycleDurationMs = thresholds[thresholds.length - 1];
+  const cycleDurationMs = thresholds.at(-1)!;
   const positionMs = safeMod(atMs - anchorMs, cycleDurationMs);
 
   // Which cycle number are we in?  (Can be negative for pre-anchor dates.)
