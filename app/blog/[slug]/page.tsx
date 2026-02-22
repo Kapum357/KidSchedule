@@ -20,6 +20,8 @@ import { BlogArticleEngine, createMockReadingSession, createMockReadingSessions 
 import { createMockBlogPosts } from "@/lib/blog-engine";
 import { getThemeScriptProps } from "@/lib/theme-config";
 import Link from "next/link";
+import { OptimizedImage } from "@/components/optimized-image";
+import { ArticleContent, ARTICLE_CONTENT_CLASSNAMES } from "@/components/article-content";
 
 // ─── Mock Data (outside component to avoid re-renders) ──────────────────────────
 
@@ -108,7 +110,7 @@ function KeyTakeawaysBox({ takeaways }: Readonly<{ takeaways?: string[] }>) {
 function TableOfContents({
   toc,
 }: Readonly<{
-  toc: Array<{ id: string; title: string; level: number; anchor: string }>;
+  toc: Array<{ id: string; text: string; level: number }>;
 }>) {
   if (toc.length === 0) return null;
 
@@ -125,9 +127,9 @@ function TableOfContents({
               className={`text-sm hover:text-primary transition-colors ${
                 item.level === 2 ? "font-medium text-slate-900" : "text-slate-600"
               }`}
-              href={`#${item.anchor}`}
+              href={`#${item.id}`}
             >
-              {item.title}
+              {item.text}
             </a>
           </li>
         ))}
@@ -156,10 +158,13 @@ function AuthorBio({
     <div className="mt-12 p-8 bg-slate-50 rounded-2xl flex flex-col sm:flex-row gap-6 items-center sm:items-start text-center sm:text-left shadow-sm border border-slate-100">
       <div className="shrink-0 relative">
         {author.avatarUrl && (
-          <img
+          <OptimizedImage
             alt={author.name}
             className="w-20 h-20 rounded-full object-cover ring-4 ring-white shadow-sm"
+            height={80}
+            sizes="80px"
             src={author.avatarUrl}
+            width={80}
           />
         )}
         <div className="absolute bottom-0 right-0 bg-primary text-white p-1 rounded-full border-2 border-white">
@@ -197,10 +202,13 @@ function RelatedArticleCard({
   return (
     <a className="group flex gap-4 items-start" href={`/blog/${post.slug}`}>
       <div className="w-20 h-20 rounded-xl bg-slate-200 shrink-0 overflow-hidden relative">
-        <img
+        <OptimizedImage
           alt={post.title}
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          height={80}
+          sizes="80px"
           src={post.featuredImageUrl}
+          width={80}
         />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors"></div>
       </div>
@@ -418,10 +426,13 @@ export default function BlogArticlePage() {
               <div className="flex items-center justify-between border-y border-slate-100 py-6">
                 <div className="flex items-center gap-4">
                   {article.author.avatarUrl && (
-                    <img
+                    <OptimizedImage
                       alt={article.author.name}
                       className="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow-sm"
+                      height={48}
+                      sizes="48px"
                       src={article.author.avatarUrl}
+                      width={48}
                     />
                   )}
                   <div>
@@ -469,10 +480,9 @@ export default function BlogArticlePage() {
             <KeyTakeawaysBox takeaways={article.keyTakeaways} />
 
             {/* Article Content */}
-            <article
-              className="prose max-w-none text-lg text-slate-600 prose-headings:font-bold prose-headings:text-slate-900 prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl"
-              dangerouslySetInnerHTML={{ __html: article.content }}
-            />
+            <article>
+              <ArticleContent className={ARTICLE_CONTENT_CLASSNAMES} html={article.content} />
+            </article>
 
             <div className="mt-12 pt-8 border-t border-slate-100">
               <div className="flex flex-wrap gap-2">

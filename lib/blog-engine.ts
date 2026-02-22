@@ -49,7 +49,15 @@
  *   just count; could add weighted scoring (e.g., expert comments ++, spam –)
  */
 
-import type { BlogPost, BlogCategory, BlogPage, SearchResult, BlogRecommendation } from "@/types";
+import type {
+  BlogPost,
+  BlogCategory,
+  BlogPage,
+  SearchResult,
+  BlogRecommendation,
+  SearchDoc,
+} from "@/types";
+import { createSearchAdapter } from "@/lib/search-adapter";
 
 // ─── Scoring Constants ─────────────────────────────────────────────────────────
 
@@ -344,20 +352,41 @@ export class BlogEngine {
   searchPosts(posts: BlogPost[], query: string, limit: number = 10): SearchResult[] {
     if (!query.trim()) return [];
 
-    const results = posts
-      .map((post) => {
-        const relevanceScore = scoreRelevance(query, post);
+    const docs: SearchDoc[] = posts.map((post) => ({
+      id: post.id,
+      type: "blog",
+      updatedAt: post.updatedAt ?? post.publishedAt,
+      fields: {
+        title: post.title,
+        preview: post.preview,
+        content: post.content,
+        categories: post.categories.join(" "),
+      },
+    }));
+
+    const adapter = createSearchAdapter();
+    adapter.index(docs);
+
+    const hits = adapter.search(query, {
+      limit,
+      keys: ["title", "preview", "content", "categories"],
+      minMatchCharLength: 2,
+    });
+
+    const postById = new Map(posts.map((post) => [post.id, post]));
+
+    return hits
+      .map((hit) => {
+        const post = postById.get(hit.id);
+        if (!post) return null;
+
         return {
           post,
-          relevanceScore: Math.round(relevanceScore * 100),
+          relevanceScore: Math.round(hit.score * 100),
           highlightedPreview: highlightMatch(post.preview, query),
-        };
+        } as SearchResult;
       })
-      .filter((r) => r.relevanceScore > 0)
-      .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .slice(0, limit);
-
-    return results;
+      .filter((result): result is SearchResult => !!result);
   }
 
   /**

@@ -24,6 +24,7 @@
 
 import { CustodyEngine } from "@/lib/custody-engine";
 import type {
+  CalendarConflict,
   CalendarEvent,
   Family,
   Parent,
@@ -245,6 +246,68 @@ function mergeEventsForDay(
 
   // Limit to ~3 items for day cell display
   return events.slice(0, 3);
+}
+
+// ─── Conflict Detection ─────────────────────────────────────────────────────
+
+function normalizeEventRangeUTC(event: CalendarEvent): { startMs: number; endMs: number } {
+  const start = new Date(event.startAt);
+  const end = new Date(event.endAt);
+
+  if (event.allDay) {
+    const startUTC = Date.UTC(
+      start.getUTCFullYear(),
+      start.getUTCMonth(),
+      start.getUTCDate(),
+      0,
+      0,
+      0,
+      0
+    );
+    const endUTC = Date.UTC(
+      end.getUTCFullYear(),
+      end.getUTCMonth(),
+      end.getUTCDate(),
+      23,
+      59,
+      59,
+      999
+    );
+    return { startMs: startUTC, endMs: Math.max(startUTC, endUTC) };
+  }
+
+  const startMs = start.getTime();
+  const endMs = Math.max(startMs, end.getTime());
+  return { startMs, endMs };
+}
+
+function conflictsWithWindow(
+  a: CalendarEvent,
+  b: CalendarEvent,
+  windowMins: number
+): CalendarConflict | null {
+  const aRange = normalizeEventRangeUTC(a);
+  const bRange = normalizeEventRangeUTC(b);
+  const windowMs = Math.max(0, windowMins) * 60_000;
+
+  const overlapsWithBuffer =
+    aRange.startMs < bRange.endMs + windowMs &&
+    bRange.startMs < aRange.endMs + windowMs;
+
+  if (!overlapsWithBuffer) return null;
+
+  const directOverlap =
+    aRange.startMs < bRange.endMs &&
+    bRange.startMs < aRange.endMs;
+
+  const minutesApart = Math.round(Math.abs(aRange.startMs - bRange.startMs) / 60_000);
+
+  return {
+    primaryEvent: a,
+    conflictingEvent: b,
+    minutesApart,
+    overlapType: directOverlap ? "overlap" : "buffer_window",
+  };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -499,5 +562,24 @@ export class CalendarMonthEngine {
     if (color === "secondary") return "bg-secondary/5";
     // split: both halves shown via absolute positioning
     return "split";
+  }
+
+  /**
+   * Detect conflicts among events using a configurable window.
+   *
+   * Predicate:
+   * startA < endB + window AND startB < endA + window
+   */
+  detectConflicts(events: CalendarEvent[], windowMins: number): CalendarConflict[] {
+    const conflicts: CalendarConflict[] = [];
+
+    for (let i = 0; i < events.length; i++) {
+      for (let j = i + 1; j < events.length; j++) {
+        const conflict = conflictsWithWindow(events[i], events[j], windowMins);
+        if (conflict) conflicts.push(conflict);
+      }
+    }
+
+    return conflicts.sort((a, b) => a.minutesApart - b.minutesApart);
   }
 }

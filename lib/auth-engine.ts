@@ -202,24 +202,22 @@ function maskPhoneNumber(phone: string): string {
 // ─── Token Generation ──────────────────────────────────────────────────────────
 
 /**
- * Generates a cryptographically random session ID.
- * In production, uses crypto.randomUUID() or equivalent.
+ * Generates a cryptographically random session ID using Web Crypto API.
  * Complexity: O(1)
  */
 function generateSessionId(): string {
-  return `sess-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  return `sess-${crypto.randomUUID()}`;
 }
 
 /**
- * Generates an opaque refresh token (random bytes, base64 encoded).
- * Stored hashed in DB; reference only by hash. In production: crypto.getRandomValues().
+ * Generates a cryptographically secure opaque refresh token.
+ * Uses crypto.getRandomValues() for 32 bytes of entropy.
  * Complexity: O(1)
  */
 function generateRefreshToken(): string {
-  const random = Array.from({ length: 4 }, () =>
-    Math.random().toString(36).substring(2)
-  ).join("");
-  return Buffer.from(random).toString("base64url").replace(/=/g, "");
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Buffer.from(bytes).toString("base64url").replace(/=/g, "");
 }
 
 /**

@@ -16,6 +16,10 @@ import { BlogEngine, createMockBlogPosts } from "@/lib/blog-engine";
 import { getThemeScriptProps } from "@/lib/theme-config";
 import type { BlogCategory, BlogPost } from "@/types";
 import { PaginationControls } from "./pagination-controls";
+import { OptimizedImage } from "@/components/optimized-image";
+import Link from "next/link";
+
+const NOW_MS = Date.now();
 
 // ─── Featured Post Section ────────────────────────────────────────────────────
 
@@ -39,9 +43,13 @@ function FeaturedPostSection({ post }: Readonly<{ post: BlogPost }>) {
             <div className="flex items-center gap-4 mt-2">
               <div className="flex items-center gap-3">
                 {post.author.avatarUrl && (
-                  <div
-                    className="size-10 rounded-full bg-slate-200 bg-cover bg-center"
-                    style={{ backgroundImage: `url('${post.author.avatarUrl!}')` }}
+                  <OptimizedImage
+                    alt={post.author.name}
+                    className="size-10 rounded-full object-cover bg-slate-200"
+                    height={40}
+                    sizes="40px"
+                    src={post.author.avatarUrl}
+                    width={40}
                   />
                 )}
                 <div>
@@ -69,9 +77,13 @@ function FeaturedPostSection({ post }: Readonly<{ post: BlogPost }>) {
               className="block relative rounded-2xl overflow-hidden shadow-2xl shadow-primary/10 aspect-[4/3] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               aria-label={`View featured article: ${post.title}`}
             >
-              <div
-                className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                style={{ backgroundImage: `url('${post.featuredImageUrl}')` }}
+              <OptimizedImage
+                alt={post.title}
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                fill
+                preload
+                sizes="(max-width: 768px) 100vw, 50vw"
+                src={post.featuredImageUrl}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
             </a>
@@ -139,9 +151,7 @@ function CategoryFilter({ selectedCategories }: CategoryFilterProps) {
 // ─── Post Card ────────────────────────────────────────────────────────────────
 
 function PostCard({ post }: Readonly<{ post: BlogPost }>) {
-  const daysAgo = Math.floor(
-    (new Date().getTime() - new Date(post.publishedAt).getTime()) / (24 * 60 * 60 * 1000)
-  );
+  const daysAgo = Math.floor((NOW_MS - new Date(post.publishedAt).getTime()) / (24 * 60 * 60 * 1000));
   const categoryLabels: Record<BlogCategory, string> = {
     custody_tips: "Custody Tips",
     legal_advice: "Legal Advice",
@@ -170,9 +180,13 @@ function PostCard({ post }: Readonly<{ post: BlogPost }>) {
             {categoryLabels[category]}
           </span>
         </div>
-        <div
-          className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-          style={{ backgroundImage: `url('${post.featuredImageUrl}')` }}
+        <OptimizedImage
+          alt={post.title}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+          height={450}
+          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          src={post.featuredImageUrl}
+          width={800}
         />
       </div>
 
@@ -271,27 +285,27 @@ export default function BlogPage() {
           </div>
 
           <nav className="hidden md:flex items-center gap-8">
-            <a className="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="#">
+            <Link className="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="/">
               Features
-            </a>
-            <a className="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="#">
+            </Link>
+            <Link className="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="/">
               Pricing
-            </a>
-            <a className="text-sm font-medium text-primary hover:text-primary-hover transition-colors" href="#">
+            </Link>
+            <Link className="text-sm font-medium text-primary hover:text-primary-hover transition-colors" href="/blog">
               Blog
-            </a>
-            <a className="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="#">
+            </Link>
+            <Link className="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="/">
               Support
-            </a>
+            </Link>
           </nav>
 
           <div className="flex items-center gap-4">
-            <a className="hidden md:block text-sm font-semibold text-slate-700 hover:text-primary transition-colors" href="#">
+            <Link className="hidden md:block text-sm font-semibold text-slate-700 hover:text-primary transition-colors" href="/login">
               Log in
-            </a>
-            <a className="bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-full text-sm font-semibold transition-colors shadow-sm shadow-primary/20" href="#">
+            </Link>
+            <Link className="bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-full text-sm font-semibold transition-colors shadow-sm shadow-primary/20" href="/signup">
               Get Started
-            </a>
+            </Link>
           </div>
         </div>
       </header>

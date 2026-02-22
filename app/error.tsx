@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { trackError } from "@/lib/observability/error-tracking";
 
 interface ErrorPageProps {
   readonly error: Error & { digest?: string };
@@ -10,25 +11,23 @@ interface ErrorPageProps {
 
 /**
  * Error Boundary Page
- * 
+ *
  * This component is automatically rendered by Next.js when an
  * unhandled error occurs during rendering. It provides a user-friendly
  * error message and recovery options.
- * 
+ *
  * The error boundary catches errors in:
  * - Server Components
  * - Client Components
  * - Route handlers
- * 
+ *
  * Note: This must be a Client Component to use hooks.
  */
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
   useEffect(() => {
-    // Log error to monitoring service in production
-    console.error("Application error:", error);
-    
-    // In production, send to error tracking service:
-    // trackError({ message: error.message, digest: error.digest });
+    // Log once per render; trackError is idempotent and production-gated
+    const pathname = globalThis.window ? globalThis.window.location.pathname : undefined;
+    void trackError(error.message, error.digest, { pathname });
   }, [error]);
 
   return (
@@ -45,9 +44,14 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
           Something went wrong
         </h2>
         <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-          We encountered an unexpected error. Don&apos;t worry — your data is safe. 
+          We encountered an unexpected error. Don&apos;t worry — your data is safe.
           Try refreshing the page or going back to the previous screen.
         </p>
+        {error.digest && (
+          <p className="text-sm text-gray-500 mb-8">
+            Support Code: <code className="font-mono text-gray-700">{error.digest.substring(0, 8)}</code>
+          </p>
+        )}
 
         {process.env.NODE_ENV === "development" && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-8 text-left">

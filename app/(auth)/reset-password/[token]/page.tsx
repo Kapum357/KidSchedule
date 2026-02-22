@@ -6,135 +6,49 @@
  *
  * Server-side token validation:
  *   1. Extract token from URL
- *   2. Fetch reset request from DB using token hash
- *   3. Validate: not expired, not already used
- *   4. If valid: show password form
- *   5. On submit: hash password, update DB, mark token as used
+ *   2. Call production auth service to validate and reset
+ *   3. Auth service handles: token validation, password hashing,
+ *      session revocation, audit logging, confirmation email
  *
- * In production:
- *   - Log all password reset attempts for audit/security
- *   - Mark token usedAt = now() to prevent re-use
- *   - Consider sending confirmation email after successful reset
- *   - Revoke all active sessions for this user after reset
+ * Security:
+ *   - Token is single-use and expires in 1 hour
+ *   - All sessions revoked on password reset
+ *   - Full audit trail maintained
  */
-
-"use server";
 
 import { redirect } from "next/navigation";
-import { validatePasswordStrength, AuthEngine } from "@/lib/auth-engine";
-import type { PasswordResetRequest } from "@/types";
-
-/**
- * Mock function to fetch password reset request from database.
- * In production: replace with actual DB query
- * 
- * Example:
- * const engine = new AuthEngine();
- * const hashedToken = await engine.hashPassword(rawToken); // or bcrypt.hash()
- * const resetRequest = await db.passwordResetRequest.findUnique({
- *   where: { token: hashedToken }
- * });
- */
-async function fetchPasswordResetRequest(
-  rawToken: string
-): Promise<PasswordResetRequest | null> {
-  // Mock implementation: simulate a valid reset request
-  // In a real app, this would query the database
-  
-  // For demo purposes, accept any token that looks like a valid format
-  if (!rawToken || rawToken.length < 10) {
-    return null;
-  }
-  
-  // Create a mock hash for the token (simulates what would be stored in DB)
-  const engine = new AuthEngine();
-  const hashedToken = engine.hashPassword(rawToken);
-  
-  // Simulate a valid unexpired token
-  const now = new Date();
-  const mockRequest: PasswordResetRequest = {
-    id: "pr-mock-123",
-    email: "user@example.com",
-    token: hashedToken,
-    expiresAt: new Date(now.getTime() + 60 * 60 * 1000), // 1 hour from now
-    createdAt: new Date(now.getTime() - 5 * 60 * 1000), // 5 minutes ago
-    usedAt: undefined,
-    ipAddress: "127.0.0.1",
-  };
-  
-  return mockRequest;
-}
+import { resetPassword } from "@/lib/auth";
 
 /**
  * Server Action: Performs the actual password reset.
  *
  * Workflow:
- *   1. Validate new password meets requirements
- *   2. Verify token is still valid (not expired or used)
- *   3. Hash new password
- *   4. Update user record
- *   5. Mark reset token as used
- *   6. Clear all active sessions
- *   7. Redirect to success page
+ *   1. Validate passwords match
+ *   2. Call production auth service (handles everything else)
+ *   3. Redirect based on result
  */
 async function performPasswordReset(formData: FormData): Promise<void> {
+  "use server";
+  
   const token = (formData.get("token") as string | null)?.trim() ?? "";
   const password = (formData.get("password") as string | null) ?? "";
   const confirmPassword = (formData.get("confirm-password") as string | null) ?? "";
 
-  // Validate passwords match
+  // Validate passwords match (client-side should catch this, but double-check)
   if (password !== confirmPassword) {
     redirect(`/reset-password/${encodeURIComponent(token)}?error=passwords_dont_match`);
   }
 
-  const validatePasswordCheck = validatePasswordStrength(password);
-  if (!validatePasswordCheck.isValid) {
-    const firstError = validatePasswordCheck.errors[0] ?? "Password does not meet requirements";
-    redirect(`/reset-password/${encodeURIComponent(token)}?error=${encodeURIComponent(firstError)}`);
+  // Call production auth service
+  const result = await resetPassword({ token, newPassword: password });
+
+  if (result.success) {
+    redirect("/reset-password/success");
   }
 
-  // In production: fetch the reset request from DB
-  // const resetRequest = await db.passwordResetRequest.findUnique({
-  //   where: { token: engine.mockHash(token) }
-  // });
-
-  // Validate token (mocked for demo)
-  // const validation = engine.validatePasswordResetToken(token, resetRequest);
-  // if (!validation.valid) {
-  //   redirect(`/reset-password/${encodeURIComponent(token)}?error=${encodeURIComponent(validation.reason ?? "Invalid token")}`);
-  // }
-
-  // Hash new password
-  // const hashedPassword = engine.hashPassword(password);
-
-  // In production:
-  // 1. Update user.passwordHash
-  // await db.user.update({
-  //   where: { email: resetRequest.email },
-  //   data: { passwordHash: hashedPassword }
-  // });
-
-  // 2. Mark token as used
-  // await db.passwordResetRequest.update({
-  //   where: { id: resetRequest.id },
-  //   data: { usedAt: new Date() }
-  // });
-
-  // 3. Revoke all sessions
-  // await db.session.deleteMany({
-  //   where: { userId: user.id }
-  // });
-
-  // 4. Log the reset for audit
-  // await auditLog.create({
-  //   action: "password_reset",
-  //   userId: user.id,
-  //   ipAddress: headers().get("x-forwarded-for"),
-  //   timestamp: new Date()
-  // });
-
-  // Success
-  redirect("/reset-password/success");
+  // Redirect with error
+  const errorMessage = result.errorMessage ?? "An error occurred";
+  redirect(`/reset-password/${encodeURIComponent(token)}?error=${encodeURIComponent(errorMessage)}`);
 }
 
 // ─── Left Panel ───────────────────────────────────────────────────────────────
@@ -290,9 +204,8 @@ export default async function ResetPasswordPage({
   const error = typeof queryParams.error === "string" ? queryParams.error : undefined;
 
   // Validate token before rendering the form
-  const engine = new AuthEngine();
-  const resetRequest = await fetchPasswordResetRequest(token);
-  const validation = engine.validatePasswordResetToken(token, resetRequest);
+  const { validateResetToken } = await import("@/lib/auth");
+  const validation = await validateResetToken(token);
   
   if (!validation.valid) {
     const errorMessage = validation.reason ?? "This reset link is no longer valid.";

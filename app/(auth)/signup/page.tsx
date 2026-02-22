@@ -2,7 +2,7 @@
  * KidSchedule – Sign Up Page
  *
  * Renders the split-screen registration form. Form submission is handled via
- * Next.js Server Actions which call AuthEngine.registerUser() server-side.
+ * Next.js Server Actions which call the production auth service.
  *
  * Validation Flow:
  * 1. Client-side HTML5 validation (required fields, email type, password match)
@@ -21,10 +21,8 @@
  * - Password strength validated against security requirements
  */
 
-"use server";
-
 import { redirect } from "next/navigation";
-import { AuthEngine } from "@/lib/auth-engine";
+import { register } from "@/lib/auth";
 import { getThemeScriptProps } from "@/lib/theme-config";
 import type { AuthResult } from "@/types";
 
@@ -35,7 +33,9 @@ import type { AuthResult } from "@/types";
  * On success: sets httpOnly cookies and redirects to /dashboard.
  * On failure: redirects back to /signup with error search params.
  */
-export async function handleSignup(formData: FormData): Promise<void> {
+async function handleSignup(formData: FormData): Promise<void> {
+  "use server";
+  
   const fullName = (formData.get("fullName") as string | null)?.trim() ?? "";
   const email = (formData.get("email") as string | null)?.trim().toLowerCase() ?? "";
   const password = (formData.get("password") as string | null) ?? "";
@@ -52,23 +52,9 @@ export async function handleSignup(formData: FormData): Promise<void> {
     redirect("/signup?error=must_agree_terms");
   }
 
-  // Simulated IP (in production: use headers() from next/headers)
-  const ipAddress = "127.0.0.1";
+  const result = await register({ fullName, email, password });
 
-  const engine = new AuthEngine();
-  const result = engine.registerUser(fullName, email, password, ipAddress);
-
-  if (result.success && result.session) {
-    // In production:
-    // const cookieStore = cookies();
-    // cookieStore.set("access_token", result.session.accessToken, {
-    //   httpOnly: true, secure: true, sameSite: "lax",
-    //   maxAge: 15 * 60, // 15 minutes
-    // });
-    // cookieStore.set("refresh_token", result.session.refreshToken, {
-    //   httpOnly: true, secure: true, sameSite: "lax",
-    //   maxAge: 7 * 24 * 3600, // 7 days
-    // });
+  if (result.success) {
     redirect("/dashboard");
   }
 

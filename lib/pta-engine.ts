@@ -70,7 +70,9 @@ import type {
   DocumentStatus,
   LunchMenu,
   ScheduleTransition,
+  SearchDoc,
 } from "@/types";
+import { createSearchAdapter } from "@/lib/search-adapter";
 
 // ─── Configuration ─────────────────────────────────────────────────────────────
 
@@ -396,41 +398,36 @@ export class PTAEngine {
       return contacts.map((c) => ({ contact: c, score: 50 }));
     }
 
-    const results: ContactSearchResult[] = [];
+    const docs: SearchDoc[] = contacts.map((contact) => ({
+      id: contact.id,
+      type: "pta",
+      fields: {
+        name: contact.name,
+        roleLabel: contact.roleLabel,
+        role: contact.role,
+        email: contact.email ?? "",
+        phone: contact.phone ?? "",
+      },
+    }));
 
-    for (const contact of contacts) {
-      const score = this.scoreContact(contact, q);
-      if (score > 0) {
-        results.push({ contact, score });
-      }
-    }
+    const adapter = createSearchAdapter();
+    adapter.index(docs);
 
-    results.sort((a, b) => b.score - a.score);
-    return results;
-  }
+    const hits = adapter.search(q, {
+      limit: contacts.length,
+      keys: ["name", "roleLabel", "role", "email", "phone"],
+      minMatchCharLength: 2,
+    });
 
-  /**
-   * Scores an individual contact against a normalised query string.
-   * Complexity: O(Q) where Q = number of words in contact name
-   */
-  private scoreContact(contact: SchoolContact, query: string): number {
-    const nameLower = contact.name.toLowerCase();
-    const roleLower = contact.roleLabel.toLowerCase();
+    const contactsById = new Map(contacts.map((contact) => [contact.id, contact]));
 
-    // Tier 1: Full name prefix
-    if (nameLower.startsWith(query)) return 100;
-
-    // Tier 2: Any name-word prefix
-    const nameWords = nameLower.split(/\s+/);
-    if (nameWords.some((word) => word.startsWith(query))) return 80;
-
-    // Tier 3: Substring of full name
-    if (nameLower.includes(query)) return 60;
-
-    // Tier 4: Role label match
-    if (roleLower.includes(query)) return 30;
-
-    return 0;
+    return hits
+      .map((hit) => {
+        const contact = contactsById.get(hit.id);
+        if (!contact) return null;
+        return { contact, score: Math.round(hit.score * 100) } as ContactSearchResult;
+      })
+      .filter((result): result is ContactSearchResult => !!result);
   }
 
   // ── 4. School Vault ────────────────────────────────────────────────────────

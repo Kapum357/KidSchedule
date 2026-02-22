@@ -434,3 +434,66 @@ STG -. release .-> PRD
 - Introduce workflow orchestration for long-running mediations.
 - Expand analytics from event logs to cohort/causal insights.
 - Add role-based legal export packages with immutable signatures.
+
+---
+
+## Production content parsing + image pipeline
+
+### Parsing pipeline (no regex heading extraction)
+
+- Article content is normalized in `lib/content-parser.ts`.
+- Input can be HTML or Markdown:
+  - Markdown is converted to HTML (`marked`).
+  - HTML is traversed as DOM (`cheerio`) to collect `h2/h3` headings.
+- Stable heading IDs are injected directly into heading nodes.
+- Engine contract (`BlogArticleEngine`) returns parsed HTML + typed TOC (`ArticleHeading[]`).
+
+### Safe article rendering
+
+- `components/article-content.tsx` parses HTML to React nodes.
+- Inline `<img>` tags are transformed to optimized `next/image` rendering using `OptimizedImage`.
+- Data URI images remain native `<img>` fallback.
+
+### Image optimization strategy
+
+- `next.config.ts` images config:
+  - formats: AVIF + WebP
+  - long cache TTL
+  - strict `remotePatterns`
+  - conditional loader (Cloudinary/Imgix/local)
+- `components/optimized-image.tsx` resolves loader automatically:
+  - Cloudinary when `CLOUDINARY_URL` / `CLOUDINARY_CLOUD_NAME` exists
+  - Imgix when `IMGIX_DOMAIN` exists
+  - local Next.js optimizer by default
+- `HeroBackground` remains CSS `background-image` for layout reliability.
+
+### OG assets
+
+- OG metadata helper: `lib/og-images.ts`.
+- Prefer WebP first with PNG fallback.
+- Target dimensions: `1200x630`.
+
+### Build-time image scripts
+
+- `scripts/optimize-images.mjs` supports:
+  - `pnpm optimize:images`
+  - `pnpm optimize:og`
+  - `pnpm optimize:hero`
+  - `pnpm optimize:testimonials`
+- Emits AVIF/WebP + JPG/PNG fallback variants.
+
+### Feature flags and env toggles
+
+- `IMAGE_CDN_PROVIDER=local|cloudinary|imgix` (operational toggle)
+- `IMAGE_ENABLE_AVIF=true|false`
+- `IMAGE_ENABLE_WEBP=true|false`
+- `CLOUDINARY_URL`, `CLOUDINARY_CLOUD_NAME`
+- `IMGIX_DOMAIN`
+
+### Rollout plan
+
+1. Deploy with local loader first (`IMAGE_CDN_PROVIDER=local`).
+2. Validate LCP/CLS and image format negotiation in production.
+3. Enable CDN env (`CLOUDINARY_*` or `IMGIX_*`) without code changes.
+4. Monitor image error rates, cache hit ratios, and Core Web Vitals.
+5. If CDN issues occur, remove CDN env and fall back to local optimizer.

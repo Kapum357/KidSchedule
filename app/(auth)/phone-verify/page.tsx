@@ -28,22 +28,29 @@
  * - Clear error messages with remaining attempts
  */
 
-"use server";
-
 import { redirect } from "next/navigation";
-import { AuthEngine } from "@/lib/auth-engine";
+import { verifyPhoneOTP, requestPhoneVerification } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/session";
 import { getThemeScriptProps } from "@/lib/theme-config";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
 
 /**
  * Processes OTP verification form submission server-side.
- * Combines all 6 digit inputs into a single OTP code and validates via AuthEngine.
+ * Combines all 6 digit inputs into a single OTP code and validates.
  *
  * On success: marks phone as verified, redirects to next onboarding step
  * On failure: redirects back with error params (code, message, attempts remaining)
  */
-export async function handleVerifyOTP(formData: FormData): Promise<void> {
+async function handleVerifyOTP(formData: FormData): Promise<void> {
+  "use server";
+  
+  // Get current user from session
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+  
   // Extract the 6 OTP digits from form inputs
   const digit1 = (formData.get("digit1") as string | null) ?? "";
   const digit2 = (formData.get("digit2") as string | null) ?? "";
@@ -59,34 +66,10 @@ export async function handleVerifyOTP(formData: FormData): Promise<void> {
     redirect("/phone-verify?error=invalid_format&message=Please enter all 6 digits");
   }
 
-  // In production: retrieve phone verification request from DB by session/user ID
-  // const verificationRequest = await db.phoneVerificationRequest.findFirst({
-  //   where: { userId: session.userId, verifiedAt: null }
-  // });
-
-  // For demo: create mock verification request
-  const engine = new AuthEngine();
-  const mockPhoneRequest = {
-    id: "pv-demo-123",
-    phone: "+12125552368",
-    phoneDisplay: "+1 (555) ***-68",
-    otp: engine.hashPassword("123456"), // Mock: OTP is "123456"
-    otpAttempts: 0,
-    expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-    createdAt: new Date(),
-    ipAddress: "127.0.0.1",
-  };
-
-  // Validate OTP
-  const result = engine.verifyPhoneOTP(otp, mockPhoneRequest);
+  // Call production auth service
+  const result = await verifyPhoneOTP(user.userId, otp);
 
   if (result.success) {
-    // In production:
-    // - Mark phone as verified in DB
-    // - Update session with phone_verified flag
-    // - Log verification event for audit trail
-    // - Clear any rate-limit state for this phone
-    // - Send confirmation SMS or email
     redirect("/family-setup"); // Next step in onboarding
   }
 
@@ -97,7 +80,6 @@ export async function handleVerifyOTP(formData: FormData): Promise<void> {
   if (result.attemptsRemaining !== undefined) {
     params.set("attemptsRemaining", result.attemptsRemaining.toString());
   }
-  if (result.lockedUntil) params.set("lockedUntil", result.lockedUntil);
   redirect(`/phone-verify?${params.toString()}`);
 }
 
@@ -105,29 +87,27 @@ export async function handleVerifyOTP(formData: FormData): Promise<void> {
 
 /**
  * Handles "Resend Code" button clicks.
- * Generates a new OTP and sends via SMS (mocked in dev).
- * Enforces rate limiting: max 3 resends per 60 seconds.
+ * Generates a new OTP and sends via SMS.
  */
-export async function handleResendOTP(): Promise<void> {
-  // In production:
-  // - Verify user session exists
-  // - Check rate limit (not more than 3 resends per minute)
-  // - Generate and store new OTP via engine.initiatePhoneVerification()
-  // - Send SMS via Twilio, AWS SNS, or other SMS service
-  // - Log resend event
-
-  const engine = new AuthEngine();
-  const mockResult = engine.initiatePhoneVerification("+12125552368", "127.0.0.1");
-
-  if ("error" in mockResult) {
-    redirect("/phone-verify?error=resend_failed&message=Failed to resend code");
+async function handleResendOTP(formData: FormData): Promise<void> {
+  "use server";
+  
+  const phone = (formData.get("phone") as string | null)?.trim() ?? "";
+  
+  // Get current user from session
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
   }
 
-  // In dev: log OTP to console
-  console.log("📱 New OTP sent (dev only). Check console for code.");
+  const result = await requestPhoneVerification(user.userId, phone);
 
-  // Return without redirect - client will handle countdown restart
-  // In production: response.json({ success: true, expiresAt: ... })
+  if (!result.success) {
+    redirect("/phone-verify?error=resend_failed&message=Failed to resend code");
+  }
+  
+  // Redirect back to verification page
+  redirect("/phone-verify?resent=true");
 }
 
 // ─── Progress Stepper Component ────────────────────────────────────────────────

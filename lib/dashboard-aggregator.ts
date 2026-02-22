@@ -25,7 +25,9 @@
  */
 
 import { CustodyEngine } from "@/lib/custody-engine";
+import { CalendarMonthEngine } from "@/lib/calendar-engine";
 import { ConflictClimateAnalyzer } from "@/lib/conflict-analyzer";
+import { SettingsEngine } from "@/lib/settings-engine";
 import type {
   ActivityItem,
   CalendarEvent,
@@ -64,6 +66,8 @@ export interface AggregatorInput {
   upcomingCount?: number;
   /** Max recent activity items to surface (defaults to 10). */
   activityCount?: number;
+  /** Optional override for conflict window (in minutes). */
+  conflictWindowMins?: number;
 }
 
 // ─── Activity Builder ─────────────────────────────────────────────────────────
@@ -205,6 +209,17 @@ export function aggregateDashboard(input: AggregatorInput): DashboardData {
     )
     .slice(0, upcomingCount);
 
+  // ── Calendar Conflicts ─────────────────────────────────────────────────────
+  const settingsEngine = new SettingsEngine();
+  const familySettings = settingsEngine.resolveFamilySettings(input.family.id, {
+    conflictWindow: { windowMins: input.conflictWindowMins ?? 120 },
+  });
+  const calendarEngine = new CalendarMonthEngine(input.family);
+  const calendarConflicts = calendarEngine.detectConflicts(
+    input.events,
+    familySettings.conflictWindow.windowMins
+  );
+
   // ── Pending Change Requests ────────────────────────────────────────────────
   const pendingChangeRequests = input.changeRequests.filter(
     (r) => r.status === "pending"
@@ -233,6 +248,7 @@ export function aggregateDashboard(input: AggregatorInput): DashboardData {
     currentParent: input.currentParent,
     custody,
     upcomingEvents,
+    calendarConflicts,
     pendingChangeRequests,
     recentActivity,
     unreadMessageCount,

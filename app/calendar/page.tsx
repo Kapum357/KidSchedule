@@ -10,9 +10,26 @@
 
 import { createMockInput } from "@/lib/dashboard-aggregator";
 import { CalendarMonthEngine } from "@/lib/calendar-engine";
+import { SettingsEngine } from "@/lib/settings-engine";
 import { getThemeScriptProps } from "@/lib/theme-config";
 import { ThemeToggle } from "@/app/theme-toggle";
+import { redirect } from "next/navigation";
 import type { CalendarMonthData, CalendarDayState, CustodyColor, TransitionListItem } from "@/lib/calendar-engine";
+
+async function updateConflictWindow(formData: FormData): Promise<void> {
+  "use server";
+
+  const requestedWindowMins = Number((formData.get("conflictWindowMins") as string | null) ?? "120");
+  const settingsEngine = new SettingsEngine();
+  const resolved = settingsEngine.resolveFamilySettings("family-demo", {
+    conflictWindow: { windowMins: requestedWindowMins },
+  });
+
+  // In production: persist resolved.conflictWindow.windowMins by authenticated familyId.
+  const params = new URLSearchParams();
+  params.set("conflictWindowMins", String(resolved.conflictWindow.windowMins));
+  redirect(`/calendar?${params.toString()}`);
+}
 
 // ─── Helper: Custody Color to Tailwind ────────────────────────────────────────
 
@@ -126,7 +143,7 @@ function CalendarSidebar({ data }: Readonly<{ data: CalendarMonthData }>) {
         <div className="flex flex-col gap-3">
           {data.upcomingTransitions.slice(0, 3).map((item, idx) => (
             <UpcomingTransitionItem
-              key={idx}
+              key={`${item.transition.at.toISOString()}-${idx}`}
               item={item}
               parentColor={
                 item.transition.toParent?.id === data.currentParent.id
@@ -282,7 +299,7 @@ function CalendarGrid({ data }: Readonly<{ data: CalendarMonthData }>) {
         {/* Day cells */}
         {data.days.map((day, idx) => (
           <div
-            key={idx}
+            key={day.dateStr}
             className={idx < 2 ? "opacity-40" : ""} // Gray out prev-month days
           >
             <CalendarDayCell
@@ -315,10 +332,20 @@ function CalendarGrid({ data }: Readonly<{ data: CalendarMonthData }>) {
  *   ...
  * }
  */
-export default function CalendarPage() {
+export default async function CalendarPage({
+  searchParams,
+}: Readonly<{ searchParams?: Promise<{ conflictWindowMins?: string }> }>) {
   // ── Mock data ──────────────────────────────────────────────────────────────
   const mockInput = createMockInput();
   const { family, events: allEvents, changeRequests } = mockInput;
+  const params = await searchParams;
+
+  const settingsEngine = new SettingsEngine();
+  const familySettings = settingsEngine.resolveFamilySettings(family.id, {
+    conflictWindow: {
+      windowMins: Number(params?.conflictWindowMins ?? 120),
+    },
+  });
 
   // ── Get current month ─────────────────────────────────────────────────────
   const now = new Date();
@@ -328,6 +355,10 @@ export default function CalendarPage() {
   // ── Compute calendar ──────────────────────────────────────────────────────
   const engine = new CalendarMonthEngine(family);
   const data = engine.getMonthData(year, month, allEvents, changeRequests, now);
+  const conflicts = engine.detectConflicts(
+    allEvents,
+    familySettings.conflictWindow.windowMins
+  );
 
   const monthName = new Date(year, month - 1).toLocaleDateString([], {
     month: "long",
@@ -425,6 +456,29 @@ export default function CalendarPage() {
               </button>
             </div>
             <div className="flex gap-2">
+              <form action={updateConflictWindow} className="flex items-center gap-2">
+                <label htmlFor="conflictWindowMins" className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Conflict window
+                </label>
+                <select
+                  id="conflictWindowMins"
+                  name="conflictWindowMins"
+                  defaultValue={String(familySettings.conflictWindow.windowMins)}
+                  className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200"
+                >
+                  <option value="0">0 min</option>
+                  <option value="30">30 min</option>
+                  <option value="60">60 min</option>
+                  <option value="120">120 min</option>
+                  <option value="180">180 min</option>
+                </select>
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                >
+                  Apply
+                </button>
+              </form>
               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
                 <button className="px-4 py-1.5 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm font-bold rounded shadow-sm">
                   Month
@@ -440,9 +494,15 @@ export default function CalendarPage() {
                 <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
                   add
                 </span>
+                {" "}
                 New Event
               </button>
             </div>
+          </div>
+
+          <div className="px-8 py-3 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-900/20 text-sm text-amber-800 dark:text-amber-200">
+            Detected <span className="font-bold">{conflicts.length}</span>{" "}
+            potential conflict{conflicts.length === 1 ? "" : "s"} using a {familySettings.conflictWindow.windowMins}-minute window.
           </div>
 
           {/* Calendar grid */}

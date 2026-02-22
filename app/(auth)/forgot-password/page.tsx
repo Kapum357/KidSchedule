@@ -4,30 +4,22 @@
  * Server Component that renders password reset request form.
  * Users enter their email to receive a password reset link.
  *
- * Server Action `requestPasswordReset`:
+ * Server Action `handlePasswordResetRequest`:
  *   1. Validates email format
- *   2. Looks up user in database (always succeeds for privacy)
- *   3. Generates a time-limited reset token
- *   4. Sends reset email with token link (mocked in dev)
- *   5. Redirects to success page
- *
- * In production:
- *   - Send via email service (SendGrid, AWS SES, etc.)
- *   - Log the rawToken in an audit trail (never send via logs)
- *   - Record request timestamp for rate limiting
- *   - Use template variables: {{email}}, {{resetLink}}, {{expiryTime}}
+ *   2. Calls production auth service (rate-limited, privacy-preserving)
+ *   3. Sends reset email via configured provider
+ *   4. Redirects to success page
  *
  * Security considerations:
  *   - Email validation prevents obvious malformed addresses
  *   - Token is single-use and expires in 1 hour
- *   - Error message identical for "user not found" and other issues
+ *   - Response identical for "user not found" and success (privacy)
  *   - Rate limiting prevents email spray attacks
+ *   - Audit logging for security monitoring
  */
 
-"use server";
-
 import { redirect } from "next/navigation";
-import { AuthEngine } from "@/lib/auth-engine";
+import { requestPasswordReset } from "@/lib/auth";
 import { getThemeScriptProps } from "@/lib/theme-config";
 
 /**
@@ -36,7 +28,9 @@ import { getThemeScriptProps } from "@/lib/theme-config";
  * Privacy: Always redirects to the same success page regardless of whether
  * the email exists in the system. This prevents user enumeration attacks.
  */
-export async function requestPasswordReset(formData: FormData): Promise<void> {
+async function handlePasswordResetRequest(formData: FormData): Promise<void> {
+  "use server";
+  
   const email = (formData.get("email") as string | null)?.trim().toLowerCase() ?? "";
 
   // Validate email format
@@ -44,32 +38,8 @@ export async function requestPasswordReset(formData: FormData): Promise<void> {
     redirect("/forgot-password?error=invalid_email");
   }
 
-  // In a real app: fetch user from database
-  // For now, treat any email as a potential account (don't reveal if exists)
-  // const user = await db.user.findUnique({ where: { email } });
-
-  const engine = new AuthEngine();
-
-  // Generate reset token and request
-  const { rawToken } = engine.initiatePasswordReset(email);
-
-  // In production: send email with reset link
-  // For now: log to console (dev only)
-  if (process.env.NODE_ENV === "development") {
-    console.log("🔐 Password Reset Token (DEV ONLY):", {
-      email,
-      token: rawToken,
-      expiresIn: "1 hour",
-      resetLink: `/reset-password/${encodeURIComponent(rawToken)}`,
-    });
-  }
-
-  // In production:
-  // const resetLink = `${process.env.APP_URL}/reset-password/${encodeURIComponent(rawToken)}`;
-  // await sendResetEmail(email, resetLink, request.expiresAt);
-
-  // Store the request in database (hashed token)
-  // await db.passwordResetRequest.create({ data: request });
+  // Call production auth service (handles rate limiting, email sending, audit logging)
+  await requestPasswordReset(email);
 
   // Always redirect to success (whether or not user exists)
   redirect("/forgot-password/check-email?email=" + encodeURIComponent(email));
@@ -216,7 +186,7 @@ export default async function ForgotPasswordPage({
           {error && <ErrorBanner message={errorMessages[error] ?? "An error occurred."} />}
 
           {/* Form */}
-          <form action={requestPasswordReset} className="mt-8 space-y-6" method="POST">
+          <form action={handlePasswordResetRequest} className="mt-8 space-y-6" method="POST">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="email">
                 Email address

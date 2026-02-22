@@ -323,6 +323,53 @@ export interface SearchResult {
   highlightedPreview: string;
 }
 
+export type SearchDocType = "event" | "message" | "pta" | "blog";
+
+export type SearchDoc = {
+  id: string;
+  type: SearchDocType;
+  fields: Record<string, string>;
+  /** Optional recency tie-breaker; ISO-8601 string */
+  updatedAt?: string;
+};
+
+export type SearchOptions = {
+  limit?: number;
+  keys?: string[];
+  minMatchCharLength?: number;
+  threshold?: number;
+};
+
+export type SearchHit = {
+  id: string;
+  score: number;
+  type: SearchDocType;
+};
+
+export type SearchBackend = "trigram" | "fuse";
+
+export interface SearchAdapter {
+  index(docs: ReadonlyArray<SearchDoc>): void;
+  search(query: string, opts?: SearchOptions): ReadonlyArray<SearchHit>;
+}
+
+export type ConflictWindowSetting = {
+  windowMins: number;
+};
+
+export type FamilySettings = {
+  familyId: string;
+  conflictWindow: ConflictWindowSetting;
+  searchBackend: SearchBackend;
+};
+
+export interface CalendarConflict {
+  primaryEvent: CalendarEvent;
+  conflictingEvent: CalendarEvent;
+  minutesApart: number;
+  overlapType: "overlap" | "buffer_window";
+}
+
 export interface BlogRecommendation {
   post: BlogPost;
   reason: string; // e.g. "Similar to posts you've read", "Popular in Communication"
@@ -354,6 +401,14 @@ export interface ArticleEngagementMetric {
   completionRate: number; // 0–100 (% of readers who reached 90%+ scroll)
 }
 
+export type ArticleHeading = {
+  id: string;
+  text: string;
+  level: 2 | 3;
+};
+
+export type TableOfContents = ArticleHeading[];
+
 export interface ArticleTableOfContents {
   id: string;
   title: string;
@@ -362,7 +417,7 @@ export interface ArticleTableOfContents {
 }
 
 export interface ArticleWithMetadata extends BlogPost {
-  toc: ArticleTableOfContents[]; // Table of contents extracted from headings
+  toc: TableOfContents; // Table of contents extracted from headings
   relatedPosts: BlogRecommendation[];
   estimatedReadTime: number;
   keyTakeaways?: string[]; // Extracted or hardcoded key points
@@ -642,10 +697,32 @@ export interface DashboardData {
   currentParent: Parent;
   custody: CustodyStatus;
   upcomingEvents: CalendarEvent[];
+  calendarConflicts: CalendarConflict[];
   pendingChangeRequests: ScheduleChangeRequest[];
   recentActivity: ActivityItem[];
   unreadMessageCount: number;
   climate: ConflictClimate;
   moments: Moment[];
   reminders: Reminder[];
+}
+
+// ─── Observability ────────────────────────────────────────────────────────────
+
+export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface ErrorEvent {
+  /** ISO-8601 timestamp */
+  timestamp: string;
+  /** Coarse severity level */
+  severity: ErrorSeverity;
+  /** Error message (safe to display; no stack traces or internal details) */
+  message: string;
+  /** Unique error digest from Next.js error boundary, if available */
+  digest?: string;
+  /** Current pathname when error occurred */
+  pathname?: string;
+  /** Anonymized family ID, if authenticated */
+  familyId?: string;
+  /** Anonymized parent ID, if authenticated */
+  parentId?: string;
 }

@@ -413,8 +413,12 @@ function LunchWidget({
  * PTAEngine is instantiated once and reused across all helper calls
  * (stateless class – no side effects, safe to share across renders).
  */
-export default function SchoolPortalPage() {
+export default async function SchoolPortalPage({
+  searchParams,
+}: Readonly<{ searchParams?: Promise<{ q?: string }> }>) {
   const engine = new PTAEngine();
+  const params = await searchParams;
+  const searchQuery = (params?.q ?? "").trim();
 
   // ── Data assembly ──────────────────────────────────────────────────────────
   const allEvents   = createMockSchoolEvents(FAMILY_ID, NOW);
@@ -448,6 +452,11 @@ export default function SchoolPortalPage() {
 
   // Pending action count for notification badge
   const pendingCount = engine.getPendingActionCount(allEvents, allDocs, NOW);
+
+  const contactResults = engine.searchContacts(allContacts, searchQuery);
+  const visibleContacts = searchQuery
+    ? contactResults.map((result) => result.contact)
+    : allContacts;
 
   return (
     <>
@@ -672,7 +681,8 @@ export default function SchoolPortalPage() {
                     <input
                       aria-label="Search school contacts"
                       className="pl-8 pr-4 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border-none rounded-md w-40 focus:ring-1 focus:ring-primary text-slate-700 dark:text-slate-300"
-                      placeholder="Search..."
+                      placeholder="Use ?q=name"
+                      value={searchQuery}
                       readOnly
                       type="text"
                     />
@@ -680,7 +690,7 @@ export default function SchoolPortalPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {allContacts.map((contact) => (
+                  {visibleContacts.map((contact) => (
                     <ContactCard key={contact.id} contact={contact} />
                   ))}
                 </div>

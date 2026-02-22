@@ -26,10 +26,11 @@ import type {
   BlogPost,
   ArticleReadingSession,
   ArticleEngagementMetric,
-  ArticleTableOfContents,
   ArticleWithMetadata,
   BlogRecommendation,
 } from "@/types";
+import { parseArticleContent } from "@/lib/content-parser";
+import { load } from "cheerio";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -39,50 +40,7 @@ const COMPLETION_THRESHOLD_PERCENT = 90;
 /** Session timeout (ms): if no activity for this duration, session expires */
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
-/**
- * Heading levels to include in table of contents.
- * H1 = main title (skip), H2–H3 = section headers (include)
- */
-const TOC_HEADING_LEVELS = ["H2", "H3"];
-
 // ─── DOM Parsing Utilities ────────────────────────────────────────────────────
-
-/**
- * Extracts table of contents from article HTML by scanning for heading tags.
- * Generates anchor IDs for each heading if not present.
- *
- * Complexity: O(H) where H = number of headings
- * @param htmlContent Article HTML content
- * @returns Array of TOC entries with anchor links
- */
-function extractTableOfContents(htmlContent: string): ArticleTableOfContents[] {
-  const toc: ArticleTableOfContents[] = [];
-  let headingCounter = 0;
-
-  // Simple regex to find headings; in production, use proper HTML parser
-  const headingRegex = /<(h[1-6])(?:\s[^>]*)?>([^<]+)<\/\1>/gi;
-  let match;
-
-  while ((match = headingRegex.exec(htmlContent)) !== null) {
-    const tagName = match[1].toUpperCase();
-    const title = match[2].trim();
-
-    if (!TOC_HEADING_LEVELS.includes(tagName)) continue;
-
-    headingCounter++;
-    const level = parseInt(tagName[1]) as 1 | 2 | 3;
-    const anchor = `heading-${headingCounter}`;
-
-    toc.push({
-      id: `toc-${headingCounter}`,
-      title,
-      level,
-      anchor,
-    });
-  }
-
-  return toc;
-}
 
 /**
  * Extracts key takeaways from article by looking for:
@@ -163,18 +121,20 @@ export class BlogArticleEngine {
     allPosts: BlogPost[],
     userReadHistory: string[] = []
   ): ArticleWithMetadata {
-    // Extract structure
-    const toc = extractTableOfContents(post.content);
-    const keyTakeaways = extractKeyTakeaways(post.content);
+    // Extract structure (robust parser pipeline: HTML + Markdown -> HTML)
+    const parsed = parseArticleContent(post.content);
+    const toc = parsed.toc;
+    const keyTakeaways = extractKeyTakeaways(parsed.html);
 
     // Generate recommendations using category + content match
     const relatedPosts = this.findRelatedPosts(post, allPosts, userReadHistory);
 
     // Read time (already calculated, but verify)
-    const estimatedReadTime = post.readTimeMinutes || this.estimateReadTime(post.content);
+    const estimatedReadTime = post.readTimeMinutes || this.estimateReadTime(parsed.html);
 
     return {
       ...post,
+      content: parsed.html,
       toc,
       relatedPosts,
       estimatedReadTime,
@@ -396,8 +356,8 @@ export class BlogArticleEngine {
    * @returns Estimated minutes (minimum 1)
    */
   private estimateReadTime(content: string): number {
-    // Strip HTML tags and count words
-    const text = content.replace(/<[^>]*>/g, "");
+    // Strip HTML tags and count words using DOM parser
+    const text = load(content).text();
     const wordCount = text.trim().split(/\s+/).length;
     return Math.max(1, Math.round(wordCount / 200));
   }

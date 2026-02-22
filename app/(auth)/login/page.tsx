@@ -2,7 +2,7 @@
  * KidSchedule – Login Page
  *
  * Renders the split-screen login form. Form submission is handled via
- * Next.js Server Actions which call AuthEngine server-side.
+ * Next.js Server Actions which call the production auth service.
  *
  * Error feedback is passed through URL search params:
  *   /login?error=invalid_credentials&remaining=3
@@ -17,10 +17,8 @@
  * - Rate-limit feedback via friendly UI (lockout countdown)
  */
 
-"use server";
-
 import { redirect } from "next/navigation";
-import { AuthEngine, lookupMockUser } from "@/lib/auth-engine";
+import { login } from "@/lib/auth";
 import { getThemeScriptProps } from "@/lib/theme-config";
 import type { AuthResult } from "@/types";
 
@@ -31,31 +29,16 @@ import type { AuthResult } from "@/types";
  * On success: sets httpOnly cookies and redirects to /dashboard.
  * On failure: redirects back to /login with error search params.
  */
-export async function handleLogin(formData: FormData): Promise<void> {
+async function handleLogin(formData: FormData): Promise<void> {
+  "use server";
+  
   const email = (formData.get("email") as string | null)?.trim() ?? "";
   const password = (formData.get("password") as string | null) ?? "";
   const rememberMe = formData.get("remember-me") === "on";
 
-  // Simulated IP (in production: use headers() from next/headers)
-  const ipAddress = "127.0.0.1";
+  const result = await login({ email, password, rememberMe });
 
-  const engine = new AuthEngine();
-  const userRecord = lookupMockUser(email);
-
-  const result = engine.authenticateWithPassword(
-    { email, password, rememberMe },
-    ipAddress,
-    userRecord?.hashedPassword ?? null,
-    userRecord?.userId ?? null
-  );
-
-  if (result.success && result.session) {
-    // In production:
-    // const cookieStore = cookies();
-    // cookieStore.set("access_token", result.session.accessToken, {
-    //   httpOnly: true, secure: true, sameSite: "lax",
-    //   maxAge: rememberMe ? 30 * 24 * 3600 : undefined,
-    // });
+  if (result.success) {
     redirect("/dashboard");
   }
 
@@ -303,28 +286,52 @@ function LoginForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
+interface PageProps {
+  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+type AuthErrorCode = "invalid_credentials" | "rate_limited" | "account_locked" | "account_disabled";
+
+/**
+ * Parse error search params into AuthResult for error display.
+ */
+function parseErrorParams(params: Record<string, string | string[] | undefined>): AuthResult | undefined {
+  const errorStr = params.error as string | undefined;
+  if (!errorStr) return undefined;
+  
+  const remaining = params.remaining ? Number.parseInt(String(params.remaining), 10) : undefined;
+  const lockedUntil = params.lockedUntil as string | undefined;
+  
+  const errorMessages: Record<AuthErrorCode, string> = {
+    invalid_credentials: "Invalid email or password.",
+    rate_limited: "Too many login attempts. Please try again later.",
+    account_locked: "This account is temporarily locked.",
+    account_disabled: "This account has been disabled. Please contact support.",
+  };
+  
+  const error = errorStr as AuthErrorCode;
+  
+  return {
+    success: false,
+    error,
+    errorMessage: errorMessages[error] ?? "An error occurred. Please try again.",
+    attemptsRemaining: Number.isNaN(remaining as number) ? undefined : remaining,
+    lockedUntil,
+  };
+}
+
 /**
  * Login page rendered as a Server Component.
  *
  * The form invokes a Server Action (handleLogin) which:
  *   1. Reads FormData (email, password, remember-me)
- *   2. Calls AuthEngine.authenticateWithPassword()
+ *   2. Calls production auth service
  *   3. On success: sets httpOnly cookies, redirects to /dashboard
- *   4. On failure: returns AuthResult for error feedback
- *
- * In production:
- *   - Use Next.js middleware to verify access tokens on protected routes
- *   - Add CSRF headers (Next.js 14+ does this automatically for Server Actions)
- *   - Configure CSP headers allowing Google/Apple OAuth scripts
+ *   4. On failure: redirects back with error params for feedback
  */
-export default async function LoginPage() {
-  // In real app: check for active session here; redirect if already logged in
-  // const session = await getServerSession();
-  // if (session) redirect("/dashboard");
-
-  // authResult would be populated via search params or server action state
-  // For this demo, show blank form
-  const authResult: AuthResult | undefined = undefined;
+export default async function LoginPage({ searchParams }: Readonly<PageProps>) {
+  const params = await searchParams;
+  const authResult = parseErrorParams(params);
 
   return (
     <>
