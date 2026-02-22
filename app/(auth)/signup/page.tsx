@@ -25,6 +25,7 @@
 
 import { redirect } from "next/navigation";
 import { AuthEngine } from "@/lib/auth-engine";
+import { getThemeScriptProps } from "@/lib/theme-config";
 import type { AuthResult } from "@/types";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
@@ -125,6 +126,7 @@ function BrandPanel() {
 function ErrorBanner({ message }: Readonly<{ message: string }>) {
   return (
     <div
+      id="signup-error"
       className="rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 px-4 py-3 flex items-start gap-3"
       role="alert"
     >
@@ -210,6 +212,8 @@ function SignupForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
               placeholder="Ex. Sarah Jenkins"
               required
               type="text"
+              aria-invalid={hasError ? "true" : "false"}
+              aria-describedby={hasError ? "signup-error" : undefined}
             />
             <span className="material-symbols-outlined absolute right-4 top-3 text-slate-400">person</span>
           </div>
@@ -229,6 +233,8 @@ function SignupForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
               placeholder="name@example.com"
               required
               type="email"
+              aria-invalid={hasError ? "true" : "false"}
+              aria-describedby={hasError ? "signup-error" : undefined}
             />
             <span className="material-symbols-outlined absolute right-4 top-3 text-slate-400">mail</span>
           </div>
@@ -248,6 +254,8 @@ function SignupForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
               placeholder="Create a password"
               required
               type="password"
+              aria-invalid={hasError && (authResult?.error as string) === "passwords_dont_match" ? "true" : "false"}
+              aria-describedby={hasError ? "signup-error" : undefined}
             />
             <button className="absolute right-4 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" type="button">
               <span className="material-symbols-outlined text-xl">visibility_off</span>
@@ -279,8 +287,8 @@ function SignupForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
               name="confirmPassword"
               placeholder="Confirm your password"
               required
-              type="password"
-            />
+              type="password"              aria-invalid={hasError && (authResult?.error as string) === "passwords_dont_match" ? "true" : "false"}
+              aria-describedby={hasError ? "signup-error" : undefined}            />
           </div>
         </div>
       </div>
@@ -351,9 +359,11 @@ export default async function SignupPage() {
   const authResult: AuthResult | undefined = undefined;
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased h-screen w-full flex overflow-hidden">
-      {/* Left branded panel */}
-      <BrandPanel />
+    <>
+      <script {...getThemeScriptProps()} />
+      <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased h-screen w-full flex overflow-hidden">
+        {/* Left branded panel */}
+        <BrandPanel />
 
       {/* Right form panel */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 bg-surface-light dark:bg-surface-dark overflow-y-auto">
@@ -385,6 +395,7 @@ export default async function SignupPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

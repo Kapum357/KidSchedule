@@ -32,6 +32,7 @@
 
 import { redirect } from "next/navigation";
 import { AuthEngine } from "@/lib/auth-engine";
+import { getThemeScriptProps } from "@/lib/theme-config";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
 
@@ -303,12 +304,14 @@ export default async function PhoneVerifyPage() {
   // const attemptsRemaining = searchParams.get("attemptsRemaining");
 
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-background-dark">
-      {/* Header */}
-      <Header />
+    <>
+      <script {...getThemeScriptProps()} />
+      <div className="flex flex-col min-h-screen bg-white dark:bg-background-dark">
+        {/* Header */}
+        <Header />
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col md:flex-row max-w-[1440px] mx-auto w-full">
+      <main id="main-content" className="flex-1 flex flex-col md:flex-row max-w-[1440px] mx-auto w-full">
         {/* Left Panel: Branding */}
         <BrandingPanel />
 
@@ -356,6 +359,7 @@ export default async function PhoneVerifyPage() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </>
   );
 }

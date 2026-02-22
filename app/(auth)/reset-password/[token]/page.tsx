@@ -338,7 +338,7 @@ export default async function ResetPasswordPage({
           </div>
 
           {/* Error banner */}
-          {error && <ErrorBanner message={errorMessages[error] ?? "An error occurred."} />}
+          {error && <div id="password-reset-error"><ErrorBanner message={errorMessages[error] ?? "An error occurred."} /></div>}
 
           {/* Form */}
           <form action={performPasswordReset} className="mt-8 space-y-6" method="POST">
@@ -364,6 +364,8 @@ export default async function ResetPasswordPage({
                   placeholder="••••••••"
                   required
                   type="password"
+                  aria-invalid={error === "passwords_dont_match" ? "true" : "false"}
+                  aria-describedby={error ? "password-reset-error" : undefined}
                 />
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
@@ -391,6 +393,8 @@ export default async function ResetPasswordPage({
                   placeholder="••••••••"
                   required
                   type="password"
+                  aria-invalid={error === "passwords_dont_match" ? "true" : "false"}
+                  aria-describedby={error ? "password-reset-error" : undefined}
                 />
               </div>
             </div>

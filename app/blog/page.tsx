@@ -13,6 +13,7 @@
 
 import { Suspense } from "react";
 import { BlogEngine, createMockBlogPosts } from "@/lib/blog-engine";
+import { getThemeScriptProps } from "@/lib/theme-config";
 import type { BlogCategory, BlogPost } from "@/types";
 import { PaginationControls } from "./pagination-controls";
 
@@ -63,13 +64,17 @@ function FeaturedPostSection({ post }: Readonly<{ post: BlogPost }>) {
           </div>
 
           <div className="w-full md:w-1/2">
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-primary/10 aspect-[4/3] group cursor-pointer">
+            <a 
+              href={`/blog/${post.slug}`}
+              className="block relative rounded-2xl overflow-hidden shadow-2xl shadow-primary/10 aspect-[4/3] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              aria-label={`View featured article: ${post.title}`}
+            >
               <div
                 className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
                 style={{ backgroundImage: `url('${post.featuredImageUrl}')` }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-            </div>
+            </a>
           </div>
         </div>
       </div>
@@ -252,9 +257,11 @@ export default function BlogPage() {
   });
 
   return (
-    <div className="w-full min-h-screen bg-background-light">
-      {/* Header */}
-      <header className="w-full bg-white border-b border-slate-100 sticky top-0 z-50">
+    <>
+      <script {...getThemeScriptProps()} />
+      <div className="w-full min-h-screen bg-background-light">
+        {/* Header */}
+        <header className="w-full bg-white border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="bg-primary/10 flex items-center justify-center rounded-lg size-10 text-primary">
@@ -293,7 +300,7 @@ export default function BlogPage() {
       {featured && <FeaturedPostSection post={featured} />}
 
       {/* Main Content */}
-      <main className="w-full pb-20">
+      <main id="main-content" className="w-full pb-20">
         {/* Category Filters */}
         <CategoryFilter selectedCategories={activeFilters} />
 
@@ -379,6 +386,7 @@ export default function BlogPage() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }

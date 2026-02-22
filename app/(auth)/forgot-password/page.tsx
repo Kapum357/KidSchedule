@@ -28,6 +28,7 @@
 
 import { redirect } from "next/navigation";
 import { AuthEngine } from "@/lib/auth-engine";
+import { getThemeScriptProps } from "@/lib/theme-config";
 
 /**
  * Server Action: Initiates password reset workflow.
@@ -145,6 +146,7 @@ function SocialSignInInfoBox() {
 function ErrorBanner({ message }: Readonly<{ message: string }>) {
   return (
     <div
+      id="forgot-password-error"
       className="rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 px-4 py-3 flex items-start gap-3"
       role="alert"
     >
@@ -177,9 +179,11 @@ export default async function ForgotPasswordPage({
   };
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased h-screen w-full flex overflow-hidden">
-      {/* Desktop left panel */}
-      <BrandPanel />
+    <>
+      <script {...getThemeScriptProps()} />
+      <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased h-screen w-full flex overflow-hidden">
+        {/* Desktop left panel */}
+        <BrandPanel />
 
       {/* Right panel */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 bg-white dark:bg-background-dark overflow-y-auto">
@@ -229,6 +233,8 @@ export default async function ForgotPasswordPage({
                   placeholder="you@example.com"
                   required
                   type="email"
+                  aria-invalid={error ? "true" : "false"}
+                  aria-describedby={error ? "forgot-password-error" : undefined}
                 />
               </div>
             </div>
@@ -256,6 +262,7 @@ export default async function ForgotPasswordPage({
           <SocialSignInInfoBox />
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

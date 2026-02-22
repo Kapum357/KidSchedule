@@ -7,6 +7,8 @@
  * No Server Actions needed – purely informational.
  */
 
+import { getThemeScriptProps } from "@/lib/theme-config";
+
 export default async function CheckEmailPage({
   searchParams,
 }: Readonly<{
@@ -16,7 +18,9 @@ export default async function CheckEmailPage({
   const email = typeof params.email === "string" ? decodeURIComponent(params.email) : null;
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased h-screen w-full flex overflow-hidden">
+    <>
+      <script {...getThemeScriptProps()} />
+      <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased h-screen w-full flex overflow-hidden">
       {/* Desktop left panel */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden">
         <div
@@ -151,6 +155,7 @@ export default async function CheckEmailPage({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

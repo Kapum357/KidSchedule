@@ -10,6 +10,8 @@
 
 import { createMockInput } from "@/lib/dashboard-aggregator";
 import { CalendarMonthEngine } from "@/lib/calendar-engine";
+import { getThemeScriptProps } from "@/lib/theme-config";
+import { ThemeToggle } from "@/app/theme-toggle";
 import type { CalendarMonthData, CalendarDayState, CustodyColor, TransitionListItem } from "@/lib/calendar-engine";
 
 // ─── Helper: Custody Color to Tailwind ────────────────────────────────────────
@@ -34,8 +36,9 @@ function UpcomingTransitionItem({
     <div
       className={`relative pl-4 border-l-2 ${parentColor === "primary" ? "border-primary" : "border-secondary"}`}
     >
-      <div
-        className="bg-slate-50 dark:bg-slate-800 p-3 rounded-r-lg rounded-bl-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+      <button
+        className="bg-slate-50 dark:bg-slate-800 p-3 rounded-r-lg rounded-bl-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        aria-label={`${parentColor === "primary" ? "Drop-off" : "Pick-up"} ${item.label} at ${item.timeStr}`}
       >
         <div className="flex justify-between items-start mb-1">
           <span
@@ -52,13 +55,13 @@ function UpcomingTransitionItem({
         </p>
         {item.transition.location && (
           <div className="flex items-center gap-1 mt-1 text-xs text-slate-500 dark:text-slate-400">
-            <span className="material-symbols-outlined text-[14px]">
+            <span aria-hidden="true" className="material-symbols-outlined text-[14px]">
               location_on
             </span>
             <span>{item.transition.location}</span>
           </div>
         )}
-      </div>
+      </button>
     </div>
   );
 }
@@ -68,7 +71,7 @@ function PendingRequest() {
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-sm">
       <div className="flex items-center gap-3 mb-2">
         <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full text-amber-600 dark:text-amber-400">
-          <span className="material-symbols-outlined text-lg">
+          <span aria-hidden="true" className="material-symbols-outlined text-lg">
             calendar_clock
           </span>
         </div>
@@ -96,9 +99,9 @@ function PendingRequest() {
 
 function CalendarSidebar({ data }: Readonly<{ data: CalendarMonthData }>) {
   return (
-    <aside className="w-full md:w-80 lg:w-96 flex flex-col gap-6 bg-white dark:bg-slate-900 p-6 border-r border-slate-200 dark:border-slate-800 overflow-y-auto">
+    <nav aria-label="Calendar sidebar" className="w-full md:w-80 lg:w-96 flex flex-col gap-6 bg-white dark:bg-slate-900 p-6 border-r border-slate-200 dark:border-slate-800 overflow-y-auto">
       {/* Main CTA */}
-      <button className="group flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-primary to-blue-600 p-4 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
+      <button aria-label="Open schedule wizard" className="group flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-primary to-blue-600 p-4 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
         <div className="flex flex-col items-start gap-1">
           <span className="text-white font-bold text-lg">Schedule Wizard</span>
           <span className="text-blue-100 text-xs font-medium">
@@ -106,7 +109,7 @@ function CalendarSidebar({ data }: Readonly<{ data: CalendarMonthData }>) {
           </span>
         </div>
         <div className="bg-white/20 rounded-lg p-2 text-white group-hover:bg-white/30 transition-colors">
-          <span className="material-symbols-outlined">magic_button</span>
+          <span aria-hidden="true" className="material-symbols-outlined">magic_button</span>
         </div>
       </button>
 
@@ -116,7 +119,7 @@ function CalendarSidebar({ data }: Readonly<{ data: CalendarMonthData }>) {
           <h3 className="text-slate-900 dark:text-slate-100 font-bold text-sm uppercase tracking-wider text-opacity-80">
             Upcoming Transitions
           </h3>
-          <span className="material-symbols-outlined text-slate-400 text-sm">
+          <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-sm">
             swap_driving_apps_wheel
           </span>
         </div>
@@ -168,7 +171,7 @@ function CalendarSidebar({ data }: Readonly<{ data: CalendarMonthData }>) {
           </div>
         </div>
       </div>
-    </aside>
+    </nav>
   );
 }
 
@@ -213,6 +216,7 @@ function CalendarDayCell({ day, isToday }: Readonly<{ day: CalendarDayState; isT
           {day.events.slice(0, 2).map((evt) => (
             <span
               key={evt.id}
+              aria-hidden="true"
               className={`material-symbols-outlined text-[16px] ${evt.iconColor || "text-slate-400"}`}
               title={evt.title}
             >
@@ -221,6 +225,7 @@ function CalendarDayCell({ day, isToday }: Readonly<{ day: CalendarDayState; isT
           ))}
           {day.hasPendingRequest && (
             <span
+              aria-hidden="true"
               className="material-symbols-outlined text-[16px] text-amber-500"
               title="Pending Request"
             >
@@ -259,7 +264,10 @@ function CalendarGrid({ data }: Readonly<{ data: CalendarMonthData }>) {
   const weekdayHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
-    <div className="flex-1 overflow-auto p-8">
+    <section
+      aria-label="Monthly custody calendar grid"
+      className="flex-1 overflow-auto p-8"
+    >
       <div className="grid grid-cols-7 gap-4 h-full min-h-[600px]">
         {/* Weekday headers */}
         {weekdayHeaders.map((day) => (
@@ -284,7 +292,7 @@ function CalendarGrid({ data }: Readonly<{ data: CalendarMonthData }>) {
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -328,6 +336,7 @@ export default function CalendarPage() {
 
   return (
     <>
+      <script {...getThemeScriptProps()} />
       {/* Top Navigation */}
       <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 sticky top-0 z-50">
         <div className="flex items-center gap-4">
@@ -351,7 +360,7 @@ export default function CalendarPage() {
           </h2>
         </div>
         <div className="flex flex-1 justify-end gap-8">
-          <nav className="hidden md:flex items-center gap-9">
+          <nav aria-label="Primary calendar navigation" className="hidden md:flex items-center gap-9">
             <a
               className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors"
               href="/dashboard"
@@ -366,30 +375,31 @@ export default function CalendarPage() {
             </a>
             <a
               className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors"
-              href="#"
+              href="/expenses"
             >
               Expenses
             </a>
             <a
               className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors"
-              href="#"
+              href="/messages"
             >
               Messages
             </a>
           </nav>
           <div className="flex gap-2">
-            <button className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
+            <button aria-label="View notifications" className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+              <span aria-hidden="true" className="material-symbols-outlined">notifications</span>
             </button>
-            <button className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-              <span className="material-symbols-outlined">settings</span>
+            <button aria-label="Open settings" className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+              <span aria-hidden="true" className="material-symbols-outlined">settings</span>
             </button>
+            <ThemeToggle />
           </div>
         </div>
       </header>
 
       {/* Main layout */}
-      <main className="flex-1 flex flex-col md:flex-row overflow-hidden h-[calc(100vh-65px)]">
+      <main id="main-content" className="flex-1 flex flex-col md:flex-row overflow-hidden h-[calc(100vh-65px)]">
         <CalendarSidebar data={data} />
 
         {/* Main calendar section */}
@@ -401,16 +411,16 @@ export default function CalendarPage() {
                 {monthName}
               </h1>
               <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-                <button className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm transition-all text-slate-600 dark:text-slate-300">
-                  <span className="material-symbols-outlined">chevron_left</span>
+                <button aria-label="Previous month" className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm transition-all text-slate-600 dark:text-slate-300">
+                  <span aria-hidden="true" className="material-symbols-outlined">chevron_left</span>
                 </button>
-                <button className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm transition-all text-slate-600 dark:text-slate-300">
-                  <span className="material-symbols-outlined">
+                <button aria-label="Next month" className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm transition-all text-slate-600 dark:text-slate-300">
+                  <span aria-hidden="true" className="material-symbols-outlined">
                     chevron_right
                   </span>
                 </button>
               </div>
-              <button className="text-sm font-bold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors">
+              <button aria-label="Jump to current date" className="text-sm font-bold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors">
                 Today
               </button>
             </div>
@@ -426,8 +436,8 @@ export default function CalendarPage() {
                   List
                 </button>
               </div>
-              <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white rounded-lg text-sm font-bold hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors">
-                <span className="material-symbols-outlined text-[18px]">
+              <button aria-label="Create new calendar event" className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white rounded-lg text-sm font-bold hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors">
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
                   add
                 </span>
                 New Event

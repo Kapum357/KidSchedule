@@ -11,6 +11,8 @@
  */
 
 import { aggregateDashboard, createMockInput } from "@/lib/dashboard-aggregator";
+import { getThemeScriptProps } from "@/lib/theme-config";
+import { ThemeToggle } from "@/app/theme-toggle";
 import type {
   ActivityItem,
   CalendarEvent,
@@ -127,7 +129,7 @@ function CustodyCard({ custody }: Readonly<{ custody: CustodyStatus }>) {
   return (
     <div className="bg-white dark:bg-[#1A2633] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between relative overflow-hidden group">
       <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-        <span className="material-symbols-outlined text-[96px] text-[#6BCABD]">home</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[96px] text-[#6BCABD]">home</span>
       </div>
       <div className="relative z-10">
         <div className="flex items-center gap-2 text-[#6BCABD] font-semibold text-sm mb-1 uppercase tracking-wider">
@@ -205,7 +207,7 @@ function UpcomingCard({ events, changeRequests }: Readonly<{
                 </p>
                 {isPending && (
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-300 px-2 py-0.5 rounded mt-1">
-                    <span className="material-symbols-outlined text-[12px]">pending</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[12px]">pending</span>
                     Pending Confirmation
                   </span>
                 )}
@@ -228,10 +230,11 @@ function ClimateCard({ climate }: Readonly<{ climate: ConflictClimate }>) {
     <div className="bg-gradient-to-br from-indigo-50 to-white dark:from-[#1E293B] dark:to-[#1A2633] p-6 rounded-xl border border-indigo-100 dark:border-indigo-900/30 shadow-sm flex flex-col relative">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-purple-600">psychology</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-purple-600">psychology</span>
           <h3 className="font-bold text-slate-900 dark:text-white text-lg">Conflict Climate</h3>
         </div>
         <span
+          aria-hidden="true"
           className="cursor-help text-slate-400 hover:text-slate-600 material-symbols-outlined text-lg"
           title={`Based on ${climate.sampleSize} messages in the last 30 days. Private to you.`}
         >
@@ -282,7 +285,7 @@ function ClimateCard({ climate }: Readonly<{ climate: ConflictClimate }>) {
       </div>
       <div className="mt-2 bg-white/60 dark:bg-black/20 p-3 rounded-lg backdrop-blur-sm">
         <div className="flex gap-2">
-          <span className="material-symbols-outlined text-purple-500 text-sm mt-0.5">
+          <span aria-hidden="true" className="material-symbols-outlined text-purple-500 text-sm mt-0.5">
             auto_awesome
           </span>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -321,7 +324,7 @@ function ActivityFeed({ items }: Readonly<{
               <div
                 className={`size-10 rounded-full ${bg} ${text} flex items-center justify-center shrink-0`}
               >
-                <span className="material-symbols-outlined">{icon}</span>
+                <span aria-hidden="true" className="material-symbols-outlined">{icon}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start">
@@ -377,17 +380,19 @@ function SharedMoments({ moments }: Readonly<{ moments: Moment[] }>) {
           Shared Moments
         </h3>
         <button
+          aria-label="Add shared moment"
           className="size-6 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors"
           title="Add Moment"
         >
-          <span className="material-symbols-outlined text-lg">add_a_photo</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-lg">add_a_photo</span>
         </button>
       </div>
       <div className="grid grid-cols-2 gap-2">
         {display.map((moment) => (
-          <div
+          <button
             key={moment.id}
-            className="aspect-square rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden relative group cursor-pointer"
+            className="aspect-square rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            aria-label={`View photo moment from ${moment.createdAt}`}
           >
             <div
               className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
@@ -399,12 +404,15 @@ function SharedMoments({ moments }: Readonly<{ moments: Moment[] }>) {
                 {moment.reactions[0].emoji}
               </div>
             )}
-          </div>
+          </button>
         ))}
-        <div className="aspect-square rounded-lg bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 hover:text-[#6BCABD] hover:border-[#6BCABD]/50 hover:bg-[#6BCABD]/5 transition-all cursor-pointer">
-          <span className="material-symbols-outlined text-2xl mb-1">add</span>
+        <button 
+          className="aspect-square rounded-lg bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 hover:text-[#6BCABD] hover:border-[#6BCABD]/50 hover:bg-[#6BCABD]/5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          aria-label={hasMore ? "View all photo moments" : "Add new photo moment"}
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-2xl mb-1">add</span>
           <span className="text-[10px] font-bold">{hasMore ? "View All" : "New"}</span>
-        </div>
+        </button>
       </div>
       <p className="text-xs text-center text-slate-400 mt-3">Visible to both parents</p>
     </div>
@@ -455,12 +463,12 @@ function Sidebar({
   unreadCount: number;
 }>) {
   return (
-    <aside className="w-72 bg-white dark:bg-[#1A2633] border-r border-slate-200 dark:border-slate-800 flex-col justify-between hidden lg:flex sticky top-0 h-screen z-20">
+    <nav aria-label="Primary dashboard sidebar" className="w-72 bg-white dark:bg-[#1A2633] border-r border-slate-200 dark:border-slate-800 flex-col justify-between hidden lg:flex sticky top-0 h-screen z-20">
       <div className="flex flex-col gap-6 p-6">
         {/* Branding */}
         <div className="flex items-center gap-3">
           <div className="bg-[#6BCABD]/10 flex items-center justify-center rounded-lg size-10 text-[#6BCABD]">
-            <span className="material-symbols-outlined text-2xl">family_restroom</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-2xl">family_restroom</span>
           </div>
           <div className="flex flex-col">
             <h1 className="text-slate-900 dark:text-white text-base font-bold leading-none">
@@ -472,7 +480,7 @@ function Sidebar({
           </div>
         </div>
         {/* Nav */}
-        <nav className="flex flex-col gap-2">
+        <nav aria-label="Dashboard sections" className="flex flex-col gap-2">
           {[
             { href: "/dashboard", icon: "dashboard", label: "Dashboard", active: true, fill: true },
             { href: "/calendar", icon: "calendar_month", label: "Calendar" },
@@ -496,6 +504,7 @@ function Sidebar({
               }`}
             >
               <span
+                aria-hidden="true"
                 className={`material-symbols-outlined ${link.purple ? "text-purple-500" : ""}`}
                 style={link.fill ? { fontVariationSettings: "'FILL' 1" } : undefined}
               >
@@ -517,7 +526,7 @@ function Sidebar({
           href="/settings"
           className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
         >
-          <span className="material-symbols-outlined">settings</span>
+          <span aria-hidden="true" className="material-symbols-outlined">settings</span>
           <span className="text-sm font-medium">Settings</span>
         </a>
         <div className="flex items-center gap-3 px-4 py-3 mt-2">
@@ -539,7 +548,7 @@ function Sidebar({
           </div>
         </div>
       </div>
-    </aside>
+    </nav>
   );
 }
 
@@ -559,7 +568,9 @@ export default function DashboardPage() {
 
 
   return (
-    <div className="relative flex min-h-screen w-full flex-row overflow-hidden">
+    <>
+      <script {...getThemeScriptProps()} />
+      <div className="relative flex min-h-screen w-full flex-row overflow-hidden">
       {/* Sidebar */}
       <Sidebar
         currentParent={data.currentParent}
@@ -567,17 +578,20 @@ export default function DashboardPage() {
       />
 
       {/* Main */}
-      <main className="flex-1 flex flex-col h-screen overflow-y-auto">
+      <main id="main-content" className="flex-1 flex flex-col h-screen overflow-y-auto">
         {/* Mobile header */}
         <header className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-[#1A2633] border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#6BCABD] text-3xl">
+            <span aria-hidden="true" className="material-symbols-outlined text-[#6BCABD] text-3xl">
               family_restroom
             </span>
             <h1 className="font-bold text-lg">KidSchedule</h1>
           </div>
-          <button className="p-2 text-slate-600">
-            <span className="material-symbols-outlined">menu</span>
+          <button 
+            className="p-2.5 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            aria-label="Open menu"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined">menu</span>
           </button>
         </header>
 
@@ -591,17 +605,18 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 bg-[#6BCABD] hover:opacity-90 text-white px-5 py-2.5 rounded-lg shadow-sm font-medium transition-all text-sm">
-              <span className="material-symbols-outlined text-[20px]">add</span>
+            <button aria-label="Open quick actions" className="flex items-center gap-2 bg-[#6BCABD] hover:opacity-90 text-white px-5 py-2.5 rounded-lg shadow-sm font-medium transition-all text-sm">
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">add</span>
               <span>Quick Actions</span>
-              <span className="material-symbols-outlined text-[18px]">expand_more</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">expand_more</span>
             </button>
-            <button className="relative p-2.5 bg-white dark:bg-[#1A2633] text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors">
-              <span className="material-symbols-outlined text-[24px]">notifications</span>
+            <button aria-label="View notifications" className="relative p-2.5 bg-white dark:bg-[#1A2633] text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors">
+              <span aria-hidden="true" className="material-symbols-outlined text-[24px]">notifications</span>
               {data.unreadMessageCount > 0 && (
                 <span className="absolute top-2 right-2.5 size-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#1A2633]" />
               )}
             </button>
+            <ThemeToggle />
           </div>
         </div>
 
@@ -630,6 +645,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </>
   );
 }

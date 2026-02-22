@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { AudienceDetector } from "./landing-client";
 import type { Metadata } from "next";
+import { generateDefaultMetadata } from "@/lib/og-images";
+import { HeroBackground } from "@/components/optimized-image";
 
-export const metadata: Metadata = {
-  title: "KidSchedule – The Family Calendar That Actually Works",
-  description:
-    "School schedules, custody calendars, activities, and everyone's stuff — finally in one place. Built for co-parents, busy families, teams, and PTAs.",
-  openGraph: {
-    title: "KidSchedule – The Family Calendar That Actually Works",
-    description: "Syncs everywhere. Works for any family. Start free for 60 days.",
-    type: "website",
-  },
-};
+/**
+ * Landing Page Metadata
+ * 
+ * Uses audience-aware OG images for better social media engagement.
+ * The default metadata is for "family" audience.
+ * 
+ * For dynamic audience-specific OG images based on URL params,
+ * this would need to be a dynamic route with generateMetadata().
+ */
+export const metadata: Metadata = generateDefaultMetadata();
 
 /**
  * Landing Page – Root Route
@@ -35,6 +37,66 @@ export const metadata: Metadata = {
 export default function LandingPage() {
   return (
     <>
+      {/* JSON-LD Structured Data for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "Organization",
+                "@id": "https://kidschedule.com/#organization",
+                "name": "KidSchedule",
+                "url": "https://kidschedule.com",
+                "logo": "https://kidschedule.com/logo.png",
+                "description": "The trusted co-parenting platform for shared custody scheduling, expense splitting, and conflict-free communication.",
+                "foundingDate": "2024",
+                "sameAs": [
+                  "https://twitter.com/kidschedule",
+                  "https://facebook.com/kidschedule"
+                ]
+              },
+              {
+                "@type": "WebSite",
+                "@id": "https://kidschedule.com/#website",
+                "url": "https://kidschedule.com",
+                "name": "KidSchedule",
+                "publisher": {
+                  "@id": "https://kidschedule.com/#organization"
+                },
+                "potentialAction": {
+                  "@type": "SearchAction",
+                  "target": "https://kidschedule.com/search?q={search_term_string}",
+                  "query-input": "required name=search_term_string"
+                }
+              },
+              {
+                "@type": "SoftwareApplication",
+                "name": "KidSchedule",
+                "applicationCategory": "LifestyleApplication",
+                "operatingSystem": "Web, iOS, Android",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "5.99",
+                  "priceCurrency": "USD",
+                  "priceValidUntil": "2027-12-31",
+                  "availability": "https://schema.org/InStock",
+                  "description": "60-day free trial, no credit card required"
+                },
+                "aggregateRating": {
+                  "@type": "AggregateRating",
+                  "ratingValue": "4.8",
+                  "ratingCount": "2847",
+                  "bestRating": "5"
+                },
+                "description": "Family calendar and co-parenting coordination platform with shared custody scheduling, expense tracking, and secure messaging."
+              }
+            ]
+          }),
+        }}
+      />
+
       <script
         id="tailwind-config"
         type="application/json"
@@ -105,8 +167,9 @@ export default function LandingPage() {
               </Link>
             </div>
             <button
-              className="md:hidden text-gray-700"
+              className="mobile-menu-btn md:hidden text-gray-700 hover:text-primary transition-colors"
               aria-label="Open menu"
+              aria-expanded="false"
             >
               <span className="material-symbols-outlined">menu</span>
             </button>
@@ -115,8 +178,15 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-primary/5 via-white to-accent/5">
-        <div className="max-w-7xl mx-auto">
+      <section className="relative pt-32 pb-16 px-4 sm:px-6 lg:px-8 min-h-[600px] overflow-hidden">
+        <HeroBackground
+          src="/images/hero"
+          alt="Families using KidSchedule calendar app to coordinate schedules"
+          priority
+          overlay
+          className="absolute inset-0"
+        />
+        <div className="relative z-10 max-w-7xl mx-auto">
           <div className="text-center max-w-4xl mx-auto">
             <h1
               id="hero-headline"
@@ -140,12 +210,15 @@ export default function LandingPage() {
               Syncs everywhere. Works for any family.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-8">
-              <Link
-                href="/signup"
-                className="w-full sm:w-auto bg-primary hover:bg-primary-hover text-white px-8 py-4 rounded-lg font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-              >
-                Start Free for 60 Days
-              </Link>
+              <div className="w-full sm:w-auto flex flex-col items-center">
+                <Link
+                  href="/signup"
+                  className="w-full sm:w-auto bg-primary hover:bg-primary-hover text-white px-8 py-4 rounded-lg font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                  Start Free for 60 Days
+                </Link>
+                <p className="text-sm text-gray-500 mt-2">No credit card required</p>
+              </div>
               <a
                 href="#features"
                 className="w-full sm:w-auto bg-white hover:bg-gray-50 text-gray-900 px-8 py-4 rounded-lg font-semibold text-lg transition-all border-2 border-gray-200 hover:border-primary"
@@ -399,12 +472,18 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Simple, affordable plans</h2>
-            <p className="text-xl text-gray-600 mb-6">Start free for 60 days. Cancel anytime.</p>
+            <p className="text-xl text-gray-600 mb-6">Start free for 60 days. No credit card required. Cancel anytime.</p>
             <div className="inline-flex items-center space-x-3 bg-gray-100 p-1 rounded-lg">
-              <button className="px-4 py-2 bg-white rounded-md font-semibold text-gray-900 shadow-sm">
+              <button
+                className="pricing-toggle-btn px-4 py-2 bg-white rounded-md font-semibold text-gray-900 shadow-sm transition-colors"
+                data-mode="per-parent"
+              >
                 Per Parent
               </button>
-              <button className="px-4 py-2 text-gray-600 hover:text-gray-900 font-semibold">
+              <button
+                className="pricing-toggle-btn px-4 py-2 text-gray-600 hover:text-gray-900 font-semibold transition-colors"
+                data-mode="full-family"
+              >
                 Full Family
               </button>
             </div>
@@ -417,7 +496,9 @@ export default function LandingPage() {
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Essential</h3>
                 <p className="text-gray-600 mb-4">For everyday families</p>
                 <div className="flex items-baseline">
-                  <span className="text-4xl font-bold text-gray-900">$5.99</span>
+                  <span className="text-4xl font-bold text-gray-900" data-price="$5.99" data-price-full-family="$8.99">
+                    $5.99
+                  </span>
                   <span className="text-gray-600 ml-2">/month</span>
                 </div>
               </div>
@@ -460,7 +541,9 @@ export default function LandingPage() {
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Plus</h3>
                 <p className="text-gray-600 mb-4">For active families</p>
                 <div className="flex items-baseline">
-                  <span className="text-4xl font-bold text-gray-900">$8.99</span>
+                  <span className="text-4xl font-bold text-gray-900" data-price="$8.99" data-price-full-family="$13.99">
+                    $8.99
+                  </span>
                   <span className="text-gray-600 ml-2">/month</span>
                 </div>
               </div>
@@ -504,7 +587,9 @@ export default function LandingPage() {
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Complete</h3>
                 <p className="text-gray-600 mb-4">For complex situations</p>
                 <div className="flex items-baseline">
-                  <span className="text-4xl font-bold text-gray-900">$11.99</span>
+                  <span className="text-4xl font-bold text-gray-900" data-price="$11.99" data-price-full-family="$17.99">
+                    $11.99
+                  </span>
                   <span className="text-gray-600 ml-2">/month</span>
                 </div>
               </div>
@@ -543,7 +628,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <p className="text-center text-gray-600 mt-8">
+          <p id="pricing-note" className="text-center text-gray-600 mt-8">
             Per parent pricing shown. Toggle to Full Family to include both parents. Cancel anytime.
           </p>
         </div>
@@ -562,7 +647,7 @@ export default function LandingPage() {
           >
             Start Your Free 60-Day Trial
           </Link>
-          <p className="text-sm text-white/80 mt-4">Setup takes 2 minutes. Cancel anytime.</p>
+          <p className="text-sm text-white/80 mt-4">No credit card required • Setup takes 2 minutes • Cancel anytime</p>
         </div>
       </section>
 

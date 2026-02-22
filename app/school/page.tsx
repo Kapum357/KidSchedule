@@ -41,6 +41,8 @@ import {
   createMockVaultDocuments,
   createMockLunchMenus,
 } from "@/lib/pta-engine";
+import { getThemeScriptProps } from "@/lib/theme-config";
+import { ThemeToggle } from "@/app/theme-toggle";
 
 // ─── Module-level constants (avoid Date.now() inside render) ──────────────────
 
@@ -116,7 +118,7 @@ function EventCard({
           {engine.formatEventDateBadge(event)}
         </span>
         {event.icon && (
-          <span className={`material-symbols-outlined text-lg ${iconCls}`}>
+          <span aria-hidden="true" className={`material-symbols-outlined text-lg ${iconCls}`}>
             {event.icon}
           </span>
         )}
@@ -163,7 +165,7 @@ function VolunteerTaskRow({
     <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
       <div className="flex items-center gap-3">
         <div className={`p-2 rounded shadow-sm ${iconCls}`}>
-          <span className="material-symbols-outlined text-xl">
+          <span aria-hidden="true" className="material-symbols-outlined text-xl">
             {task.icon ?? "volunteer_activism"}
           </span>
         </div>
@@ -205,7 +207,7 @@ function VolunteerTaskRow({
               </span>
             </div>
             {isAssignedToCurrentUser && (
-              <span className="material-symbols-outlined text-green-500 text-lg">
+              <span aria-hidden="true" className="material-symbols-outlined text-green-500 text-lg">
                 check_circle
               </span>
             )}
@@ -247,7 +249,7 @@ function ContactCard({ contact }: Readonly<{ contact: SchoolContact }>) {
               className="text-xs text-primary hover:underline flex items-center gap-1"
               href={`mailto:${contact.email}`}
             >
-              <span className="material-symbols-outlined text-xs">mail</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-xs">mail</span>
               Email
             </a>
           )}
@@ -256,7 +258,7 @@ function ContactCard({ contact }: Readonly<{ contact: SchoolContact }>) {
               className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
               href={`tel:${contact.phone}`}
             >
-              <span className="material-symbols-outlined text-xs">call</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-xs">call</span>
               Call
             </a>
           )}
@@ -288,7 +290,7 @@ function VaultDocumentRow({
   return (
     <div className="group flex items-center p-3 bg-white dark:bg-[#101922] rounded-lg border border-slate-100 dark:border-slate-800 hover:border-primary/30 shadow-sm transition-all cursor-pointer">
       <div className={`p-2 rounded mr-3 ${iconCls}`}>
-        <span className="material-symbols-outlined text-xl">
+        <span aria-hidden="true" className="material-symbols-outlined text-xl">
           {engine.getDocumentIcon(doc.fileType)}
         </span>
       </div>
@@ -303,7 +305,7 @@ function VaultDocumentRow({
       {isPending ? (
         <span className="size-2 rounded-full bg-orange-400 animate-pulse" />
       ) : (
-        <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">
+        <span aria-hidden="true" className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">
           download
         </span>
       )}
@@ -365,7 +367,7 @@ function LunchWidget({
       </h3>
       <div className="flex items-center gap-4">
         <div className="size-12 bg-orange-100 rounded-lg flex items-center justify-center text-orange-500">
-          <span className="material-symbols-outlined text-2xl">restaurant</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-2xl">restaurant</span>
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -448,14 +450,16 @@ export default function SchoolPortalPage() {
   const pendingCount = engine.getPendingActionCount(allEvents, allDocs, NOW);
 
   return (
-    <div className="relative flex min-h-screen w-full flex-row overflow-hidden">
-      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
-      <aside className="w-72 bg-white dark:bg-[#1A2633] border-r border-slate-200 dark:border-slate-800 flex-col justify-between hidden lg:flex sticky top-0 h-screen z-20">
+    <>
+      <script {...getThemeScriptProps()} />
+      <div className="relative flex min-h-screen w-full flex-row overflow-hidden">
+        {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
+        <nav aria-label="Primary school sidebar" className="w-72 bg-white dark:bg-[#1A2633] border-r border-slate-200 dark:border-slate-800 flex-col justify-between hidden lg:flex sticky top-0 h-screen z-20">
         <div className="flex flex-col gap-6 p-6">
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="bg-primary/10 flex items-center justify-center rounded-lg size-10 text-primary">
-              <span className="material-symbols-outlined text-2xl">school</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-2xl">school</span>
             </div>
             <div className="flex flex-col">
               <h1 className="text-slate-900 dark:text-white text-base font-bold leading-none">
@@ -468,7 +472,7 @@ export default function SchoolPortalPage() {
           </div>
 
           {/* Nav */}
-          <nav className="flex flex-col gap-2">
+          <nav aria-label="School portal sections" className="flex flex-col gap-2">
             {[
               { icon: "dashboard", label: "Dashboard", href: "/dashboard" },
               { icon: "school", label: "School Portal", href: "/school", active: true },
@@ -486,6 +490,7 @@ export default function SchoolPortalPage() {
                 href={item.href}
               >
                 <span
+                  aria-hidden="true"
                   className="material-symbols-outlined"
                   style={item.active ? { fontVariationSettings: "'FILL' 1" } : undefined}
                 >
@@ -502,7 +507,7 @@ export default function SchoolPortalPage() {
               className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
               href="/messages"
             >
-              <span className="material-symbols-outlined">chat_bubble</span>
+              <span aria-hidden="true" className="material-symbols-outlined">chat_bubble</span>
               <span className="text-sm font-medium">Messages</span>
               <span className="ml-auto bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 text-xs font-bold px-2 py-0.5 rounded-full">
                 1
@@ -517,7 +522,7 @@ export default function SchoolPortalPage() {
             className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
             href="/settings"
           >
-            <span className="material-symbols-outlined">settings</span>
+            <span aria-hidden="true" className="material-symbols-outlined">settings</span>
             <span className="text-sm font-medium">Settings</span>
           </a>
           <div className="flex items-center gap-3 px-4 py-3 mt-2">
@@ -534,18 +539,21 @@ export default function SchoolPortalPage() {
             </div>
           </div>
         </div>
-      </aside>
+      </nav>
 
       {/* ── Main content ─────────────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col h-screen overflow-y-auto">
+      <main id="main-content" className="flex-1 flex flex-col h-screen overflow-y-auto">
         {/* Mobile header */}
         <header className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-[#1A2633] border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary text-3xl">school</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-primary text-3xl">school</span>
             <h1 className="font-bold text-lg">KidSchedule</h1>
           </div>
-          <button className="p-2 text-slate-600" aria-label="Open menu">
-            <span className="material-symbols-outlined">menu</span>
+          <button 
+            className="p-2.5 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" 
+            aria-label="Open menu"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined">menu</span>
           </button>
         </header>
 
@@ -560,8 +568,8 @@ export default function SchoolPortalPage() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-lg shadow-sm font-medium transition-all text-sm group">
-              <span className="material-symbols-outlined text-[20px] group-hover:rotate-180 transition-transform duration-500">
+            <button aria-label="Sync school calendar" className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-lg shadow-sm font-medium transition-all text-sm group">
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px] group-hover:rotate-180 transition-transform duration-500">
                 sync
               </span>
               <span>Sync School Calendar</span>
@@ -570,11 +578,12 @@ export default function SchoolPortalPage() {
               className="relative p-2.5 bg-white dark:bg-[#1A2633] text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors"
               aria-label={`${pendingCount} pending notifications`}
             >
-              <span className="material-symbols-outlined text-[24px]">notifications</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[24px]">notifications</span>
               {pendingCount > 0 && (
                 <span className="absolute top-2 right-2.5 size-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#1A2633]" />
               )}
             </button>
+            <ThemeToggle />
           </div>
         </div>
 
@@ -588,7 +597,7 @@ export default function SchoolPortalPage() {
           >
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">event_note</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-primary">event_note</span>
                 <h3 className="font-bold text-slate-900 dark:text-white text-lg">
                   Upcoming School Events
                 </h3>
@@ -598,7 +607,7 @@ export default function SchoolPortalPage() {
                   aria-label="Previous month"
                   className="text-slate-500 hover:text-primary transition-colors"
                 >
-                  <span className="material-symbols-outlined text-base">chevron_left</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-base">chevron_left</span>
                 </button>
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                   {NOW.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
@@ -607,7 +616,7 @@ export default function SchoolPortalPage() {
                   aria-label="Next month"
                   className="text-slate-500 hover:text-primary transition-colors"
                 >
-                  <span className="material-symbols-outlined text-base">chevron_right</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-base">chevron_right</span>
                 </button>
               </div>
             </div>
@@ -629,8 +638,8 @@ export default function SchoolPortalPage() {
                   <h3 className="font-bold text-slate-900 dark:text-white text-lg">
                     Volunteering Sync
                   </h3>
-                  <button className="text-sm text-primary font-medium hover:underline flex items-center gap-1 transition-colors">
-                    <span className="material-symbols-outlined text-base">add_circle</span>
+                  <button className="text-sm text-primary font-medium hover:underline flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded">
+                    <span aria-hidden="true" className="material-symbols-outlined text-base">add_circle</span>{" "}
                     Add Task
                   </button>
                 </div>
@@ -658,7 +667,7 @@ export default function SchoolPortalPage() {
                   {/* Search is a UI affordance; wiring requires Client Component */}
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-slate-400">
-                      <span className="material-symbols-outlined text-lg">search</span>
+                      <span aria-hidden="true" className="material-symbols-outlined text-lg">search</span>
                     </span>
                     <input
                       aria-label="Search school contacts"
@@ -685,13 +694,16 @@ export default function SchoolPortalPage() {
               <div className="bg-gradient-to-br from-primary-light/50 to-white dark:from-primary/10 dark:to-[#1A2633] p-6 rounded-xl border border-primary-light dark:border-primary/20 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary">folder_open</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-primary">folder_open</span>
                     <h3 className="font-bold text-slate-900 dark:text-white text-lg">
                       School Vault
                     </h3>
                   </div>
-                  <button className="bg-white dark:bg-slate-800 p-1.5 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 text-slate-600 hover:text-primary transition-colors">
-                    <span className="material-symbols-outlined text-lg">upload</span>
+                  <button 
+                    className="bg-white dark:bg-slate-800 p-2.5 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 text-slate-600 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    aria-label="Upload document"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-lg">upload</span>
                   </button>
                 </div>
 
@@ -718,6 +730,7 @@ export default function SchoolPortalPage() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </>
   );
 }

@@ -45,6 +45,54 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=optional"
         />
         
+        {/* Preload hero background for LCP optimization - responsive by viewport */}
+        {/* Mobile: 640w or 1024w */}
+        <link
+          rel="preload"
+          as="image"
+          href="/images/hero-640w.webp"
+          type="image/webp"
+          media="(max-width: 640px)"
+        />
+        <link
+          rel="preload"
+          as="image"
+          href="/images/hero-1024w.webp"
+          type="image/webp"
+          media="(min-width: 641px) and (max-width: 1024px)"
+        />
+        {/* Desktop: 1920w */}
+        <link
+          rel="preload"
+          as="image"
+          href="/images/hero-1920w.webp"
+          type="image/webp"
+          media="(min-width: 1025px) and (max-width: 1920px)"
+        />
+        {/* Large displays: 2560w */}
+        <link
+          rel="preload"
+          as="image"
+          href="/images/hero-2560w.webp"
+          type="image/webp"
+          media="(min-width: 1921px)"
+        />
+        {/* JPG fallbacks for browsers without WebP */}
+        <link
+          rel="preload"
+          as="image"
+          href="/images/hero-640w.jpg"
+          type="image/jpeg"
+          media="(max-width: 640px)"
+        />
+        <link
+          rel="preload"
+          as="image"
+          href="/images/hero-1920w.jpg"
+          type="image/jpeg"
+          media="(min-width: 1025px)"
+        />
+        
         {/* Primary font: Nunito Sans (headings + body) with Inter fallback */}
         <link
           rel="stylesheet"

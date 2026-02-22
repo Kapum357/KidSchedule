@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "optimize:images": "node scripts/optimize-images.mjs --all",
+    "optimize:og": "node scripts/optimize-images.mjs --og",
+    "optimize:hero": "node scripts/optimize-images.mjs --hero",
+    "optimize:testimonials": "node scripts/optimize-images.mjs --testimonials"
   },
   "dependencies": {
     "next": "16.1.6",
@@ -20,6 +24,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "sharp": "^0.33.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

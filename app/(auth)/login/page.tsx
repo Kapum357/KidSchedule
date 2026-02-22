@@ -21,6 +21,7 @@
 
 import { redirect } from "next/navigation";
 import { AuthEngine, lookupMockUser } from "@/lib/auth-engine";
+import { getThemeScriptProps } from "@/lib/theme-config";
 import type { AuthResult } from "@/types";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
@@ -125,6 +126,7 @@ function ErrorBanner({ message, lockedUntil }: Readonly<{ message: string; locke
 
   return (
     <div
+      id="login-error"
       className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3"
       role="alert"
     >
@@ -225,6 +227,8 @@ function LoginForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
               placeholder="parent@example.com"
               required
               type="email"
+              aria-invalid={hasError && authResult?.error === "invalid_credentials" ? "true" : "false"}
+              aria-describedby={hasError ? "login-error" : undefined}
             />
           </div>
         </div>
@@ -247,6 +251,8 @@ function LoginForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
               placeholder="••••••••"
               required
               type="password"
+              aria-invalid={hasError && authResult?.error === "invalid_credentials" ? "true" : "false"}
+              aria-describedby={hasError ? "login-error" : undefined}
             />
           </div>
         </div>
@@ -321,9 +327,11 @@ export default async function LoginPage() {
   const authResult: AuthResult | undefined = undefined;
 
   return (
-    <div className="bg-background-light text-slate-900 antialiased h-screen w-full flex overflow-hidden">
-      {/* Left branded panel */}
-      <BrandPanel />
+    <>
+      <script {...getThemeScriptProps()} />
+      <div className="bg-background-light text-slate-900 antialiased h-screen w-full flex overflow-hidden">
+        {/* Left branded panel */}
+        <BrandPanel />
 
       {/* Right form panel */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 bg-white overflow-y-auto">
@@ -366,6 +374,7 @@ export default async function LoginPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

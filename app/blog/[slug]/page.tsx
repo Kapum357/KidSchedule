@@ -18,6 +18,7 @@
 import type { BlogPost } from "@/types";
 import { BlogArticleEngine, createMockReadingSession, createMockReadingSessions } from "@/lib/blog-article-engine";
 import { createMockBlogPosts } from "@/lib/blog-engine";
+import { getThemeScriptProps } from "@/lib/theme-config";
 import Link from "next/link";
 
 // ─── Mock Data (outside component to avoid re-renders) ──────────────────────────
@@ -328,9 +329,11 @@ export default function BlogArticlePage() {
   const progressPercent = engine.calculateProgressPercentage(currentSession, article.estimatedReadTime);
 
   return (
-    <div className="bg-white text-slate-900 antialiased selection:bg-primary/20">
-      {/* Reading Progress Bar */}
-      <div className="fixed top-0 left-0 w-full h-1 bg-slate-100 z-50">
+    <>
+      <script {...getThemeScriptProps()} />
+      <div className="bg-white text-slate-900 antialiased selection:bg-primary/20">
+        {/* Reading Progress Bar */}
+        <div className="fixed top-0 left-0 w-full h-1 bg-slate-100 z-50">
         <div
           className="h-full bg-primary transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
@@ -394,7 +397,7 @@ export default function BlogArticlePage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          <main className="lg:col-span-8">
+          <main id="main-content" className="lg:col-span-8">
             {/* Article Header */}
             <header className="mb-10">
               <div className="flex items-center gap-3 text-sm font-medium mb-5">
@@ -613,6 +616,7 @@ export default function BlogArticlePage() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }
