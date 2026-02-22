@@ -1,19 +1,7 @@
 import Link from "next/link";
 import { AudienceDetector } from "./landing-client";
 import type { Metadata } from "next";
-import { generateDefaultMetadata } from "@/lib/og-images";
-import { HeroBackground } from "@/components/optimized-image";
-
-/**
- * Landing Page Metadata
- * 
- * Uses audience-aware OG images for better social media engagement.
- * The default metadata is for "family" audience.
- * 
- * For dynamic audience-specific OG images based on URL params,
- * this would need to be a dynamic route with generateMetadata().
- */
-export const metadata: Metadata = generateDefaultMetadata();
+import { generateSizes } from "@/lib/image-optimization";
 
 /**
  * Landing Page – Root Route
@@ -35,6 +23,13 @@ export const metadata: Metadata = generateDefaultMetadata();
  * - localStorage persistence across visits
  */
 export default function LandingPage() {
+  const heroSizes = generateSizes({
+    "(max-width: 640px)": "100vw",
+    "(max-width: 1024px)": "100vw",
+    "(max-width: 1920px)": "100vw",
+    default: "2560px",
+  });
+
   return (
     <>
       {/* JSON-LD Structured Data for SEO */}
@@ -179,13 +174,28 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-16 px-4 sm:px-6 lg:px-8 min-h-[600px] overflow-hidden">
-        <HeroBackground
-          src="/images/hero"
-          alt="Families using KidSchedule calendar app to coordinate schedules"
-          priority
-          overlay
-          className="absolute inset-0"
-        />
+        <picture className="absolute inset-0 block">
+          <source
+            type="image/webp"
+            srcSet="/images/hero-640w.webp 640w, /images/hero-1024w.webp 1024w, /images/hero-1920w.webp 1920w, /images/hero-2560w.webp 2560w"
+            sizes={heroSizes}
+          />
+          <source
+            type="image/jpeg"
+            srcSet="/images/hero-640w.jpg 640w, /images/hero-1024w.jpg 1024w, /images/hero-1920w.jpg 1920w, /images/hero-2560w.jpg 2560w"
+            sizes={heroSizes}
+          />
+          <img
+            src="/images/hero-1920w.jpg"
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full object-cover"
+            loading="eager"
+            decoding="sync"
+            fetchPriority="high"
+          />
+        </picture>
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-white/60 to-accent/10" />
         <div className="relative z-10 max-w-7xl mx-auto">
           <div className="text-center max-w-4xl mx-auto">
             <h1
