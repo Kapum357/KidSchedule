@@ -22,7 +22,6 @@ import type {
   DbBlogPost,
   DbSchoolEvent,
   DbVolunteerTask,
-  AuditAction,
 } from "./types";
 import type {
   UnitOfWork,

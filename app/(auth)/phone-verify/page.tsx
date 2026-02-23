@@ -29,7 +29,7 @@
  */
 
 import { redirect } from "next/navigation";
-import { verifyPhoneOTP, requestPhoneVerification } from "@/lib/auth";
+import { verifyPhoneOTP } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
@@ -84,30 +84,31 @@ async function handleVerifyOTP(formData: FormData): Promise<void> {
 
 // ─── Server Action: Resend OTP ────────────────────────────────────────────────
 
-/**
- * Handles "Resend Code" button clicks.
- * Generates a new OTP and sends via SMS.
- */
-async function handleResendOTP(formData: FormData): Promise<void> {
-  "use server";
-  
-  const phone = (formData.get("phone") as string | null)?.trim() ?? "";
-  
-  // Get current user from session
-  const user = await getCurrentUser();
-  if (!user) {
-    redirect("/login");
-  }
-
-  const result = await requestPhoneVerification(user.userId, phone);
-
-  if (!result.success) {
-    redirect("/phone-verify?error=resend_failed&message=Failed to resend code");
-  }
-  
-  // Redirect back to verification page
-  redirect("/phone-verify?resent=true");
-}
+// In production:
+// /**
+//  * Handles "Resend Code" button clicks.
+//  * Generates a new OTP and sends via SMS.
+//  */
+// async function handleResendOTP(formData: FormData): Promise<void> {
+//   "use server";
+//   
+//   const phone = (formData.get("phone") as string | null)?.trim() ?? "";
+//   
+//   // Get current user from session
+//   const user = await getCurrentUser();
+//   if (!user) {
+//     redirect("/login");
+//   }
+//
+//   const result = await requestPhoneVerification(user.userId, phone);
+//
+//   if (!result.success) {
+//     redirect("/phone-verify?error=resend_failed&message=Failed to resend code");
+//   }
+//   
+//   // Redirect back to verification page
+//   redirect("/phone-verify?resent=true");
+// }
 
 // ─── Progress Stepper Component ────────────────────────────────────────────────
 

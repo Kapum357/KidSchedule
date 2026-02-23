@@ -15,10 +15,6 @@
 
 // ─── CSP Directives ───────────────────────────────────────────────────────────
 
-const APP_DOMAIN = process.env.APP_URL
-  ? new URL(process.env.APP_URL).hostname
-  : "v1.kidschedule.com";
-
 /**
  * Content Security Policy directives.
  * 
