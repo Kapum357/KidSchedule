@@ -10,6 +10,8 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
+const isDevelopment = process.env.NODE_ENV === "development";
+
 // ─── Configuration ────────────────────────────────────────────────────────────
 
 /** Routes that don't require authentication */
@@ -92,7 +94,50 @@ function isJWTExpired(payload: JWTPayload): boolean {
 /**
  * Apply security headers to response.
  */
-function applySecurityHeaders(response: NextResponse): void {
+function generateNonce(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCodePoint(byte);
+  }
+  return btoa(binary);
+}
+
+function buildCSP(nonce: string): string {
+  const directives = [
+    "default-src 'self'",
+    [
+      "script-src",
+      "'self'",
+      `'nonce-${nonce}'`,
+      ...(isDevelopment ? ["'unsafe-eval'"] : []),
+      "https://accounts.google.com",
+      "https://apis.google.com",
+      "https://appleid.cdn-apple.com",
+    ].join(" "),
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    [
+      "connect-src",
+      "'self'",
+      ...(isDevelopment
+        ? ["ws://localhost:*", "http://localhost:*", "ws://127.0.0.1:*", "http://127.0.0.1:*"]
+        : []),
+      "https://accounts.google.com",
+      "https://appleid.apple.com",
+    ].join(" "),
+    "frame-src https://accounts.google.com https://appleid.apple.com",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "base-uri 'self'",
+  ];
+
+  return directives.join("; ");
+}
+
+function applySecurityHeaders(response: NextResponse, nonce: string): void {
   // Prevent MIME type sniffing
   response.headers.set("X-Content-Type-Options", "nosniff");
   
@@ -110,6 +155,19 @@ function applySecurityHeaders(response: NextResponse): void {
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=(), interest-cohort=()"
   );
+
+  // CSP with per-request nonce (required for Next.js inline hydration/runtime scripts)
+  response.headers.set("Content-Security-Policy", buildCSP(nonce));
+}
+
+function createNextResponseWithNonce(request: NextRequest, nonce: string): NextResponse {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 }
 
 // ─── Route Matching ───────────────────────────────────────────────────────────
@@ -134,6 +192,7 @@ function isAuthRoute(pathname: string): boolean {
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
+  const nonce = generateNonce();
   
   // Get tokens from cookies
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
@@ -148,12 +207,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     // Redirect authenticated users away from auth routes
     if (isAuthRoute(pathname) && isAccessValid) {
       const dashboardUrl = new URL("/dashboard", request.url);
-      return NextResponse.redirect(dashboardUrl);
+      const response = NextResponse.redirect(dashboardUrl);
+      applySecurityHeaders(response, nonce);
+      return response;
     }
     
     // Allow access to public route
-    const response = NextResponse.next();
-    applySecurityHeaders(response);
+    const response = createNextResponseWithNonce(request, nonce);
+    applySecurityHeaders(response, nonce);
     return response;
   }
   
@@ -161,8 +222,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   
   // Valid access token – allow access
   if (isAccessValid && accessPayload) {
-    const response = NextResponse.next();
-    applySecurityHeaders(response);
+    const response = createNextResponseWithNonce(request, nonce);
+    applySecurityHeaders(response, nonce);
     
     // Add user context to headers for server components
     response.headers.set("x-user-id", accessPayload.sub);
@@ -215,7 +276,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
   
   const response = NextResponse.redirect(loginUrl);
-  applySecurityHeaders(response);
+  applySecurityHeaders(response, nonce);
   
   // Clear invalid cookies
   response.cookies.delete(ACCESS_TOKEN_COOKIE);
