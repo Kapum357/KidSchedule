@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+// Nonce-based CSP requires dynamic rendering so each request can receive
+// a fresh nonce and Next.js can attach it to internal inline scripts.
+export const dynamic = "force-dynamic";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
