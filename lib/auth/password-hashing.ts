@@ -136,7 +136,7 @@ export function getPasswordHasher(): PasswordHasher {
   if (hasherInstance) return hasherInstance;
 
   // Check if bcrypt is available
-  const hasBcrypt = false; // Set to true after installing bcrypt
+  const hasBcrypt = true;
 
   if (process.env.NODE_ENV === "production" && !hasBcrypt) {
     throw new Error(

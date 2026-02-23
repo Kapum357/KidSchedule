@@ -156,6 +156,14 @@ function applySecurityHeaders(response: NextResponse, nonce: string): void {
     "camera=(), microphone=(), geolocation=(), interest-cohort=()"
   );
 
+  // HSTS (Strict Transport Security) – only in production
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains; preload"
+    );
+  }
+
   // CSP with per-request nonce (required for Next.js inline hydration/runtime scripts)
   response.headers.set("Content-Security-Policy", buildCSP(nonce));
 }

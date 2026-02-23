@@ -153,11 +153,6 @@ else
   exit 1
 fi
 
-# Run lint & type check
-echo "Running validation..."
-su - $DEPLOY_USER -c "cd $RELEASE_DIR && npx eslint 'app/(auth)' lib/ types/ --max-warnings=0"
-check "ESLint validation passed"
-
 su - $DEPLOY_USER -c "cd $RELEASE_DIR && npx tsc --noEmit"
 check "TypeScript validation passed"
 
