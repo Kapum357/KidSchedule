@@ -18,7 +18,6 @@
 import type { BlogPost } from "@/types";
 import { BlogArticleEngine, createMockReadingSession, createMockReadingSessions } from "@/lib/blog-article-engine";
 import { createMockBlogPosts } from "@/lib/blog-engine";
-import { getThemeScriptProps } from "@/lib/theme-config";
 import Link from "next/link";
 import { OptimizedImage } from "@/components/optimized-image";
 import { ArticleContent, ARTICLE_CONTENT_CLASSNAMES } from "@/components/article-content";
@@ -338,7 +337,6 @@ export default function BlogArticlePage() {
 
   return (
     <>
-      <script {...getThemeScriptProps()} />
       <div className="bg-white text-slate-900 antialiased selection:bg-primary/20">
         {/* Reading Progress Bar */}
         <div className="fixed top-0 left-0 w-full h-1 bg-slate-100 z-50">

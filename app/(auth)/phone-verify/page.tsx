@@ -31,7 +31,6 @@
 import { redirect } from "next/navigation";
 import { verifyPhoneOTP, requestPhoneVerification } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
-import { getThemeScriptProps } from "@/lib/theme-config";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
 
@@ -285,7 +284,6 @@ export default async function PhoneVerifyPage() {
 
   return (
     <>
-      <script {...getThemeScriptProps()} />
       <div className="flex flex-col min-h-screen bg-white dark:bg-background-dark">
         {/* Header */}
         <Header />

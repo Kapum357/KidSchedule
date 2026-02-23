@@ -19,7 +19,6 @@
 
 import { redirect } from "next/navigation";
 import { login } from "@/lib/auth";
-import { getThemeScriptProps } from "@/lib/theme-config";
 import type { AuthResult } from "@/types";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
@@ -335,7 +334,6 @@ export default async function LoginPage({ searchParams }: Readonly<PageProps>) {
 
   return (
     <>
-      <script {...getThemeScriptProps()} />
       <div className="bg-background-light text-slate-900 antialiased h-screen w-full flex overflow-hidden">
         {/* Left branded panel */}
         <BrandPanel />

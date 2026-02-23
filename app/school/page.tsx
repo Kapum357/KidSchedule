@@ -41,7 +41,6 @@ import {
   createMockVaultDocuments,
   createMockLunchMenus,
 } from "@/lib/pta-engine";
-import { getThemeScriptProps } from "@/lib/theme-config";
 import { ThemeToggle } from "@/app/theme-toggle";
 
 // ─── Module-level constants (avoid Date.now() inside render) ──────────────────
@@ -460,7 +459,6 @@ export default async function SchoolPortalPage({
 
   return (
     <>
-      <script {...getThemeScriptProps()} />
       <div className="relative flex min-h-screen w-full flex-row overflow-hidden">
         {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
         <nav aria-label="Primary school sidebar" className="w-72 bg-white dark:bg-[#1A2633] border-r border-slate-200 dark:border-slate-800 flex-col justify-between hidden lg:flex sticky top-0 h-screen z-20">

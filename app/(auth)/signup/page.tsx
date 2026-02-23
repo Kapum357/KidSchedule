@@ -23,7 +23,6 @@
 
 import { redirect } from "next/navigation";
 import { register } from "@/lib/auth";
-import { getThemeScriptProps } from "@/lib/theme-config";
 import type { AuthResult } from "@/types";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
@@ -346,7 +345,6 @@ export default async function SignupPage() {
 
   return (
     <>
-      <script {...getThemeScriptProps()} />
       <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased h-screen w-full flex overflow-hidden">
         {/* Left branded panel */}
         <BrandPanel />

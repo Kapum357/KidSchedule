@@ -13,7 +13,6 @@
 
 import { Suspense } from "react";
 import { BlogEngine, createMockBlogPosts } from "@/lib/blog-engine";
-import { getThemeScriptProps } from "@/lib/theme-config";
 import type { BlogCategory, BlogPost } from "@/types";
 import { PaginationControls } from "./pagination-controls";
 import { OptimizedImage } from "@/components/optimized-image";
@@ -271,9 +270,7 @@ export default function BlogPage() {
   });
 
   return (
-    <>
-      <script {...getThemeScriptProps()} />
-      <div className="w-full min-h-screen bg-background-light">
+    <div className="w-full min-h-screen bg-background-light">
         {/* Header */}
         <header className="w-full bg-white border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -401,6 +398,5 @@ export default function BlogPage() {
         </div>
       </footer>
       </div>
-    </>
   );
 }

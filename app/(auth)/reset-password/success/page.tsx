@@ -5,12 +5,10 @@
  * Informs user that their password has been changed and prompts them to log in.
  */
 
-import { getThemeScriptProps } from "@/lib/theme-config";
 
 export default async function ResetSuccessPage() {
   return (
     <>
-      <script {...getThemeScriptProps()} />
       <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased h-screen w-full flex overflow-hidden">
       {/* Desktop left panel */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden">

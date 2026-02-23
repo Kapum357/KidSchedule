@@ -11,7 +11,6 @@
  */
 
 import { aggregateDashboard, createMockInput } from "@/lib/dashboard-aggregator";
-import { getThemeScriptProps } from "@/lib/theme-config";
 import { ThemeToggle } from "@/app/theme-toggle";
 import type {
   ActivityItem,
@@ -568,9 +567,7 @@ export default function DashboardPage() {
 
 
   return (
-    <>
-      <script {...getThemeScriptProps()} />
-      <div className="relative flex min-h-screen w-full flex-row overflow-hidden">
+    <div className="relative flex min-h-screen w-full flex-row overflow-hidden">
       {/* Sidebar */}
       <Sidebar
         currentParent={data.currentParent}
@@ -645,7 +642,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
-      </div>
-    </>
+    </div>
   );
 }

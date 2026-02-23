@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AudienceDetector } from "./landing-client";
-import type { Metadata } from "next";
 import { generateSizes } from "@/lib/image-optimization";
 
 /**
@@ -32,91 +31,6 @@ export default function LandingPage() {
 
   return (
     <>
-      {/* JSON-LD Structured Data for SEO */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@graph": [
-              {
-                "@type": "Organization",
-                "@id": "https://kidschedule.com/#organization",
-                "name": "KidSchedule",
-                "url": "https://kidschedule.com",
-                "logo": "https://kidschedule.com/logo.png",
-                "description": "The trusted co-parenting platform for shared custody scheduling, expense splitting, and conflict-free communication.",
-                "foundingDate": "2024",
-                "sameAs": [
-                  "https://twitter.com/kidschedule",
-                  "https://facebook.com/kidschedule"
-                ]
-              },
-              {
-                "@type": "WebSite",
-                "@id": "https://kidschedule.com/#website",
-                "url": "https://kidschedule.com",
-                "name": "KidSchedule",
-                "publisher": {
-                  "@id": "https://kidschedule.com/#organization"
-                },
-                "potentialAction": {
-                  "@type": "SearchAction",
-                  "target": "https://kidschedule.com/search?q={search_term_string}",
-                  "query-input": "required name=search_term_string"
-                }
-              },
-              {
-                "@type": "SoftwareApplication",
-                "name": "KidSchedule",
-                "applicationCategory": "LifestyleApplication",
-                "operatingSystem": "Web, iOS, Android",
-                "offers": {
-                  "@type": "Offer",
-                  "price": "5.99",
-                  "priceCurrency": "USD",
-                  "priceValidUntil": "2027-12-31",
-                  "availability": "https://schema.org/InStock",
-                  "description": "60-day free trial, no credit card required"
-                },
-                "aggregateRating": {
-                  "@type": "AggregateRating",
-                  "ratingValue": "4.8",
-                  "ratingCount": "2847",
-                  "bestRating": "5"
-                },
-                "description": "Family calendar and co-parenting coordination platform with shared custody scheduling, expense tracking, and secure messaging."
-              }
-            ]
-          }),
-        }}
-      />
-
-      <script
-        id="tailwind-config"
-        type="application/json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            theme: {
-              extend: {
-                colors: {
-                  primary: "#6BCABD",
-                  "primary-hover": "#5ab5a8",
-                  "primary-dark": "#4a9d91",
-                  "surface-dark": "#1c2b2a",
-                  "surface-darker": "#12191a",
-                  accent: "#FFA726",
-                  "accent-hover": "#FB8C00",
-                },
-                fontFamily: {
-                  sans: ["Nunito Sans", "system-ui", "sans-serif"],
-                },
-              },
-            },
-          }),
-        }}
-      />
-
       <AudienceDetector />
 
       {/* Navigation */}

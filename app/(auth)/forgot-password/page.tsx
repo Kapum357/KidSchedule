@@ -20,7 +20,6 @@
 
 import { redirect } from "next/navigation";
 import { requestPasswordReset } from "@/lib/auth";
-import { getThemeScriptProps } from "@/lib/theme-config";
 
 /**
  * Server Action: Initiates password reset workflow.
@@ -150,7 +149,6 @@ export default async function ForgotPasswordPage({
 
   return (
     <>
-      <script {...getThemeScriptProps()} />
       <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased h-screen w-full flex overflow-hidden">
         {/* Desktop left panel */}
         <BrandPanel />

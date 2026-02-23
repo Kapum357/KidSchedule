@@ -11,7 +11,6 @@
 import { createMockInput } from "@/lib/dashboard-aggregator";
 import { CalendarMonthEngine } from "@/lib/calendar-engine";
 import { SettingsEngine } from "@/lib/settings-engine";
-import { getThemeScriptProps } from "@/lib/theme-config";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { redirect } from "next/navigation";
 import type { CalendarMonthData, CalendarDayState, CustodyColor, TransitionListItem } from "@/lib/calendar-engine";
@@ -367,7 +366,6 @@ export default async function CalendarPage({
 
   return (
     <>
-      <script {...getThemeScriptProps()} />
       {/* Top Navigation */}
       <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 sticky top-0 z-50">
         <div className="flex items-center gap-4">
