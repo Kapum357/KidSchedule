@@ -64,14 +64,16 @@ export interface PasswordHasher {
 class BcryptPasswordHasher implements PasswordHasher {
   private readonly saltRounds = 12;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async hash(plaintext: string): Promise<string> {
-    throw new Error("Bcrypt not installed. Run: pnpm add bcrypt @types/bcrypt");
+    // Dynamic import for compatibility
+    const bcrypt = await import("bcrypt");
+    return bcrypt.hash(plaintext, this.saltRounds);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async verify(plaintext: string, storedHash: string): Promise<boolean> {
-    throw new Error("Bcrypt not installed. Run: pnpm add bcrypt @types/bcrypt");
+    // Dynamic import for compatibility
+    const bcrypt = await import("bcrypt");
+    return bcrypt.compare(plaintext, storedHash);
   }
 }
 
