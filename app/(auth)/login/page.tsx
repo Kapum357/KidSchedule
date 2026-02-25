@@ -289,12 +289,26 @@ interface PageProps {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-type AuthErrorCode = "invalid_credentials" | "rate_limited" | "account_locked" | "account_disabled";
+type AuthErrorCode =
+  | "invalid_credentials"
+  | "rate_limited"
+  | "account_locked"
+  | "account_disabled"
+  | "email_not_verified";
 
 /**
  * Parse error search params into AuthResult for error display.
  */
 function parseErrorParams(params: Record<string, string | string[] | undefined>): AuthResult | undefined {
+  const message = params.message as string | undefined;
+  if (message === "verify_email_sent") {
+    return {
+      success: false,
+      error: "email_not_verified",
+      errorMessage: "Check your inbox and verify your email before logging in.",
+    };
+  }
+
   const errorStr = params.error as string | undefined;
   if (!errorStr) return undefined;
   
@@ -306,6 +320,7 @@ function parseErrorParams(params: Record<string, string | string[] | undefined>)
     rate_limited: "Too many login attempts. Please try again later.",
     account_locked: "This account is temporarily locked.",
     account_disabled: "This account has been disabled. Please contact support.",
+    email_not_verified: "Please verify your email before logging in.",
   };
   
   const error = errorStr as AuthErrorCode;

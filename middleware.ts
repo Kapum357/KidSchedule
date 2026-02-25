@@ -19,6 +19,7 @@ const PUBLIC_ROUTES = new Set([
   "/",
   "/login",
   "/signup",
+  "/verify-email",
   "/forgot-password",
   "/forgot-password/check-email",
   "/reset-password",
@@ -53,8 +54,11 @@ const ACCESS_TOKEN_COOKIE = "access_token";
 /** Refresh token cookie name */
 const REFRESH_TOKEN_COOKIE = "refresh_token";
 
-/** Access token TTL in seconds */
-const ACCESS_TOKEN_TTL = 15 * 60; // 15 minutes
+/** Access token TTL in seconds (used when refreshing tokens) */
+export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60; // 15 minutes
+
+/** Refresh token TTL in seconds (7 days) */
+export const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 3600;
 
 // ─── JWT Utilities (Edge-compatible) ──────────────────────────────────────────
 
@@ -115,6 +119,8 @@ function buildCSP(nonce: string): string {
       "https://accounts.google.com",
       "https://apis.google.com",
       "https://appleid.cdn-apple.com",
+      "https://www.google.com/recaptcha/",
+      "https://www.gstatic.com/recaptcha/",
     ].join(" "),
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com",
@@ -127,8 +133,9 @@ function buildCSP(nonce: string): string {
         : []),
       "https://accounts.google.com",
       "https://appleid.apple.com",
+      "https://www.google.com/recaptcha/",
     ].join(" "),
-    "frame-src https://accounts.google.com https://appleid.apple.com",
+    "frame-src https://accounts.google.com https://appleid.apple.com https://www.google.com/recaptcha/",
     "frame-ancestors 'none'",
     "form-action 'self'",
     "base-uri 'self'",
@@ -262,7 +269,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
      *     httpOnly: true,
      *     secure: process.env.NODE_ENV === "production",
      *     sameSite: "lax",
-     *     maxAge: ACCESS_TOKEN_TTL,
+     *     maxAge: ACCESS_TOKEN_TTL_SECONDS,
      *   });
      *   response.cookies.set(REFRESH_TOKEN_COOKIE, newRefresh, {
      *     httpOnly: true,

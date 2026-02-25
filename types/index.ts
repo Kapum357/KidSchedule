@@ -409,13 +409,6 @@ export type ArticleHeading = {
 
 export type TableOfContents = ArticleHeading[];
 
-export interface ArticleTableOfContents {
-  id: string;
-  title: string;
-  level: 1 | 2 | 3; // h1, h2, h3
-  anchor: string; // `slug` or id for linking
-}
-
 export interface ArticleWithMetadata extends BlogPost {
   toc: TableOfContents; // Table of contents extracted from headings
   relatedPosts: BlogRecommendation[];

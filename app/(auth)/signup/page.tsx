@@ -22,6 +22,7 @@
  */
 
 import { redirect } from "next/navigation";
+import Script from "next/script";
 import { register } from "@/lib/auth";
 import type { AuthResult } from "@/types";
 
@@ -40,6 +41,7 @@ async function handleSignup(formData: FormData): Promise<void> {
   const password = (formData.get("password") as string | null) ?? "";
   const confirmPassword = (formData.get("confirmPassword") as string | null) ?? "";
   const agreedToTerms = formData.get("agreedToTerms") === "on";
+  const recaptchaToken = (formData.get("g-recaptcha-response") as string | null) ?? undefined;
 
   // Validate passwords match
   if (password !== confirmPassword) {
@@ -51,10 +53,10 @@ async function handleSignup(formData: FormData): Promise<void> {
     redirect("/signup?error=must_agree_terms");
   }
 
-  const result = await register({ fullName, email, password });
+  const result = await register({ fullName, email, password, recaptchaToken });
 
   if (result.success) {
-    redirect("/dashboard");
+    redirect("/login?message=verify_email_sent");
   }
 
   // Encode error in URL params for stateless feedback
@@ -168,13 +170,17 @@ function OAuthButtons() {
 
 // ─── Sign Up Form ──────────────────────────────────────────────────────────────
 
-function SignupForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
+function SignupForm({
+  authResult,
+  recaptchaSiteKey,
+}: Readonly<{ authResult?: AuthResult; recaptchaSiteKey?: string }>) {
   const hasError = authResult && !authResult.success;
   const errorMessage = hasError ? authResult.errorMessage : null;
 
   const errorMessages: Record<string, string> = {
     passwords_dont_match: "Passwords do not match.",
     must_agree_terms: "You must agree to the Terms of Service and Privacy Policy.",
+    recaptcha_failed: "Security verification failed. Please complete the CAPTCHA and try again.",
     invalid_credentials: errorMessage ?? "Please check your information and try again.",
   };
 
@@ -294,16 +300,23 @@ function SignupForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
         </div>
         <label className="text-sm text-slate-600 dark:text-slate-400 leading-tight" htmlFor="agreedToTerms">
           I agree to the{" "}
-          <a className="text-primary hover:underline font-semibold" href="#">
+          <a className="text-primary hover:underline font-semibold" href="/terms">
             Terms of Service
           </a>{" "}
           and{" "}
-          <a className="text-primary hover:underline font-semibold" href="#">
+          <a className="text-primary hover:underline font-semibold" href="/privacy">
             Privacy Policy
           </a>
           .
         </label>
       </div>
+
+      {/* CAPTCHA */}
+      {recaptchaSiteKey && (
+        <div className="flex justify-center">
+          <div className="g-recaptcha" data-sitekey={recaptchaSiteKey} />
+        </div>
+      )}
 
       {/* Submit Button */}
       <button
@@ -334,17 +347,44 @@ function SignupForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
  *   - Configure CSP headers allowing Google/Apple OAuth scripts
  *   - Add email verification step before account activation
  */
-export default async function SignupPage() {
+interface PageProps {
+  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function parseSignupErrorParams(
+  params: Record<string, string | string[] | undefined>
+): AuthResult | undefined {
+  const error = typeof params.error === "string" ? params.error : undefined;
+  const message = typeof params.message === "string" ? params.message : undefined;
+
+  if (!error && !message) return undefined;
+
+  return {
+    success: false,
+    error: (error ?? "invalid_credentials") as AuthResult["error"],
+    errorMessage: message,
+  };
+}
+
+export default async function SignupPage({ searchParams }: Readonly<PageProps>) {
+  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
   // In real app: check for active session here; redirect if already logged in
   // const session = await getServerSession();
   // if (session) redirect("/dashboard");
 
   // authResult would be populated via search params or server action state
   // For this demo, show blank form
-  const authResult: AuthResult | undefined = undefined;
+  const params = await searchParams;
+  const authResult = parseSignupErrorParams(params);
 
   return (
     <>
+      {recaptchaSiteKey && (
+        <Script
+          src="https://www.google.com/recaptcha/api.js"
+          strategy="afterInteractive"
+        />
+      )}
       <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased h-screen w-full flex overflow-hidden">
         {/* Left branded panel */}
         <BrandPanel />
@@ -365,7 +405,7 @@ export default async function SignupPage() {
           </div>
 
           {/* Form */}
-          <SignupForm authResult={authResult} />
+          <SignupForm authResult={authResult} recaptchaSiteKey={recaptchaSiteKey} />
 
           {/* OAuth */}
           <OAuthButtons />

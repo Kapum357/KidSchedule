@@ -1,5 +1,8 @@
 /.github
 public/ks.png
+/tests
+/scripts
+playwright.config.ts
 
 # dependencies
 /node_modules

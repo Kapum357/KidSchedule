@@ -8,64 +8,57 @@
  *   import { db } from "@/lib/persistence";
  *   const user = await db.users.findByEmail("user@example.com");
  *
- * In production, swap the mock implementation with Prisma, Drizzle, or direct queries.
+ * The persistence layer uses PostgreSQL in production via postgres.js.
  */
 
 import type { UnitOfWork } from "./repositories";
-
-// Lazy import to avoid circular dependency issues
-async function loadMockImplementation() {
-  const { createMockUnitOfWork } = await import("./mock-implementation");
-  return createMockUnitOfWork();
-}
+import { createPostgresUnitOfWork, checkDatabaseConnection } from "./postgres";
 
 // ─── Database Instance ────────────────────────────────────────────────────────
 
-let dbInstance: UnitOfWork | null = null;
-let initPromise: Promise<UnitOfWork> | null = null;
+/**
+ * Singleton database instance.
+ * Lazily initialized on first access.
+ */
+let _dbInstance: UnitOfWork | null = null;
 
 /**
  * Returns the database unit of work instance.
- * In production, this would be initialized with a real database connection.
+ * Initializes with PostgreSQL on first call.
  */
-export function getDatabase(): UnitOfWork {
-  // Synchronous path for when already initialized
-  if (dbInstance) {
-    return dbInstance;
+export function getDb(): UnitOfWork {
+  if (!_dbInstance) {
+    _dbInstance = createPostgresUnitOfWork();
   }
-
-  // Fallback synchronous initialization for SSR
-  // In production, replace with actual database client initialization
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { createMockUnitOfWork } = require("./mock-implementation");
-  const created = createMockUnitOfWork() as UnitOfWork;
-  dbInstance = created;
-  return created;
+  return _dbInstance;
 }
 
 /**
- * Async initialization for production use with real database.
- * Call this during app startup.
+ * Explicitly initialize the database with a custom UnitOfWork.
+ * Useful for testing or custom configurations.
  */
-export async function initializeDatabase(): Promise<UnitOfWork> {
-  if (dbInstance) return dbInstance;
-  
-  initPromise ??= loadMockImplementation().then((uow) => {
-    dbInstance = uow;
-    return uow;
-  });
-  
-  const result = await initPromise;
-  return result;
+export async function initDb(uow: UnitOfWork): Promise<void> {
+  _dbInstance = uow;
+}
+
+/**
+ * Check database connection health.
+ * Returns true if connected, false otherwise.
+ */
+export async function checkConnection(): Promise<boolean> {
+  return await checkDatabaseConnection();
 }
 
 /**
  * Shorthand export for convenience.
  * Usage: import { db } from "@/lib/persistence";
+ * 
+ * This is a Proxy that lazily initializes the database on first access.
  */
 export const db = new Proxy({} as UnitOfWork, {
   get(_target, prop) {
-    return getDatabase()[prop as keyof UnitOfWork];
+    const instance = getDb();
+    return instance[prop as keyof UnitOfWork];
   },
 });
 

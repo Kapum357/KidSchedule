@@ -12,12 +12,17 @@
  */
 
 import { AuthEngine, validatePasswordStrength } from "../auth-engine";
-import { db } from "../persistence";
 import { createSession, revokeAllSessions } from "../session";
 import { audit } from "../audit";
 import { getRequestContext } from "../security/csrf";
+import { verifyRecaptchaToken } from "../security/recaptcha";
 import { getEmailSender } from "../providers/email";
 import { getSmsSender } from "../providers/sms";
+import { db } from "../persistence";
+import {
+  createEmailVerificationToken,
+  verifyEmailVerificationToken,
+} from "./email-verification";
 
 // ─── Password Hashing ─────────────────────────────────────────────────────────
 
@@ -177,6 +182,16 @@ export async function login(params: LoginParams): Promise<LoginResult> {
       errorMessage: "This account has been disabled. Please contact support.",
     };
   }
+
+  // Require email verification before allowing login
+  if (!user.emailVerified) {
+    await audit.loginFailed(ctx, normalizedEmail, "email_not_verified");
+    return {
+      success: false,
+      error: "email_not_verified",
+      errorMessage: "Please verify your email before logging in.",
+    };
+  }
   
   // Success – clear rate limits
   await clearRateLimit(ipKey);
@@ -203,10 +218,12 @@ export interface RegisterParams {
   fullName: string;
   email: string;
   password: string;
+  recaptchaToken?: string;
 }
 
 export interface RegisterResult {
   success: boolean;
+  requiresEmailVerification?: boolean;
   error?: string;
   errorMessage?: string;
 }
@@ -216,12 +233,29 @@ export interface RegisterResult {
  * On success, creates user, session, and sets cookies.
  */
 export async function register(params: RegisterParams): Promise<RegisterResult> {
-  const { fullName, email, password } = params;
+  const { fullName, email, password, recaptchaToken } = params;
   const ctx = await getRequestContext();
   const normalizedEmail = email.toLowerCase().trim();
+
+  // Verify reCAPTCHA token (required only when env vars are configured)
+  const recaptchaCheck = await verifyRecaptchaToken(recaptchaToken ?? null, ctx.ip);
+  if (!recaptchaCheck.success) {
+    await audit.suspiciousActivity(ctx, "signup_validation_failed", {
+      failure: "recaptcha_failed",
+      score: recaptchaCheck.score ?? 0,
+    });
+    return {
+      success: false,
+      error: "recaptcha_failed",
+      errorMessage: "Security verification failed. Please try again.",
+    };
+  }
   
   // Validate input
   if (!fullName || fullName.trim().length < 2) {
+    await audit.suspiciousActivity(ctx, "signup_validation_failed", {
+      failure: "invalid_full_name",
+    });
     return {
       success: false,
       error: "validation_error",
@@ -231,6 +265,9 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
   
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   if (!emailRegex.test(normalizedEmail)) {
+    await audit.suspiciousActivity(ctx, "signup_validation_failed", {
+      failure: "invalid_email",
+    });
     return {
       success: false,
       error: "validation_error",
@@ -240,6 +277,9 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
   
   const passwordCheck = validatePasswordStrength(password);
   if (!passwordCheck.isValid) {
+    await audit.suspiciousActivity(ctx, "signup_validation_failed", {
+      failure: "weak_password",
+    });
     return {
       success: false,
       error: "validation_error",
@@ -250,6 +290,9 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
   // Check for existing user
   const existingUser = await db.users.findByEmail(normalizedEmail);
   if (existingUser) {
+    await audit.suspiciousActivity(ctx, "signup_validation_failed", {
+      failure: "email_exists",
+    });
     return {
       success: false,
       error: "email_exists",
@@ -261,7 +304,7 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
   const passwordHash = await hashPassword(password);
   
   // Create user
-  const user = await db.users.create({
+  await db.users.create({
     email: normalizedEmail,
     emailVerified: false,
     passwordHash,
@@ -269,27 +312,88 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
     phoneVerified: false,
     isDisabled: false,
   });
-  
-  // Create session
-  await createSession(user.id, user.email, false);
-  
-  // Audit log
-  await audit.register(ctx, normalizedEmail);
-  
-  // Send welcome email (async, don't block)
+
+  // Send email verification
+  const verifyToken = createEmailVerificationToken(normalizedEmail);
+  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const verifyLink = `${appUrl}/verify-email?token=${encodeURIComponent(verifyToken)}`;
+
   const emailSender = getEmailSender();
-  emailSender.send({
+  await emailSender.send({
     to: normalizedEmail,
-    subject: "Welcome to KidSchedule",
-    templateId: "welcome",
+    subject: "Verify your KidSchedule email",
+    templateId: "email-verification",
     variables: {
       userName: fullName.trim(),
       email: normalizedEmail,
+      verifyLink,
+      expiryHours: "24",
     },
-  }).catch((err) => {
-    console.error("[Auth] Welcome email failed:", err);
   });
   
+  // Audit log
+  await audit.register(ctx, normalizedEmail);
+
+  return { success: true, requiresEmailVerification: true };
+}
+
+export interface VerifyEmailResult {
+  success: boolean;
+  alreadyVerified?: boolean;
+  error?: string;
+  errorMessage?: string;
+}
+
+/**
+ * Verify user email from signed token.
+ */
+export async function verifyEmailAddress(token: string): Promise<VerifyEmailResult> {
+  const payload = verifyEmailVerificationToken(token);
+  if (!payload.valid || !payload.email) {
+    return {
+      success: false,
+      error: payload.reason ?? "invalid_token",
+      errorMessage: "This verification link is invalid or expired.",
+    };
+  }
+
+  const user = await db.users.findByEmail(payload.email);
+  if (!user) {
+    return {
+      success: false,
+      error: "user_not_found",
+      errorMessage: "No account was found for this verification link.",
+    };
+  }
+
+  if (user.emailVerified) {
+    return { success: true, alreadyVerified: true };
+  }
+
+  const marked = await db.users.markEmailVerified(user.id);
+  if (!marked) {
+    return {
+      success: false,
+      error: "verification_failed",
+      errorMessage: "Could not verify your email right now. Please try again.",
+    };
+  }
+
+  const emailSender = getEmailSender();
+  emailSender
+    .send({
+      to: user.email,
+      subject: "Welcome to KidSchedule",
+      templateId: "welcome",
+      variables: {
+        userName: user.fullName,
+        email: user.email,
+      },
+    })
+    .catch((err) => {
+      console.error("[Auth] Welcome email failed:", err);
+    });
+
   return { success: true };
 }
 

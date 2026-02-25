@@ -57,22 +57,52 @@ function removeExt(filePath) {
   return filePath.slice(0, -ext.length);
 }
 
+function normalizePathForCompare(filePath) {
+  return path.resolve(filePath).toLowerCase();
+}
+
+function isSamePath(a, b) {
+  return normalizePathForCompare(a) === normalizePathForCompare(b);
+}
+
+async function writeOutputImage(pipeline, sourcePath, outputPath) {
+  if (!isSamePath(sourcePath, outputPath)) {
+    await pipeline.toFile(outputPath);
+    return;
+  }
+
+  const parsed = path.parse(outputPath);
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const tempOutputPath = path.join(parsed.dir, `${parsed.name}.tmp-opt-${unique}${parsed.ext}`);
+
+  await pipeline.toFile(tempOutputPath);
+  await fs.unlink(outputPath).catch((error) => {
+    if (error && error.code !== "ENOENT") throw error;
+  });
+  await fs.rename(tempOutputPath, outputPath);
+}
+
 async function convertImageVariants(sourcePath, outputBasePath) {
   const source = sharp(sourcePath, { failOn: "none" });
 
   await Promise.all([
-    source.clone().webp({ quality: TARGET_QUALITY.webp }).toFile(`${outputBasePath}.webp`),
-    source.clone().avif({ quality: TARGET_QUALITY.avif }).toFile(`${outputBasePath}.avif`),
+    writeOutputImage(source.clone().webp({ quality: TARGET_QUALITY.webp }), sourcePath, `${outputBasePath}.webp`),
+    writeOutputImage(source.clone().avif({ quality: TARGET_QUALITY.avif }), sourcePath, `${outputBasePath}.avif`),
   ]);
 
   const ext = path.extname(sourcePath).toLowerCase();
   if (ext === ".png") {
-    await source
-      .clone()
-      .png({ compressionLevel: TARGET_QUALITY.pngCompressionLevel, adaptiveFiltering: true })
-      .toFile(`${outputBasePath}.png`);
+    await writeOutputImage(
+      source.clone().png({ compressionLevel: TARGET_QUALITY.pngCompressionLevel, adaptiveFiltering: true }),
+      sourcePath,
+      `${outputBasePath}.png`
+    );
   } else {
-    await source.clone().jpeg({ quality: TARGET_QUALITY.jpg, mozjpeg: true }).toFile(`${outputBasePath}.jpg`);
+    await writeOutputImage(
+      source.clone().jpeg({ quality: TARGET_QUALITY.jpg, mozjpeg: true }),
+      sourcePath,
+      `${outputBasePath}.jpg`
+    );
   }
 }
 
@@ -119,9 +149,9 @@ async function optimizeHeroImages() {
     const pipeline = sharp(source, { failOn: "none" }).resize({ width, withoutEnlargement: true });
 
     await Promise.all([
-      pipeline.clone().webp({ quality: TARGET_QUALITY.webp }).toFile(`${outBase}.webp`),
-      pipeline.clone().avif({ quality: TARGET_QUALITY.avif }).toFile(`${outBase}.avif`),
-      pipeline.clone().jpeg({ quality: TARGET_QUALITY.jpg, mozjpeg: true }).toFile(`${outBase}.jpg`),
+      writeOutputImage(pipeline.clone().webp({ quality: TARGET_QUALITY.webp }), source, `${outBase}.webp`),
+      writeOutputImage(pipeline.clone().avif({ quality: TARGET_QUALITY.avif }), source, `${outBase}.avif`),
+      writeOutputImage(pipeline.clone().jpeg({ quality: TARGET_QUALITY.jpg, mozjpeg: true }), source, `${outBase}.jpg`),
     ]);
   }
 
@@ -150,9 +180,9 @@ async function optimizeOgImages() {
       const outBase = path.join(ogDir, "family");
       const resized = sharp(fallback, { failOn: "none" }).resize({ width: 1200, height: 630, fit: "cover" });
       await Promise.all([
-        resized.clone().webp({ quality: TARGET_QUALITY.webp }).toFile(`${outBase}.webp`),
-        resized.clone().avif({ quality: TARGET_QUALITY.avif }).toFile(`${outBase}.avif`),
-        resized.clone().png({ compressionLevel: TARGET_QUALITY.pngCompressionLevel }).toFile(`${outBase}.png`),
+        writeOutputImage(resized.clone().webp({ quality: TARGET_QUALITY.webp }), fallback, `${outBase}.webp`),
+        writeOutputImage(resized.clone().avif({ quality: TARGET_QUALITY.avif }), fallback, `${outBase}.avif`),
+        writeOutputImage(resized.clone().png({ compressionLevel: TARGET_QUALITY.pngCompressionLevel }), fallback, `${outBase}.png`),
       ]);
       console.log("[og] generated fallback family OG image from public/ks.png.");
       return;
@@ -167,9 +197,9 @@ async function optimizeOgImages() {
     const resized = sharp(source, { failOn: "none" }).resize({ width: 1200, height: 630, fit: "cover" });
 
     await Promise.all([
-      resized.clone().webp({ quality: TARGET_QUALITY.webp }).toFile(`${base}.webp`),
-      resized.clone().avif({ quality: TARGET_QUALITY.avif }).toFile(`${base}.avif`),
-      resized.clone().png({ compressionLevel: TARGET_QUALITY.pngCompressionLevel }).toFile(`${base}.png`),
+      writeOutputImage(resized.clone().webp({ quality: TARGET_QUALITY.webp }), source, `${base}.webp`),
+      writeOutputImage(resized.clone().avif({ quality: TARGET_QUALITY.avif }), source, `${base}.avif`),
+      writeOutputImage(resized.clone().png({ compressionLevel: TARGET_QUALITY.pngCompressionLevel }), source, `${base}.png`),
     ]);
   }
 
@@ -183,7 +213,9 @@ async function run() {
   if (runAll || args.has("--og")) await optimizeOgImages();
 }
 
-run().catch((error) => {
+try {
+  await run();
+} catch (error) {
   console.error("Image optimization failed:", error);
   process.exitCode = 1;
-});
+}

@@ -8,12 +8,139 @@
  * real queries and uncomment the async data-fetching section.
  */
 
-import { createMockInput } from "@/lib/dashboard-aggregator";
 import { CalendarMonthEngine } from "@/lib/calendar-engine";
-import { SettingsEngine } from "@/lib/settings-engine";
+import { SettingsEngine, createMockFamilySettings } from "@/lib/settings-engine";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { redirect } from "next/navigation";
 import type { CalendarMonthData, CalendarDayState, CustodyColor, TransitionListItem } from "@/lib/calendar-engine";
+import type { CalendarEvent, Family, Parent, ScheduleChangeRequest, FamilySettings } from "@/types";
+
+// ─── Mock Data (replace with real DB queries in production) ───────────────────
+
+interface CalendarInput {
+  family: Family;
+  events: CalendarEvent[];
+  changeRequests: ScheduleChangeRequest[];
+  familySettings: FamilySettings;
+}
+
+function createMockCalendarInput(conflictWindowMins: number, now: Date = new Date()): CalendarInput {
+  const PARENT_A_ID = "parent-alex-001";
+  const PARENT_B_ID = "parent-sarah-002";
+  const FAMILY_ID = "family-001";
+  const CHILD_ID = "child-emma-001";
+
+  const parentAlex: Parent = {
+    id: PARENT_A_ID,
+    name: "Alex M.",
+    email: "alex@example.com",
+    avatarUrl:
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuAMm9PKE77NmQRxRk8-lRarDuoVKfumrSvirCCC1A-bI8clVSNMQKx4ACuGOkMJh_E_4R-vkLrgaVp-DyFMt5Hk6ZGqn15tajsGHfYRzHlrqJRjiygOAoy_OQA1JOaoLQrL_RX6_PPl7SZ16RDQu9V2DPhgAAf9ioG_LAr-yCPX4bKT4-3Qn-40Q7Zem1C6pZcUwXl_7ORPkJxx2ZQLPcaOYqyOkfTVOMG8NkDh2LrTMf5Q9hZl1NwL_aLAVtgf86GlT7rJ0Cbp_mA",
+  };
+
+  const parentSarah: Parent = {
+    id: PARENT_B_ID,
+    name: "Sarah P.",
+    email: "sarah@example.com",
+  };
+
+  // Anchor = 12 days ago at 5 PM to put us mid-cycle.
+  const anchor = new Date(now);
+  anchor.setDate(anchor.getDate() - 12);
+  const anchorDate = anchor.toISOString().slice(0, 10);
+
+  const family: Family = {
+    id: FAMILY_ID,
+    parents: [parentAlex, parentSarah] as [Parent, Parent],
+    children: [
+      {
+        id: CHILD_ID,
+        firstName: "Emma",
+        lastName: "M.",
+        dateOfBirth: "2018-03-14",
+      },
+    ],
+    custodyAnchorDate: anchorDate,
+    schedule: {
+      id: "sched-001",
+      name: "2-2-3 Rotation",
+      transitionHour: 17,
+      blocks: [
+        { parentId: PARENT_A_ID, days: 2, label: "Mon–Tue A" },
+        { parentId: PARENT_B_ID, days: 2, label: "Wed–Thu B" },
+        { parentId: PARENT_A_ID, days: 3, label: "Fri–Sun A" },
+        { parentId: PARENT_B_ID, days: 2, label: "Mon–Tue B" },
+        { parentId: PARENT_A_ID, days: 2, label: "Wed–Thu A" },
+        { parentId: PARENT_B_ID, days: 3, label: "Fri–Sun B" },
+      ],
+    },
+  };
+
+  const makeDT = (daysFromNow: number, hour = 12): string => {
+    const d = new Date(now);
+    d.setDate(d.getDate() + daysFromNow);
+    d.setHours(hour, 0, 0, 0);
+    return d.toISOString();
+  };
+
+  const events: CalendarEvent[] = [
+    {
+      id: "evt-001",
+      familyId: FAMILY_ID,
+      title: "Independence Day",
+      category: "holiday",
+      startAt: makeDT(3, 0),
+      endAt: makeDT(3, 23),
+      allDay: true,
+      confirmationStatus: "pending",
+      createdBy: PARENT_A_ID,
+    },
+    {
+      id: "evt-002",
+      familyId: FAMILY_ID,
+      title: "Soccer Practice",
+      category: "activity",
+      startAt: makeDT(7, 16),
+      endAt: makeDT(7, 17),
+      allDay: false,
+      location: "West Field",
+      confirmationStatus: "confirmed",
+      createdBy: PARENT_B_ID,
+    },
+    {
+      id: "evt-003",
+      familyId: FAMILY_ID,
+      title: "Emma's Dentist",
+      category: "medical",
+      startAt: makeDT(14, 10),
+      endAt: makeDT(14, 11),
+      allDay: false,
+      location: "Cedar Dental Clinic",
+      confirmationStatus: "confirmed",
+      createdBy: PARENT_A_ID,
+    },
+  ];
+
+  const changeRequests: ScheduleChangeRequest[] = [
+    {
+      id: "req-001",
+      familyId: FAMILY_ID,
+      requestedBy: PARENT_B_ID,
+      title: "July 4th Weekend Swap",
+      description: "Requesting to swap the July 4th weekend.",
+      givingUpPeriodStart: makeDT(3),
+      givingUpPeriodEnd: makeDT(6),
+      requestedMakeUpStart: makeDT(17),
+      requestedMakeUpEnd: makeDT(20),
+      status: "pending",
+      createdAt: makeDT(-1),
+    },
+  ];
+
+  const familySettings = createMockFamilySettings(FAMILY_ID, conflictWindowMins);
+
+  return { family, events, changeRequests, familySettings };
+}
 
 async function updateConflictWindow(formData: FormData): Promise<void> {
   "use server";
@@ -334,22 +461,19 @@ function CalendarGrid({ data }: Readonly<{ data: CalendarMonthData }>) {
 export default async function CalendarPage({
   searchParams,
 }: Readonly<{ searchParams?: Promise<{ conflictWindowMins?: string }> }>) {
-  // ── Mock data ──────────────────────────────────────────────────────────────
-  const mockInput = createMockInput();
-  const { family, events: allEvents, changeRequests } = mockInput;
-  const params = await searchParams;
 
-  const settingsEngine = new SettingsEngine();
-  const familySettings = settingsEngine.resolveFamilySettings(family.id, {
-    conflictWindow: {
-      windowMins: Number(params?.conflictWindowMins ?? 120),
-    },
-  });
+  // ── Parse search params ───────────────────────────────────────────────────
+  const resolvedParams = await searchParams;
+  const conflictWindowMins = Number(resolvedParams?.conflictWindowMins ?? "120");
 
   // ── Get current month ─────────────────────────────────────────────────────
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
+
+  // ── Load calendar data (mock for now) ─────────────────────────────────────
+  const { family, events: allEvents, changeRequests, familySettings } = 
+    createMockCalendarInput(conflictWindowMins, now);
 
   // ── Compute calendar ──────────────────────────────────────────────────────
   const engine = new CalendarMonthEngine(family);

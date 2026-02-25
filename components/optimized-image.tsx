@@ -41,11 +41,14 @@ function resolveLoader(): ((props: ImageLoaderProps) => string) | undefined {
   return undefined;
 }
 
-export type OptimizedImageProps = Omit<ImageProps, "loader">;
+export type OptimizedImageProps = Omit<ImageProps, "loader"> & {
+  /** Alt text is required for accessibility */
+  alt: string;
+};
 
-export function OptimizedImage(props: Readonly<OptimizedImageProps>) {
+export function OptimizedImage({ alt, ...props }: Readonly<OptimizedImageProps>) {
   const loader = resolveLoader();
-  return <Image {...props} loader={loader} />;
+  return <Image alt={alt} {...props} loader={loader} />;
 }
 
 interface HeroBackgroundProps {
