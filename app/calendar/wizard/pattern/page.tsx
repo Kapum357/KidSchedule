@@ -23,7 +23,7 @@ type PatternSearchParams = {
 };
 
 function isValidIsoDate(value: string | undefined): value is string {
-  if (!value) return false;
+  if (!value) {return false;}
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 

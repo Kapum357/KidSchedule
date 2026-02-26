@@ -235,12 +235,15 @@ function PendingRequest() {
         &quot;Can we switch weekends so I can take Leo trick-or-treating?&quot;
       </p>
       <div className="flex gap-2">
-        <button className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">
-          Decline
-        </button>
-        <button className="flex-1 bg-primary text-white text-xs font-bold py-2 rounded-lg hover:opacity-90">
-          Approve
-        </button>
+        <a
+          className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-center"
+          href="/calendar/change-requests"
+        >
+          Review
+        </a>
+        <a className="flex-1 bg-primary text-white text-xs font-bold py-2 rounded-lg hover:opacity-90 text-center" href="/calendar/change-requests">
+          Open
+        </a>
       </div>
     </div>
   );

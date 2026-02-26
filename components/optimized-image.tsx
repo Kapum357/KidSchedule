@@ -4,7 +4,7 @@ const DEFAULT_QUALITY = 75;
 
 function extractCloudinaryCloudName(): string | null {
   const explicit = process.env.CLOUDINARY_CLOUD_NAME ?? process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  if (explicit && explicit.trim().length > 0) return explicit.trim();
+  if (explicit && explicit.trim().length > 0) {return explicit.trim();}
 
   const cloudinaryUrl = process.env.CLOUDINARY_URL;
   if (!cloudinaryUrl) return null;
