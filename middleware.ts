@@ -77,7 +77,7 @@ interface JWTPayload {
 function decodeJWT(token: string): JWTPayload | null {
   try {
     const parts = token.split(".");
-    if (parts.length !== 3) return null;
+    if (parts.length !== 3) {return null;}
     
     const payload = JSON.parse(atob(parts[1]));
     return payload as JWTPayload;
@@ -189,11 +189,11 @@ function createNextResponseWithNonce(request: NextRequest, nonce: string): NextR
 
 function isPublicRoute(pathname: string): boolean {
   // Check exact matches
-  if (PUBLIC_ROUTES.has(pathname)) return true;
+  if (PUBLIC_ROUTES.has(pathname)) {return true;}
   
   // Check prefixes
   for (const prefix of PUBLIC_PREFIXES) {
-    if (pathname.startsWith(prefix)) return true;
+    if (pathname.startsWith(prefix)) {return true;}
   }
   
   return false;

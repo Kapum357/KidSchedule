@@ -8,12 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "e2e": "playwright test",
-    "e2e:headed": "playwright test --headed",
-    "optimize:images": "node scripts/optimize-images.mjs --all",
-    "optimize:og": "node scripts/optimize-images.mjs --og",
-    "optimize:hero": "node scripts/optimize-images.mjs --hero",
-    "optimize:testimonials": "node scripts/optimize-images.mjs --testimonials"
-  },
+    "e2e:headed": "playwright test --headed"
+    },
   "dependencies": {
     "@types/bcrypt": "^6.0.0",
     "bcrypt": "^6.0.0",

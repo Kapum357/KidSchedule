@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "context": "archive",
+  "audiences": {
+    "family": {
+      "file": "family.png",
+      "publicPath": "/archive/family.png",
+      "label": "Family"
+    },
+    "coparent": {
+      "file": "coparent.png",
+      "publicPath": "/archive/coparent.png",
+      "label": "Co-parent"
+    },
+    "pta": {
+      "file": "pta.png",
+      "publicPath": "/archive/pta.png",
+      "label": "PTA"
+    },
+    "team": {
+      "file": "team.png",
+      "publicPath": "/archive/team.png",
+      "label": "Team"
+    }
+  }
+}

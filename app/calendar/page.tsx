@@ -160,8 +160,14 @@ async function updateConflictWindow(formData: FormData): Promise<void> {
 // ─── Helper: Custody Color to Tailwind ────────────────────────────────────────
 
 function getCustodyBackgroundClass(color: CustodyColor): string {
-  if (color === "primary") return "bg-primary/5";
-  if (color === "secondary") return "bg-secondary/5";
+  if (color === "primary") {
+    return "bg-primary/5";
+  }
+
+  if (color === "secondary") {
+    return "bg-secondary/5";
+  }
+
   return ""; // split handled manually with absolute positioning
 }
 
@@ -244,7 +250,7 @@ function CalendarSidebar({ data }: Readonly<{ data: CalendarMonthData }>) {
   return (
     <nav aria-label="Calendar sidebar" className="w-full md:w-80 lg:w-96 flex flex-col gap-6 bg-white dark:bg-slate-900 p-6 border-r border-slate-200 dark:border-slate-800 overflow-y-auto">
       {/* Main CTA */}
-      <button aria-label="Open schedule wizard" className="group flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-primary to-blue-600 p-4 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
+      <a href="/calendar/wizard" aria-label="Open schedule wizard" className="group flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-primary to-blue-600 p-4 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
         <div className="flex flex-col items-start gap-1">
           <span className="text-white font-bold text-lg">Schedule Wizard</span>
           <span className="text-blue-100 text-xs font-medium">
@@ -254,7 +260,7 @@ function CalendarSidebar({ data }: Readonly<{ data: CalendarMonthData }>) {
         <div className="bg-white/20 rounded-lg p-2 text-white group-hover:bg-white/30 transition-colors">
           <span aria-hidden="true" className="material-symbols-outlined">magic_button</span>
         </div>
-      </button>
+      </a>
 
       {/* Upcoming Transitions */}
       <div className="flex flex-col gap-3">

@@ -469,7 +469,6 @@ STG -. release .-> PRD
 
 ### OG assets
 
-- OG metadata helper: `lib/og-images.ts`.
 - Prefer WebP first with PNG fallback.
 - Target dimensions: `1200x630`.
 

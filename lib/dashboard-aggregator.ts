@@ -66,8 +66,6 @@ export interface AggregatorInput {
   upcomingCount?: number;
   /** Max recent activity items to surface (defaults to 10). */
   activityCount?: number;
-  /** Optional override for conflict window (in minutes). */
-  conflictWindowMins?: number;
 }
 
 // ─── Activity Builder ─────────────────────────────────────────────────────────

@@ -12,10 +12,6 @@ export interface EmailSendOptions {
   subject: string;
   templateId: string;
   variables: Record<string, string>;
-  /** Optional reply-to address */
-  replyTo?: string;
-  /** Optional tracking tags for analytics */
-  tags?: string[];
 }
 
 export interface EmailSendResult {

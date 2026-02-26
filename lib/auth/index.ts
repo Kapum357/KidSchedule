@@ -182,17 +182,17 @@ export async function login(params: LoginParams): Promise<LoginResult> {
       errorMessage: "This account has been disabled. Please contact support.",
     };
   }
-
-  // Require email verification before allowing login
-  if (!user.emailVerified) {
-    await audit.loginFailed(ctx, normalizedEmail, "email_not_verified");
-    return {
-      success: false,
-      error: "email_not_verified",
-      errorMessage: "Please verify your email before logging in.",
-    };
-  }
-  
+/*
+    // Require email verification before allowing login
+    if (!user.emailVerified) {
+      await audit.loginFailed(ctx, normalizedEmail, "email_not_verified");
+      return {
+        success: false,
+        error: "email_not_verified",
+        errorMessage: "Please verify your email before logging in.",
+      };
+    }
+ */ 
   // Success – clear rate limits
   await clearRateLimit(ipKey);
   await clearRateLimit(emailKey);

@@ -2,12 +2,11 @@
  * KidSchedule – SMS Provider Factory
  *
  * Returns the configured SMS sender based on SMS_PROVIDER environment variable.
- * Supports: twilio, sns, console (dev logging)
+ * Supports twilio
  */
 
 import type { SmsSender, SmsSendOptions, SmsSendResult } from "../types";
 import { TwilioAdapter } from "./twilio-adapter";
-import { SNSAdapter } from "./sns-adapter";
 
 // ─── Console Adapter (Development) ────────────────────────────────────────────
 
@@ -56,7 +55,6 @@ let cachedSender: SmsSender | null = null;
  *
  * Environment variable SMS_PROVIDER controls which adapter is used:
  *   - "twilio" → TwilioAdapter
- *   - "sns" → SNSAdapter
  *   - "console" or undefined → ConsoleSmsAdapter (dev only)
  */
 export function getSmsSender(): SmsSender {
@@ -70,14 +68,11 @@ export function getSmsSender(): SmsSender {
     case "twilio":
       cachedSender = new TwilioAdapter();
       break;
-    case "sns":
-      cachedSender = new SNSAdapter();
-      break;
     case "console":
     default:
       if (process.env.NODE_ENV === "production") {
         console.warn(
-          "[SMS] Using console adapter in production. Set SMS_PROVIDER to twilio or sns."
+          "[SMS] Using console adapter in production. Set SMS_PROVIDER to twilio."
         );
       }
       cachedSender = new ConsoleSmsAdapter();
@@ -89,4 +84,4 @@ export function getSmsSender(): SmsSender {
 
 // Re-export types
 export type { SmsSender, SmsSendOptions, SmsSendResult };
-export { TwilioAdapter, SNSAdapter, ConsoleSmsAdapter };
+export { TwilioAdapter, ConsoleSmsAdapter };

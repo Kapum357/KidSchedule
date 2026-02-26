@@ -124,13 +124,15 @@ export function createUserRepository(tx?: SqlClient): UserRepository {
         return this.findById(id);
       }
 
-      // Use tagged template for the query
-      const rows = await query<UserRow[]>`
-        UPDATE users 
-        SET ${sql.unsafe(updates.join(", "))}, updated_at = NOW()
-        WHERE id = ${id}
+      const idParamIndex = values.length + 1;
+      const statement = `
+        UPDATE users
+        SET ${updates.join(", ")}, updated_at = NOW()
+        WHERE id = $${idParamIndex}
         RETURNING *
       `;
+
+      const rows = await query.unsafe<UserRow[]>(statement, [...values, id]);
       return rows[0] ? rowToDbUser(rows[0]) : null;
     },
 

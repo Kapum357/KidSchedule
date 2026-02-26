@@ -42,8 +42,8 @@ export const IMAGE_SIZES = {
  * @returns srcset string for <img> or <source>
  * 
  * @example
- * const srcset = generateSrcSet("/images/hero", [640, 1024, 1920]);
- * // Returns: "/images/hero-640w.webp 640w, /images/hero-1024w.webp 1024w, ..."
+ * const srcset = generateSrcSet("/archive/hero", [640, 1024, 1920]);
+ * // Returns: "/archive/hero-640w.webp 640w, /archive/hero-1024w.webp 1024w, ..."
  */
 export function generateSrcSet(baseSrc: string, sizes: number[]): string {
   return sizes
@@ -105,21 +105,15 @@ export function getImagePreloads(
  * 
  * Optimized settings for the landing page hero section
  * to minimize CLS (Cumulative Layout Shift) and improve LCP.
+ * Uses PNG format as the primary source with CSS-based sizing.
  */
 export const HERO_IMAGE_CONFIG = {
-  src: "/images/hero-bg",
+  src: "/archive/family.png",
   alt: "Happy family using KidSchedule calendar",
-  srcSet: generateSrcSet("/images/hero-bg", [640, 1024, 1920, 2560]),
-  sizes: generateSizes({
-    "(max-width: 640px)": "100vw",
-    "(max-width: 1024px)": "100vw",
-    default: "100vw",
-  }),
-  width: 2560,
-  height: 1440,
+  width: 1200,
+  height: 675,
   priority: true,
   quality: 85,
-  formats: ["webp", "jpg"] as const,
 };
 
 /**
@@ -167,7 +161,7 @@ export const LAZY_LOAD_CONFIG = {
  * @returns Promise<boolean> indicating WebP support
  */
 export async function supportsWebP(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
+  if (typeof globalThis.window === "undefined") return false;
 
   return new Promise((resolve) => {
     const webP = new Image();
