@@ -93,7 +93,7 @@ export function createUserRepository(tx?: SqlClient): UserRepository {
     async update(id: string, data: Partial<DbUser>): Promise<DbUser | null> {
       // Build dynamic update - only include provided fields
       const updates: string[] = [];
-      const values: unknown[] = [];
+      const values: (string | boolean | Date | null)[] = [];
 
       if (data.email !== undefined) {
         updates.push("email = $" + (values.length + 1));
@@ -109,7 +109,7 @@ export function createUserRepository(tx?: SqlClient): UserRepository {
       }
       if (data.phone !== undefined) {
         updates.push("phone = $" + (values.length + 1));
-        values.push(data.phone);
+        values.push(data.phone ?? null);
       }
       if (data.lastLoginAt !== undefined) {
         updates.push("last_login_at = $" + (values.length + 1));
@@ -117,7 +117,7 @@ export function createUserRepository(tx?: SqlClient): UserRepository {
       }
       if (data.lastLoginIp !== undefined) {
         updates.push("last_login_ip = $" + (values.length + 1));
-        values.push(data.lastLoginIp);
+        values.push(data.lastLoginIp ?? null);
       }
 
       if (updates.length === 0) {
@@ -132,7 +132,7 @@ export function createUserRepository(tx?: SqlClient): UserRepository {
         RETURNING *
       `;
 
-      const parameters = [...values, id];
+      const parameters = [...values, id] as (string | boolean | Date | null)[];
       const rows = await query.unsafe<UserRow[]>(statement, parameters);
       return rows[0] ? rowToDbUser(rows[0]) : null;
     },
