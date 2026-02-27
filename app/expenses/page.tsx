@@ -1,4 +1,5 @@
 import { formatCurrency } from "@/lib/expense-engine";
+import Image from "next/image";
 
 type ExpenseStatus = "pending" | "overdue" | "settled" | "approved";
 
@@ -164,7 +165,14 @@ export default function ExpensesOverviewPage() {
           </div>
 
           <a className="flex items-center gap-3 px-2 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="/settings">
-            <img alt="User" className="w-8 h-8 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1w2AGns_-BQJDlkxOMJqh6JsWhXIU_LHNWK-dg02ydNsLN_1xx_Mb_UsJZ59Dns3BppYMDQjLCdaRDPEbKkPk3fODCcmyfVrE83IH1Tg61oAyPvDlSgsUqGWYaPHPXMFDihzZAFA0vpzRdn9qFb79uvxvnQWngoRpuJlf_-G-pvGJulqfbweeEJkFZhwcDU-hW9_-Nq-M_rmWZ0cycQysKCy6lqA_9o2Y2VaUEgolP2pk5hHNbtRozUq-zNxxggIXGIwXoftEimw" />
+            <Image
+              alt="User"
+              className="w-8 h-8 rounded-full"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1w2AGns_-BQJDlkxOMJqh6JsWhXIU_LHNWK-dg02ydNsLN_1xx_Mb_UsJZ59Dns3BppYMDQjLCdaRDPEbKkPk3fODCcmyfVrE83IH1Tg61oAyPvDlSgsUqGWYaPHPXMFDihzZAFA0vpzRdn9qFb79uvxvnQWngoRpuJlf_-G-pvGJulqfbweeEJkFZhwcDU-hW9_-Nq-M_rmWZ0cycQysKCy6lqA_9o2Y2VaUEgolP2pk5hHNbtRozUq-zNxxggIXGIwXoftEimw"
+              width={32}
+              height={32}
+              unoptimized
+            />
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-slate-900 dark:text-white">Alex Morgan</span>
               <span className="text-xs text-slate-500">Settings</span>

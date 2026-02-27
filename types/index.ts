@@ -426,6 +426,7 @@ export type AuthErrorCode =
   | "rate_limited"           // Too many requests from IP
   | "email_not_verified"
   | "account_disabled"
+  | "service_unavailable"
   | "token_expired"
   | "token_invalid"
   | "oauth_failed";
@@ -718,4 +719,46 @@ export interface ErrorEvent {
   familyId?: string;
   /** Anonymized parent ID, if authenticated */
   parentId?: string;
+}
+
+// ─── Legal Documents ──────────────────────────────────────────────────────────
+
+/**
+ * Version metadata for legal documents (Terms of Service, Privacy Policy)
+ */
+export interface LegalVersion {
+  /** Semantic version number (e.g., "1.0", "1.1") */
+  version: string;
+  /** ISO-8601 date when this version became effective */
+  effectiveDate: string;
+  /** Human-readable description of changes in this version */
+  description: string;
+}
+
+/**
+ * A single section within a legal document
+ */
+export interface LegalSection {
+  /** URL-safe ID for anchor links */
+  id: string;
+  /** Section title */
+  title: string;
+  /** Material Symbols icon name */
+  icon: string;
+  /** Plain-English summary for quick understanding */
+  summary: string;
+  /** Full HTML content for the section */
+  content: string;
+}
+
+/**
+ * A complete legal document with versioning
+ */
+export interface LegalDocument {
+  /** Document type */
+  type: "terms" | "privacy";
+  /** Version metadata */
+  version: LegalVersion;
+  /** Ordered list of sections */
+  sections: LegalSection[];
 }

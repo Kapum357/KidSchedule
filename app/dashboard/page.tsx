@@ -1,16 +1,19 @@
 /**
  * KidSchedule – Parent Dashboard
  *
- * This is a Next.js Server Component.  All data is assembled at render time
- * via aggregateDashboard() + createMockInput().  When a real database layer is
- * added, replace createMockInput() with actual DB queries fetched in parallel
- * via Promise.all, then pass the results into aggregateDashboard().
+ * This is a Next.js Server Component that fetches live data from the database
+ * and renders the parent dashboard. All data is assembled at render time via
+ * aggregateDashboard() using real database queries fetched in parallel.
  *
  * Sub-components are co-located in this file as plain functions to keep the
  * first iteration simple.  Extract them into separate files once they grow.
  */
 
-import { aggregateDashboard, createMockInput } from "@/lib/dashboard-aggregator";
+import { aggregateDashboard } from "@/lib/dashboard-aggregator";
+import { requireAuth } from "@/lib/session";
+import { db } from "@/lib/persistence";
+import { SchedulePresets } from "@/lib/custody-engine";
+import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/app/theme-toggle";
 import type {
   ActivityItem,
@@ -18,7 +21,9 @@ import type {
   ClimateLevel,
   ConflictClimate,
   CustodyStatus,
-  DashboardData,
+  Expense,
+  Family,
+  Message,
   Moment,
   Parent,
   Reminder,
@@ -556,14 +561,95 @@ function Sidebar({
 /**
  * Dashboard Server Component.
  *
- * Replace `createMockInput()` with real database fetches once the data layer
- * is implemented.  The aggregateDashboard() call and all JSX below remain
- * unchanged – only the input source changes.
+ * Fetches all required data from the database in parallel, then passes it to
+ * aggregateDashboard() for composition. The aggregateDashboard() call and all
+ * JSX below remain unchanged – only the input source changes.
+ *
+ * NOTE: Type mapping from database entities to domain types is handled via
+ * type assertions. See the repository pattern documentation for more details.
  */
-export default function DashboardPage() {
-  // ── Data assembly (runs server-side at request time) ──────────────────────
-  const input = createMockInput();
-  const data: DashboardData = aggregateDashboard(input);
+export default async function DashboardPage() {
+  // ── Authentication & Context ───────────────────────────────────────────
+  const user = await requireAuth();
+
+  // ── Get parent and family ──────────────────────────────────────────────
+  const parent = await db.parents.findByUserId(user.userId);
+  if (!parent) {
+    redirect("/calendar/wizard?onboarding=1");
+  }
+
+  const dbFamily = await db.families.findById(parent.familyId);
+  if (!dbFamily) {
+    redirect("/calendar/wizard?onboarding=1");
+  }
+
+  // ── Fetch family composition (parents + children) ────────────────────
+  const [dbParents, dbChildren, dbEvents, dbChangeRequests, dbMessages, dbExpenses, dbMoments] =
+    await Promise.all([
+      db.parents.findByFamilyId(parent.familyId),
+      db.children.findByFamilyId(parent.familyId),
+      db.calendarEvents.findByFamilyId(parent.familyId),
+      db.scheduleChangeRequests.findByFamilyId(parent.familyId),
+      db.messages.findByFamilyId(parent.familyId),
+      db.expenses.findByFamilyId(parent.familyId),
+      db.moments.findByFamilyId(parent.familyId),
+    ]);
+
+  if (dbParents.length < 2) {
+    redirect("/calendar/wizard?onboarding=1");
+  }
+
+  const mappedParents: Parent[] = dbParents.map((p) => ({
+    id: p.id,
+    name: p.name,
+    email: p.email,
+    avatarUrl: p.avatarUrl,
+    phone: p.phone,
+  }));
+
+  const [primaryParent, secondaryParent] = mappedParents as [Parent, Parent];
+
+  let scheduleBlocks;
+  if (dbFamily.scheduleId === "alternating-weeks") {
+    scheduleBlocks = SchedulePresets.alternatingWeeks(primaryParent.id, secondaryParent.id);
+  } else if (dbFamily.scheduleId === "3-4-4-3") {
+    scheduleBlocks = SchedulePresets.threeFourFourThree(primaryParent.id, secondaryParent.id);
+  } else {
+    scheduleBlocks = SchedulePresets.twoTwoThree(primaryParent.id, secondaryParent.id);
+  }
+
+  // ── Compose domain objects from database records ────────────────────────
+  const family: Family = {
+    id: dbFamily.id,
+    custodyAnchorDate: dbFamily.custodyAnchorDate,
+    schedule: {
+      id: dbFamily.scheduleId || "2-2-3",
+      name: "Family Schedule",
+      transitionHour: 17,
+      blocks: scheduleBlocks,
+    },
+    parents: [primaryParent, secondaryParent],
+    children: (dbChildren as unknown as typeof dbChildren & { firstName: string; lastName: string; dateOfBirth: string }[]),
+  };
+
+  // ── Data Assembly ─────────────────────────────────────────────────────
+  const input = {
+    currentParent: {
+      id: parent.id,
+      name: parent.name,
+      email: parent.email,
+      avatarUrl: parent.avatarUrl,
+    },
+    family,
+    events: (dbEvents as unknown as CalendarEvent[]),
+    changeRequests: (dbChangeRequests as unknown as ScheduleChangeRequest[]),
+    messages: (dbMessages as unknown as Message[]),
+    expenses: (dbExpenses as unknown as Expense[]),
+    moments: (dbMoments as unknown as Moment[]),
+    reminders: [] as Reminder[],
+  };
+
+  const data = aggregateDashboard(input);
 
 
   return (

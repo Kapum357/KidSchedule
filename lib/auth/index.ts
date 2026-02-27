@@ -114,74 +114,75 @@ export interface LoginResult {
  * On success, creates session and sets cookies.
  */
 export async function login(params: LoginParams): Promise<LoginResult> {
-  const { email, password, rememberMe } = params;
-  const ctx = await getRequestContext();
-  const normalizedEmail = email.toLowerCase().trim();
-  
-  // Rate limiting
-  const ipKey = `ip:${ctx.ip}`;
-  const emailKey = `email:${normalizedEmail}`;
-  
-  const ipCheck = await checkRateLimit(ipKey, IP_RATE_LIMIT);
-  if (!ipCheck.allowed) {
-    await audit.rateLimitTriggered(ctx, ipKey, "ip");
-    return {
-      success: false,
-      error: "rate_limited",
-      errorMessage: "Too many login attempts. Please try again later.",
-      lockedUntil: ipCheck.lockedUntil,
-    };
-  }
-  
-  const emailCheck = await checkRateLimit(emailKey, EMAIL_RATE_LIMIT);
-  if (!emailCheck.allowed) {
-    await audit.rateLimitTriggered(ctx, emailKey, "email");
-    return {
-      success: false,
-      error: "account_locked",
-      errorMessage: "This account is temporarily locked. Please try again later.",
-      lockedUntil: emailCheck.lockedUntil,
-    };
-  }
-  
-  // Lookup user
-  const user = await db.users.findByEmail(normalizedEmail);
-  
-  // Verify credentials (constant-time even if user doesn't exist)
-  const dummyHash = "bcrypt$12$" + "0".repeat(64);
-  const hashToCheck = user?.passwordHash ?? dummyHash;
-  const passwordValid = await verifyPassword(password, hashToCheck);
-  
-  if (!user || !passwordValid) {
-    // Record failure
-    await db.rateLimits.increment(ipKey, IP_RATE_LIMIT.windowMs);
-    const emailState = await db.rateLimits.increment(emailKey, EMAIL_RATE_LIMIT.windowMs);
+  try {
+    const { email, password, rememberMe } = params;
+    const ctx = await getRequestContext();
+    const normalizedEmail = email.toLowerCase().trim();
     
-    const attemptsRemaining = Math.max(0, EMAIL_RATE_LIMIT.max - emailState.count);
+    // Rate limiting
+    const ipKey = `ip:${ctx.ip}`;
+    const emailKey = `email:${normalizedEmail}`;
     
-    if (emailState.count >= EMAIL_RATE_LIMIT.max) {
-      await applyLockout(emailKey, EMAIL_RATE_LIMIT.lockoutMs);
+    const ipCheck = await checkRateLimit(ipKey, IP_RATE_LIMIT);
+    if (!ipCheck.allowed) {
+      await audit.rateLimitTriggered(ctx, ipKey, "ip");
+      return {
+        success: false,
+        error: "rate_limited",
+        errorMessage: "Too many login attempts. Please try again later.",
+        lockedUntil: ipCheck.lockedUntil,
+      };
     }
     
-    await audit.loginFailed(ctx, normalizedEmail, "invalid_credentials");
+    const emailCheck = await checkRateLimit(emailKey, EMAIL_RATE_LIMIT);
+    if (!emailCheck.allowed) {
+      await audit.rateLimitTriggered(ctx, emailKey, "email");
+      return {
+        success: false,
+        error: "account_locked",
+        errorMessage: "This account is temporarily locked. Please try again later.",
+        lockedUntil: emailCheck.lockedUntil,
+      };
+    }
     
-    return {
-      success: false,
-      error: "invalid_credentials",
-      errorMessage: "Invalid email or password.",
-      attemptsRemaining: attemptsRemaining > 0 ? attemptsRemaining : undefined,
-    };
-  }
-  
-  // Check if user is disabled
-  if (user.isDisabled) {
-    await audit.loginFailed(ctx, normalizedEmail, "account_disabled");
-    return {
-      success: false,
-      error: "account_disabled",
-      errorMessage: "This account has been disabled. Please contact support.",
-    };
-  }
+    // Lookup user
+    const user = await db.users.findByEmail(normalizedEmail);
+    
+    // Verify credentials (constant-time even if user doesn't exist)
+    const dummyHash = "bcrypt$12$" + "0".repeat(64);
+    const hashToCheck = user?.passwordHash ?? dummyHash;
+    const passwordValid = await verifyPassword(password, hashToCheck);
+    
+    if (!user || !passwordValid) {
+      // Record failure
+      await db.rateLimits.increment(ipKey, IP_RATE_LIMIT.windowMs);
+      const emailState = await db.rateLimits.increment(emailKey, EMAIL_RATE_LIMIT.windowMs);
+      
+      const attemptsRemaining = Math.max(0, EMAIL_RATE_LIMIT.max - emailState.count);
+      
+      if (emailState.count >= EMAIL_RATE_LIMIT.max) {
+        await applyLockout(emailKey, EMAIL_RATE_LIMIT.lockoutMs);
+      }
+      
+      await audit.loginFailed(ctx, normalizedEmail, "invalid_credentials");
+      
+      return {
+        success: false,
+        error: "invalid_credentials",
+        errorMessage: "Invalid email or password.",
+        attemptsRemaining: attemptsRemaining > 0 ? attemptsRemaining : undefined,
+      };
+    }
+    
+    // Check if user is disabled
+    if (user.isDisabled) {
+      await audit.loginFailed(ctx, normalizedEmail, "account_disabled");
+      return {
+        success: false,
+        error: "account_disabled",
+        errorMessage: "This account has been disabled. Please contact support.",
+      };
+    }
 /*
     // Require email verification before allowing login
     if (!user.emailVerified) {
@@ -193,23 +194,31 @@ export async function login(params: LoginParams): Promise<LoginResult> {
       };
     }
  */ 
-  // Success – clear rate limits
-  await clearRateLimit(ipKey);
-  await clearRateLimit(emailKey);
-  
-  // Create session
-  await createSession(user.id, user.email, rememberMe);
-  
-  // Update last login
-  await db.users.update(user.id, {
-    lastLoginAt: new Date().toISOString(),
-    lastLoginIp: ctx.ip,
-  });
-  
-  // Audit log
-  await audit.loginSuccess(ctx, normalizedEmail);
-  
-  return { success: true };
+    // Success – clear rate limits
+    await clearRateLimit(ipKey);
+    await clearRateLimit(emailKey);
+    
+    // Create session
+    await createSession(user.id, user.email, rememberMe);
+    
+    // Update last login
+    await db.users.update(user.id, {
+      lastLoginAt: new Date().toISOString(),
+      lastLoginIp: ctx.ip,
+    });
+    
+    // Audit log
+    await audit.loginSuccess(ctx, normalizedEmail);
+    
+    return { success: true };
+  } catch (error) {
+    console.error("[Auth] Login failed due to backend dependency error", error);
+    return {
+      success: false,
+      error: "service_unavailable",
+      errorMessage: "We’re having trouble connecting right now. Please try again in a moment.",
+    };
+  }
 }
 
 // ─── Registration ─────────────────────────────────────────────────────────────

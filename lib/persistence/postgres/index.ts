@@ -21,6 +21,16 @@ import { createScheduleChangeRequestRepository } from "./schedule-change-request
 import { createBlogPostRepository } from "./blog-post-repository";
 import { createSchoolEventRepository } from "./school-event-repository";
 import { createVolunteerTaskRepository } from "./volunteer-task-repository";
+import { createSchoolContactRepository } from "./school-contact-repository";
+import { createSchoolVaultDocumentRepository } from "./school-vault-document-repository";
+import { createLunchMenuRepository } from "./lunch-menu-repository";
+import { createExpenseRepository } from "./expense-repository";
+import {
+  createMessageThreadRepository,
+  createMessageRepository,
+  createHashChainVerificationRepository,
+} from "./messaging-repository";
+import { createMomentRepository, createMomentReactionRepository } from "./moments-repository";
 
 // ─── Unit of Work Implementation ──────────────────────────────────────────────
 
@@ -54,6 +64,15 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     blogPosts: createBlogPostRepository(tx),
     schoolEvents: createSchoolEventRepository(tx),
     volunteerTasks: createVolunteerTaskRepository(tx),
+    schoolContacts: createSchoolContactRepository(tx),
+    schoolVaultDocuments: createSchoolVaultDocumentRepository(tx),
+    lunchMenus: createLunchMenuRepository(tx),
+    expenses: createExpenseRepository(),
+    messageThreads: createMessageThreadRepository(),
+    messages: createMessageRepository(),
+    hashChainVerifications: createHashChainVerificationRepository(),
+    moments: createMomentRepository(),
+    momentReactions: createMomentReactionRepository(),
 
     // Transaction methods - these are no-ops for direct UoW usage
     // Use withTransaction() for actual transaction support

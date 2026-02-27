@@ -567,3 +567,41 @@ select[aria-invalid="true"]:focus-visible {
     border: 1px solid CanvasText;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Legal Page – Custom Scrollbar & Print Styles
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 20px;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #334155;
+}
+
+/* Legal page print optimizations */
+@media print {
+  .print\:hidden {
+    display: none !important;
+  }
+  
+  /* Ensure legal sections don't break across pages */
+  section {
+    page-break-inside: avoid;
+  }
+  
+  /* Allow main content to flow naturally in print */
+  main {
+    overflow: visible !important;
+  }
+}

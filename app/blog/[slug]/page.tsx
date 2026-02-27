@@ -13,42 +13,87 @@
  * - Scroll progress tracking (throttled)
  * - Share button integration
  * - Newsletter signup (form)
+ *
  */
 
-import type { BlogPost } from "@/types";
-import { BlogArticleEngine, createMockReadingSession, createMockReadingSessions } from "@/lib/blog-article-engine";
-import { createMockBlogPosts } from "@/lib/blog-engine";
+import type { ArticleReadingSession, BlogCategory, BlogPost } from "@/types";
+import { BlogArticleEngine } from "@/lib/blog-article-engine";
+import { db } from "@/lib/persistence";
+import type { DbBlogPost } from "@/lib/persistence/types";
+import { getCurrentUser } from "@/lib/session";
 import Link from "next/link";
 import { OptimizedImage } from "@/components/optimized-image";
 import { ArticleContent, ARTICLE_CONTENT_CLASSNAMES } from "@/components/article-content";
 
-// ─── Mock Data (outside component to avoid re-renders) ──────────────────────────
+// Data is fetched from database in the async component below.
 
-const MOCK_PUBLISH_DATE = new Date(
-  new Date().getTime() - 30 * 24 * 60 * 60 * 1000
-).toISOString();
+const BLOG_CATEGORIES = new Set<BlogCategory>([
+  "custody_tips",
+  "legal_advice",
+  "emotional_wellness",
+  "communication",
+  "financial_planning",
+  "featured",
+]);
 
-const createMockArticlePost = (): BlogPost => ({
-  id: "post-holiday",
-  slug: "stress-free-holiday-custody",
-  title: "5 Strategies for Stress-Free Holiday Custody Swaps",
-  preview: "The holiday season can be stressful for co-parents. Here are 5 proven strategies...",
-  content: `<h2>1. Plan Early and Communicate Clearly</h2><p><strong>Leaving holiday plans to the last minute</strong> is a recipe for disaster. Try to finalize the schedule by October.</p><ul><li><strong>Confirm dates</strong> and times well in advance.</li><li><strong>Discuss gift budgets</strong> to avoid competition.</li></ul><h2>2. Keep Transitions Brief and Neutral</h2><p>Long goodbyes can heighten anxiety for children.</p><h3>Practical Tips</h3><p>Aim for quick, positive handoffs.</p>`,
-  categories: ["custody_tips"],
-  author: {
-    name: "Dr. Sarah Jenkins",
-    title: "Family Therapist & Mediator",
-    avatarUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAzvK2dzcvQK7JeokQFDoZTeP9xAVgPNZEzQYmJByjBWHqas7pD9BefyLvOR5bubdAVqDpmu8HfSxPJFDcnJVypNhYaqaV6tPcg-QfucPdeyWPqamr-9x10pqZ1lKpuH8QB0JVqgoukdk47GsW1B8YjUexFLX4X70KTkWiw5QlCTV6kxaE3N9C7aw4YDaX1HIxp2UXGU6bQ4sAoLAN8fZmgamWVb9eI3NG9sE3DraBobmKVD0Mefzr1gtf_p3bbODCx5COlLiWYABk",
-  },
-  featuredImageUrl:
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuDy9NZAO1UV_N3K_8VbfSQzqzMyDXAnrjkbvCa7fuAwa6WU4ecxy5TVHOAQUmbxIBjqdrC85nRGr5VuTdmip5GTlrlSkfs3QiWDtHsAM38-CJnZdOqKb6Jcj-2JS88le8O_7L4yc2e9VChrPlI1edTh84WXtDa4nmbbjBnGuyJTYlDn2R-Seohnf3kFcolvEtsBLSVtkzf5OAFWV4bqwjL59lff2Tnj0C2w3ju-q0DzB2QXIwOh5YLHd54pcl_z8JyaU7z080_uLrQ",
-  publishedAt: MOCK_PUBLISH_DATE,
-  readTimeMinutes: 8,
-  viewCount: 4200,
-  shareCount: 156,
-  commentCount: 38,
-});
+function parseBlogCategories(raw: string): BlogCategory[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter(
+      (category): category is BlogCategory => BLOG_CATEGORIES.has(category as BlogCategory)
+    );
+  } catch {
+    return [];
+  }
+}
+
+function toBlogPost(dbPost: DbBlogPost): BlogPost {
+  return {
+    id: dbPost.id,
+    title: dbPost.title,
+    slug: dbPost.slug,
+    preview: dbPost.preview,
+    content: dbPost.content,
+    categories: parseBlogCategories(dbPost.categories),
+    author: {
+      name: dbPost.authorName,
+      title: dbPost.authorTitle,
+      avatarUrl: dbPost.authorAvatarUrl,
+    },
+    featuredImageUrl: dbPost.featuredImageUrl,
+    publishedAt: dbPost.publishedAt,
+    updatedAt: dbPost.updatedAt,
+    readTimeMinutes: dbPost.readTimeMinutes,
+    viewCount: dbPost.viewCount,
+    shareCount: dbPost.shareCount,
+    commentCount: dbPost.commentCount,
+    isFeatured: dbPost.isFeatured,
+  };
+}
+
+async function fetchReadingSessions(postId: string): Promise<ArticleReadingSession[]> {
+  const maybeDb = db as unknown as {
+    blogReadingSessions?: {
+      findByPostId(postId: string): Promise<ArticleReadingSession[]>;
+    };
+  };
+
+  if (!maybeDb.blogReadingSessions) {
+    return [];
+  }
+
+  try {
+    const sessions = await maybeDb.blogReadingSessions.findByPostId(postId);
+    return sessions;
+  } catch (error) {
+    console.warn("[Blog] Failed to fetch reading sessions", { postId, error });
+    return [];
+  }
+}
 
 // ─── Article Stats ────────────────────────────────────────────────────────────
 
@@ -308,32 +353,55 @@ function CTASection() {
 /**
  * Individual blog post detail page with full content, related articles, and engagement tracking.
  *
- * Uses BlogArticleEngine to:
+ * Fetches the blog post by slug from the database and uses BlogArticleEngine to:
  * - Enrich article with TOC, key takeaways, recommendations
- * - Calculate engagement metrics from mock sessions
+ * - Calculate engagement metrics
  * - Format reading statistics
- *
- * In production, replace createMockBlogPosts() with database query and
- * use URL slug to fetch the specific post.
  */
-export default function BlogArticlePage() {
-  // Data assembly (in real app, fetch from database by slug)
+export default async function BlogArticlePage({
+  params,
+}: Readonly<{
+  params: Promise<{ slug: string }>;
+}>) {
+  const { slug } = await params;
   const engine = new BlogArticleEngine();
-  const allPosts = createMockBlogPosts(20);
 
-  // Simulate fetching a specific post (in real app, use URL slug)
-  const basePost = createMockArticlePost();
+  // Fetch article and all posts from database (in parallel)
+  const [dbBasePost, dbAllPostsResult, currentUser] = await Promise.all([
+    db.blogPosts.findBySlug(slug),
+    db.blogPosts.findPublished({ limit: 100, offset: 0 }),
+    getCurrentUser(),
+  ]);
+
+  // Handle not found (would be better as a notFound() call in catch block)
+  if (!dbBasePost) {
+    return <div className="text-center py-12">Article not found</div>;
+  }
+
+  const basePost = toBlogPost(dbBasePost);
+  const allPosts = dbAllPostsResult.posts.map(toBlogPost);
+
+  const readingSessions = await fetchReadingSessions(basePost.id);
 
   // Enrich article with metadata
   const article = engine.enrichArticle(basePost, allPosts);
 
-  // Simulate reading sessions for metrics
-  const mockSessions = createMockReadingSessions(basePost.id, 20);
-  const metrics = engine.calculateEngagementMetrics(basePost.id, mockSessions);
+  const engagement = engine.calculateEngagementMetrics(basePost.id, readingSessions);
+  const metrics = {
+    viewCount: Math.max(basePost.viewCount || 0, engagement.viewCount),
+    avgTimeSpentSeconds: engagement.avgTimeSpentSeconds,
+    completionRate: engagement.completionRate,
+  };
 
-  // Simulate user's current reading session
-  const currentSession = createMockReadingSession(basePost.id);
-  const progressPercent = engine.calculateProgressPercentage(currentSession, article.estimatedReadTime);
+  const userLatestSession = currentUser
+    ? readingSessions
+        .filter((session) => session.readerId === currentUser.userId)
+        .sort((a, b) => b.lastActivityAt.getTime() - a.lastActivityAt.getTime())[0]
+    : undefined;
+
+  const progressPercent = userLatestSession
+    ? engine.calculateProgressPercentage(userLatestSession, article.estimatedReadTime)
+    : 0;
 
   return (
     <>

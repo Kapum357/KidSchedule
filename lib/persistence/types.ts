@@ -273,3 +273,102 @@ export interface DbSchoolVaultDocument {
   url?: string;
   actionDeadline?: string;
 }
+
+export interface DbLunchMenuItem {
+  name: string;
+  description?: string;
+  isVegetarian?: boolean;
+  isGlutenFree?: boolean;
+}
+
+export interface DbLunchMenu {
+  familyId: string;
+  date: string; // ISO-8601 date "YYYY-MM-DD"
+  mainOption: DbLunchMenuItem;
+  alternativeOption?: DbLunchMenuItem;
+  side?: string;
+  accountBalance: number;
+}
+
+// ─── Expense Entities ─────────────────────────────────────────────────────────
+
+export interface DbExpense {
+  id: string;
+  familyId: string;
+  title: string;
+  description?: string;
+  category: "medical" | "education" | "clothing" | "activity" | "childcare" | "other";
+  totalAmount: number; // cents
+  currency: string;
+  splitMethod: "50-50" | "custom" | "one-parent";
+  splitRatio?: Record<string, number>; // parentId → percentage mapping
+  paidBy: string; // parentId
+  paymentStatus: "unpaid" | "paid" | "disputed";
+  receiptUrl?: string;
+  date: string; // ISO date
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Messaging & Hash Chain Entities ───────────────────────────────────────────
+
+export interface DbMessageThread {
+  id: string;
+  familyId: string;
+  subject?: string;
+  createdAt: string;
+  lastMessageAt: string;
+}
+
+export interface DbMessage {
+  id: string;
+  threadId: string;
+  familyId: string;
+  senderId: string; // parentId
+  body: string;
+  sentAt: string;
+  readAt?: string;
+  attachmentIds: string[]; // file IDs
+  toneAnalysis?: {
+    isHostile: boolean;
+    indicators?: string[];
+  };
+  messageHash: string; // SHA256 of content + metadata
+  previousHash?: string; // Links to previous message in thread
+  chainIndex: number; // Sequential position in thread
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DbHashChainVerification {
+  id: string;
+  threadId: string;
+  verifiedAt: string;
+  verifiedBy?: string; // parentId
+  isValid: boolean;
+  tamperDetectedAtIndex?: number;
+  verificationReport?: Record<string, unknown>;
+}
+
+// ─── Moment Entities ──────────────────────────────────────────────────────────
+
+export interface DbMoment {
+  id: string;
+  familyId: string;
+  uploadedBy: string; // parentId
+  mediaUrl: string;
+  thumbnailUrl?: string;
+  mediaType: "photo" | "video";
+  caption?: string;
+  takenAt?: string; // ISO date when photo was taken
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DbMomentReaction {
+  id: string;
+  momentId: string;
+  parentId: string;
+  emoji: string;
+  reactedAt: string;
+}

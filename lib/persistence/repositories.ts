@@ -26,6 +26,15 @@ import type {
   DbBlogPost,
   DbSchoolEvent,
   DbVolunteerTask,
+  DbSchoolContact,
+  DbSchoolVaultDocument,
+  DbLunchMenu,
+  DbExpense,
+  DbMessageThread,
+  DbMessage,
+  DbHashChainVerification,
+  DbMoment,
+  DbMomentReaction,
   AuditAction,
 } from "./types";
 
@@ -196,6 +205,101 @@ export interface VolunteerTaskRepository {
   complete(id: string): Promise<DbVolunteerTask | null>;
 }
 
+// ─── School Contact Repository ───────────────────────────────────────────────
+
+export interface SchoolContactRepository {
+  findById(id: string): Promise<DbSchoolContact | null>;
+  findByFamilyId(familyId: string): Promise<DbSchoolContact[]>;
+}
+
+// ─── School Vault Document Repository ────────────────────────────────────────
+
+export interface SchoolVaultDocumentRepository {
+  findById(id: string): Promise<DbSchoolVaultDocument | null>;
+  findByFamilyId(familyId: string): Promise<DbSchoolVaultDocument[]>;
+}
+
+// ─── Lunch Menu Repository ───────────────────────────────────────────────────
+
+export interface LunchMenuRepository {
+  findByFamilyIdSince(familyId: string, fromDate: string): Promise<DbLunchMenu[]>;
+}
+
+// ─── Expense Repository ───────────────────────────────────────────────────────
+
+export interface ExpenseRepository {
+  findById(id: string): Promise<DbExpense | null>;
+  findByFamilyId(familyId: string): Promise<DbExpense[]>;
+  findByFamilyIdAndDateRange(
+    familyId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<DbExpense[]>;
+  create(expense: Omit<DbExpense, "id" | "createdAt" | "updatedAt">): Promise<DbExpense>;
+  update(id: string, data: Partial<DbExpense>): Promise<DbExpense | null>;
+  delete(id: string): Promise<boolean>;
+}
+
+// ─── Message Thread Repository ────────────────────────────────────────────────
+
+export interface MessageThreadRepository {
+  findById(id: string): Promise<DbMessageThread | null>;
+  findByFamilyId(familyId: string): Promise<DbMessageThread[]>;
+  create(thread: Omit<DbMessageThread, "id" | "createdAt" | "lastMessageAt">): Promise<DbMessageThread>;
+  update(id: string, data: Partial<DbMessageThread>): Promise<DbMessageThread | null>;
+}
+
+// ─── Message Repository ───────────────────────────────────────────────────────
+
+export interface MessageRepository {
+  findById(id: string): Promise<DbMessage | null>;
+  findByThreadId(threadId: string): Promise<DbMessage[]>;
+  findByFamilyId(familyId: string): Promise<DbMessage[]>;
+  findUnreadByFamilyId(familyId: string): Promise<DbMessage[]>;
+  create(message: Omit<DbMessage, "id" | "createdAt" | "updatedAt">): Promise<DbMessage>;
+  markAsRead(id: string, readAt: string): Promise<DbMessage | null>;
+  update(id: string, data: Partial<DbMessage>): Promise<DbMessage | null>;
+}
+
+// ─── Hash Chain Verification Repository ────────────────────────────────────────
+
+export interface HashChainVerificationRepository {
+  findById(id: string): Promise<DbHashChainVerification | null>;
+  findByThreadId(threadId: string): Promise<DbHashChainVerification[]>;
+  create(
+    verification: Omit<DbHashChainVerification, "id">
+  ): Promise<DbHashChainVerification>;
+  findLatestByThreadId(threadId: string): Promise<DbHashChainVerification | null>;
+}
+
+// ─── Moment Repository ────────────────────────────────────────────────────────
+
+export interface MomentRepository {
+  findById(id: string): Promise<DbMoment | null>;
+  findByFamilyId(familyId: string): Promise<DbMoment[]>;
+  findByFamilyIdOrderedByRecent(
+    familyId: string,
+    limit?: number,
+    offset?: number
+  ): Promise<DbMoment[]>;
+  create(moment: Omit<DbMoment, "id" | "createdAt" | "updatedAt">): Promise<DbMoment>;
+  update(id: string, data: Partial<DbMoment>): Promise<DbMoment | null>;
+  delete(id: string): Promise<boolean>;
+}
+
+// ─── Moment Reaction Repository ───────────────────────────────────────────────
+
+export interface MomentReactionRepository {
+  findById(id: string): Promise<DbMomentReaction | null>;
+  findByMomentId(momentId: string): Promise<DbMomentReaction[]>;
+  findByMomentIdAndParentId(momentId: string, parentId: string): Promise<DbMomentReaction | null>;
+  create(
+    reaction: Omit<DbMomentReaction, "id">
+  ): Promise<DbMomentReaction>;
+  delete(id: string): Promise<boolean>;
+  deleteByMomentIdAndParentId(momentId: string, parentId: string): Promise<boolean>;
+}
+
 // ─── Unit of Work ─────────────────────────────────────────────────────────────
 
 /**
@@ -217,6 +321,15 @@ export interface UnitOfWork {
   blogPosts: BlogPostRepository;
   schoolEvents: SchoolEventRepository;
   volunteerTasks: VolunteerTaskRepository;
+  schoolContacts: SchoolContactRepository;
+  schoolVaultDocuments: SchoolVaultDocumentRepository;
+  lunchMenus: LunchMenuRepository;
+  expenses: ExpenseRepository;
+  messageThreads: MessageThreadRepository;
+  messages: MessageRepository;
+  hashChainVerifications: HashChainVerificationRepository;
+  moments: MomentRepository;
+  momentReactions: MomentReactionRepository;
 
   /** Begin a transaction */
   beginTransaction(): Promise<void>;

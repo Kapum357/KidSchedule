@@ -4,150 +4,41 @@
  * A Next.js Server Component that renders a full-month custody calendar with
  * events, transitions, and request overlays.
  *
- * Once a database layer is added, replace createMockCalendarInput() with
- * real queries and uncomment the async data-fetching section.
  */
 
 import { CalendarMonthEngine } from "@/lib/calendar-engine";
-import { SettingsEngine, createMockFamilySettings } from "@/lib/settings-engine";
+import { SchedulePresets } from "@/lib/custody-engine";
+import { SettingsEngine } from "@/lib/settings-engine";
+import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
+import { requireAuth } from "@/lib/session";
 import { redirect } from "next/navigation";
 import type { CalendarMonthData, CalendarDayState, CustodyColor, TransitionListItem } from "@/lib/calendar-engine";
-import type { CalendarEvent, Family, Parent, ScheduleChangeRequest, FamilySettings } from "@/types";
-
-// ─── Mock Data (replace with real DB queries in production) ───────────────────
-
-interface CalendarInput {
-  family: Family;
-  events: CalendarEvent[];
-  changeRequests: ScheduleChangeRequest[];
-  familySettings: FamilySettings;
-}
-
-function createMockCalendarInput(conflictWindowMins: number, now: Date = new Date()): CalendarInput {
-  const PARENT_A_ID = "parent-alex-001";
-  const PARENT_B_ID = "parent-sarah-002";
-  const FAMILY_ID = "family-001";
-  const CHILD_ID = "child-emma-001";
-
-  const parentAlex: Parent = {
-    id: PARENT_A_ID,
-    name: "Alex M.",
-    email: "alex@example.com",
-    avatarUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAMm9PKE77NmQRxRk8-lRarDuoVKfumrSvirCCC1A-bI8clVSNMQKx4ACuGOkMJh_E_4R-vkLrgaVp-DyFMt5Hk6ZGqn15tajsGHfYRzHlrqJRjiygOAoy_OQA1JOaoLQrL_RX6_PPl7SZ16RDQu9V2DPhgAAf9ioG_LAr-yCPX4bKT4-3Qn-40Q7Zem1C6pZcUwXl_7ORPkJxx2ZQLPcaOYqyOkfTVOMG8NkDh2LrTMf5Q9hZl1NwL_aLAVtgf86GlT7rJ0Cbp_mA",
-  };
-
-  const parentSarah: Parent = {
-    id: PARENT_B_ID,
-    name: "Sarah P.",
-    email: "sarah@example.com",
-  };
-
-  // Anchor = 12 days ago at 5 PM to put us mid-cycle.
-  const anchor = new Date(now);
-  anchor.setDate(anchor.getDate() - 12);
-  const anchorDate = anchor.toISOString().slice(0, 10);
-
-  const family: Family = {
-    id: FAMILY_ID,
-    parents: [parentAlex, parentSarah] as [Parent, Parent],
-    children: [
-      {
-        id: CHILD_ID,
-        firstName: "Emma",
-        lastName: "M.",
-        dateOfBirth: "2018-03-14",
-      },
-    ],
-    custodyAnchorDate: anchorDate,
-    schedule: {
-      id: "sched-001",
-      name: "2-2-3 Rotation",
-      transitionHour: 17,
-      blocks: [
-        { parentId: PARENT_A_ID, days: 2, label: "Mon–Tue A" },
-        { parentId: PARENT_B_ID, days: 2, label: "Wed–Thu B" },
-        { parentId: PARENT_A_ID, days: 3, label: "Fri–Sun A" },
-        { parentId: PARENT_B_ID, days: 2, label: "Mon–Tue B" },
-        { parentId: PARENT_A_ID, days: 2, label: "Wed–Thu A" },
-        { parentId: PARENT_B_ID, days: 3, label: "Fri–Sun B" },
-      ],
-    },
-  };
-
-  const makeDT = (daysFromNow: number, hour = 12): string => {
-    const d = new Date(now);
-    d.setDate(d.getDate() + daysFromNow);
-    d.setHours(hour, 0, 0, 0);
-    return d.toISOString();
-  };
-
-  const events: CalendarEvent[] = [
-    {
-      id: "evt-001",
-      familyId: FAMILY_ID,
-      title: "Independence Day",
-      category: "holiday",
-      startAt: makeDT(3, 0),
-      endAt: makeDT(3, 23),
-      allDay: true,
-      confirmationStatus: "pending",
-      createdBy: PARENT_A_ID,
-    },
-    {
-      id: "evt-002",
-      familyId: FAMILY_ID,
-      title: "Soccer Practice",
-      category: "activity",
-      startAt: makeDT(7, 16),
-      endAt: makeDT(7, 17),
-      allDay: false,
-      location: "West Field",
-      confirmationStatus: "confirmed",
-      createdBy: PARENT_B_ID,
-    },
-    {
-      id: "evt-003",
-      familyId: FAMILY_ID,
-      title: "Emma's Dentist",
-      category: "medical",
-      startAt: makeDT(14, 10),
-      endAt: makeDT(14, 11),
-      allDay: false,
-      location: "Cedar Dental Clinic",
-      confirmationStatus: "confirmed",
-      createdBy: PARENT_A_ID,
-    },
-  ];
-
-  const changeRequests: ScheduleChangeRequest[] = [
-    {
-      id: "req-001",
-      familyId: FAMILY_ID,
-      requestedBy: PARENT_B_ID,
-      title: "July 4th Weekend Swap",
-      description: "Requesting to swap the July 4th weekend.",
-      givingUpPeriodStart: makeDT(3),
-      givingUpPeriodEnd: makeDT(6),
-      requestedMakeUpStart: makeDT(17),
-      requestedMakeUpEnd: makeDT(20),
-      status: "pending",
-      createdAt: makeDT(-1),
-    },
-  ];
-
-  const familySettings = createMockFamilySettings(FAMILY_ID, conflictWindowMins);
-
-  return { family, events, changeRequests, familySettings };
-}
+import type {
+  CalendarEvent,
+  Child,
+  ConfirmationStatus,
+  CustodySchedule,
+  EventCategory,
+  Family,
+  Parent,
+  ScheduleChangeRequest,
+} from "@/types";
+import type {
+  DbCalendarEvent,
+  DbChild,
+  DbFamily,
+  DbParent,
+  DbScheduleChangeRequest,
+} from "@/lib/persistence/types";
 
 async function updateConflictWindow(formData: FormData): Promise<void> {
   "use server";
 
   const requestedWindowMins = Number((formData.get("conflictWindowMins") as string | null) ?? "120");
+  const familyId = (formData.get("familyId") as string | null) ?? "family-demo";
   const settingsEngine = new SettingsEngine();
-  const resolved = settingsEngine.resolveFamilySettings("family-demo", {
+  const resolved = settingsEngine.resolveFamilySettings(familyId, {
     conflictWindow: { windowMins: requestedWindowMins },
   });
 
@@ -169,6 +60,145 @@ function getCustodyBackgroundClass(color: CustodyColor): string {
   }
 
   return ""; // split handled manually with absolute positioning
+}
+
+const EVENT_CATEGORIES = new Set<EventCategory>([
+  "custody",
+  "school",
+  "medical",
+  "activity",
+  "holiday",
+  "other",
+]);
+
+function parseEventCategory(raw: string): EventCategory {
+  return EVENT_CATEGORIES.has(raw as EventCategory) ? (raw as EventCategory) : "other";
+}
+
+function parseConfirmationStatus(raw: string): ConfirmationStatus {
+  if (raw === "confirmed" || raw === "pending" || raw === "declined") {
+    return raw;
+  }
+  return "pending";
+}
+
+function mapParent(row: DbParent): Parent {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    avatarUrl: row.avatarUrl ?? undefined,
+    phone: row.phone ?? undefined,
+  };
+}
+
+function mapChild(row: DbChild): Child {
+  return {
+    id: row.id,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    dateOfBirth: row.dateOfBirth,
+    avatarUrl: row.avatarUrl ?? undefined,
+  };
+}
+
+function resolveScheduleBlocks(scheduleId: string | null | undefined, parents: [Parent, Parent]) {
+  const [primary, secondary] = parents;
+
+  switch (scheduleId) {
+    case "alternating-weeks":
+      return SchedulePresets.alternatingWeeks(primary.id, secondary.id);
+    case "3-4-4-3":
+      return SchedulePresets.threeFourFourThree(primary.id, secondary.id);
+    case "2-2-3":
+    default:
+      return SchedulePresets.twoTwoThree(primary.id, secondary.id);
+  }
+}
+
+function formatScheduleName(scheduleId: string | null | undefined): string {
+  if (!scheduleId) {
+    return "Family Schedule";
+  }
+
+  switch (scheduleId) {
+    case "alternating-weeks":
+      return "Alternating Weeks";
+    case "3-4-4-3":
+      return "3-4-4-3 Rotation";
+    case "2-2-3":
+      return "2-2-3 Rotation";
+    default:
+      return "Family Schedule";
+  }
+}
+
+function buildFamilySchedule(dbFamily: DbFamily, parents: [Parent, Parent]): CustodySchedule {
+  return {
+    id: dbFamily.scheduleId || "family-schedule",
+    name: formatScheduleName(dbFamily.scheduleId),
+    transitionHour: 17,
+    blocks: resolveScheduleBlocks(dbFamily.scheduleId, parents),
+  };
+}
+
+function mapFamilyParents(rows: DbParent[]): [Parent, Parent] {
+  const sorted = rows
+    .slice()
+    .sort((a, b) => {
+      if (a.role === b.role) {
+        return a.name.localeCompare(b.name);
+      }
+      if (a.role === "primary") {
+        return -1;
+      }
+      if (b.role === "primary") {
+        return 1;
+      }
+      return a.name.localeCompare(b.name);
+    })
+    .map(mapParent);
+
+  if (sorted.length < 2) {
+    throw new Error("Family must have at least two parents for calendar rendering.");
+  }
+
+  return [sorted[0], sorted[1]] as [Parent, Parent];
+}
+
+function mapCalendarEvent(row: DbCalendarEvent): CalendarEvent {
+  return {
+    id: row.id,
+    familyId: row.familyId,
+    title: row.title,
+    description: row.description ?? undefined,
+    category: parseEventCategory(row.category),
+    startAt: row.startAt,
+    endAt: row.endAt,
+    allDay: row.allDay,
+    location: row.location ?? undefined,
+    parentId: row.parentId ?? undefined,
+    confirmationStatus: parseConfirmationStatus(row.confirmationStatus),
+    createdBy: row.createdBy,
+  };
+}
+
+function mapChangeRequest(row: DbScheduleChangeRequest): ScheduleChangeRequest {
+  return {
+    id: row.id,
+    familyId: row.familyId,
+    requestedBy: row.requestedBy,
+    title: row.title,
+    description: row.description ?? undefined,
+    givingUpPeriodStart: row.givingUpPeriodStart,
+    givingUpPeriodEnd: row.givingUpPeriodEnd,
+    requestedMakeUpStart: row.requestedMakeUpStart,
+    requestedMakeUpEnd: row.requestedMakeUpEnd,
+    status: row.status as ScheduleChangeRequest["status"],
+    createdAt: row.createdAt,
+    respondedAt: row.respondedAt ?? undefined,
+    responseNote: row.responseNote ?? undefined,
+  };
 }
 
 // ─── Sidebar Components ───────────────────────────────────────────────────────
@@ -453,8 +483,6 @@ function CalendarGrid({ data }: Readonly<{ data: CalendarMonthData }>) {
 /**
  * Calendar Server Component.
  *
- * In production, replace createMockInput() with real database queries:
- *
  * async function loadCalendarData(userId: string, year: number, month: number) {
  *   const [family, events, requests, now] = await Promise.all([...]);
  *   return { family, events, requests, now };
@@ -480,15 +508,55 @@ export default async function CalendarPage({
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
 
-  // ── Load calendar data (mock for now) ─────────────────────────────────────
-  const { family, events: allEvents, changeRequests, familySettings } = 
-    createMockCalendarInput(conflictWindowMins, now);
+  // ── Load calendar data from database ──────────────────────────────────────
+  const user = await requireAuth();
+
+  const parent = await db.parents.findByUserId(user.userId);
+  if (!parent) {
+    redirect("/calendar/wizard?onboarding=1");
+  }
+
+  const [dbFamily, dbParents, dbChildren, dbEvents, dbChangeRequests] = await Promise.all([
+    db.families.findById(parent.familyId),
+    db.parents.findByFamilyId(parent.familyId),
+    db.children.findByFamilyId(parent.familyId),
+    db.calendarEvents.findByFamilyId(parent.familyId),
+    db.scheduleChangeRequests.findByFamilyId(parent.familyId),
+  ]);
+
+  if (!dbFamily) {
+    redirect("/calendar/wizard?onboarding=1");
+  }
+
+  if (dbParents.length < 2) {
+    redirect("/calendar/wizard?onboarding=1");
+  }
+
+  const mappedParents = mapFamilyParents(dbParents);
+  const family: Family = {
+    id: dbFamily.id,
+    parents: mappedParents,
+    children: dbChildren.map(mapChild),
+    custodyAnchorDate: dbFamily.custodyAnchorDate,
+    schedule: buildFamilySchedule(dbFamily, mappedParents),
+  };
+
+  const events = dbEvents.map(mapCalendarEvent);
+  const changeRequests = dbChangeRequests
+    .slice()
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .map(mapChangeRequest);
+
+  const settingsEngine = new SettingsEngine();
+  const familySettings = settingsEngine.resolveFamilySettings(dbFamily.id, {
+    conflictWindow: { windowMins: conflictWindowMins },
+  });
 
   // ── Compute calendar ──────────────────────────────────────────────────────
   const engine = new CalendarMonthEngine(family);
-  const data = engine.getMonthData(year, month, allEvents, changeRequests, now);
+  const data = engine.getMonthData(year, month, events, changeRequests, now);
   const conflicts = engine.detectConflicts(
-    allEvents,
+    events,
     familySettings.conflictWindow.windowMins
   );
 
@@ -588,6 +656,7 @@ export default async function CalendarPage({
             </div>
             <div className="flex gap-2">
               <form action={updateConflictWindow} className="flex items-center gap-2">
+                <input type="hidden" name="familyId" value={family.id} />
                 <label htmlFor="conflictWindowMins" className="text-xs font-medium text-slate-500 dark:text-slate-400">
                   Conflict window
                 </label>

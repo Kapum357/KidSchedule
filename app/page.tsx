@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { AudienceDetector } from "./landing-client";
 import { HERO_IMAGE_CONFIG } from "@/lib/image-optimization";
 
@@ -84,15 +85,13 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-16 px-4 sm:px-6 lg:px-8 min-h-[600px] overflow-hidden">
-        <img
+        <Image
           src={HERO_IMAGE_CONFIG.src}
           alt={HERO_IMAGE_CONFIG.alt}
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover"
-          loading="eager"
-          fetchPriority="high"
-          width={HERO_IMAGE_CONFIG.width}
-          height={HERO_IMAGE_CONFIG.height}
+          priority
+          fill
         />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-white/50 to-accent/25" />
         <div className="relative z-10 max-w-7xl mx-auto">

@@ -1,5 +1,7 @@
 type MemoryKind = "media" | "quote" | "document";
 
+import Image from "next/image";
+
 type ChildTag = "Leo" | "Maya" | "Leo & Maya";
 
 type MemoryItem = {
@@ -163,7 +165,13 @@ function MemoryCard({ item }: Readonly<{ item: MemoryItem }>) {
   return (
     <article className="group break-inside-avoid mb-6 overflow-hidden rounded-xl border border-slate-100 bg-surface-light shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-surface-dark">
       <div className="relative">
-        <img src={item.imageUrl} alt={item.title} className="h-auto w-full object-cover" />
+        <Image
+          src={item.imageUrl!}
+          alt={item.title}
+          className="h-auto w-full object-cover"
+          fill
+          sizes="(max-width: 768px) 100vw, 33vw"
+        />
 
         {item.videoLength && (
           <>

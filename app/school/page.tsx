@@ -16,18 +16,16 @@
  * - getDailyLunch(): retrieves today's menu
  * - formatEventDateBadge() / formatEventTimeRange(): display formatting
  *
- * In production:
- * - Replace createMock*() calls with database queries using the family ID
- *   from the authenticated session
- * - Wire the "Sync School Calendar" button to a Server Action that imports
- *   events from the school's iCal feed via ical.js or Google Calendar API
- * - Contact search input: move to a Client Component wrapper to enable
- *   reactive filtering without a full page reload
+ * Data is loaded from persistence repositories and mapped into domain types.
  */
 
 import type {
+  ContactRole,
+  DocumentStatus,
   SchoolEvent,
+  SchoolEventType,
   VolunteerTask,
+  VolunteerStatus,
   SchoolContact,
   SchoolVaultDocument,
   LunchMenu,
@@ -35,33 +33,179 @@ import type {
 } from "@/types";
 import {
   PTAEngine,
-  createMockSchoolEvents,
-  createMockVolunteerTasks,
-  createMockSchoolContacts,
-  createMockVaultDocuments,
-  createMockLunchMenus,
 } from "@/lib/pta-engine";
 import { ThemeToggle } from "@/app/theme-toggle";
+import { requireAuth } from "@/lib/session";
+import { db } from "@/lib/persistence";
+import { redirect } from "next/navigation";
+
+function parseJsonStringArray(input: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(input);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item): item is string => typeof item === "string");
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function toSchoolEventType(value: string): SchoolEventType {
+  const allowed: SchoolEventType[] = [
+    "pta_meeting",
+    "bake_sale",
+    "conference",
+    "rehearsal",
+    "performance",
+    "parade",
+    "field_trip",
+    "sports",
+    "other",
+  ];
+  return allowed.includes(value as SchoolEventType)
+    ? (value as SchoolEventType)
+    : "other";
+}
+
+function toVolunteerStatus(value: string): VolunteerStatus {
+  const allowed: VolunteerStatus[] = ["open", "assigned", "completed", "cancelled"];
+  return allowed.includes(value as VolunteerStatus)
+    ? (value as VolunteerStatus)
+    : "open";
+}
+
+function toContactRole(value: string): ContactRole {
+  const allowed: ContactRole[] = [
+    "teacher",
+    "principal",
+    "vice_principal",
+    "nurse",
+    "counselor",
+    "pta_board",
+    "coach",
+    "staff",
+  ];
+  return allowed.includes(value as ContactRole)
+    ? (value as ContactRole)
+    : "staff";
+}
+
+function toDocumentStatus(value: string): DocumentStatus {
+  const allowed: DocumentStatus[] = ["available", "pending_signature", "signed", "expired"];
+  return allowed.includes(value as DocumentStatus)
+    ? (value as DocumentStatus)
+    : "available";
+}
+
+function mapDbSchoolEventToDomain(dbEvent: Awaited<ReturnType<typeof db.schoolEvents.findByFamilyId>>[number]): SchoolEvent {
+  return {
+    id: dbEvent.id,
+    familyId: dbEvent.familyId,
+    title: dbEvent.title,
+    description: dbEvent.description,
+    eventType: toSchoolEventType(dbEvent.eventType),
+    startAt: dbEvent.startAt,
+    endAt: dbEvent.endAt,
+    location: dbEvent.location,
+    isAllDay: dbEvent.isAllDay,
+    attendingParentIds: parseJsonStringArray(dbEvent.attendingParentIds),
+    actionRequired: dbEvent.actionRequired,
+    actionDeadline: dbEvent.actionDeadline,
+    actionDescription: dbEvent.actionDescription,
+    volunteerTaskIds: parseJsonStringArray(dbEvent.volunteerTaskIds),
+    accentColor:
+      dbEvent.accentColor === "teal" ||
+      dbEvent.accentColor === "amber" ||
+      dbEvent.accentColor === "blue" ||
+      dbEvent.accentColor === "rose" ||
+      dbEvent.accentColor === "purple"
+        ? dbEvent.accentColor
+        : undefined,
+    icon: dbEvent.icon,
+  };
+}
+
+function mapDbVolunteerTaskToDomain(dbTask: Awaited<ReturnType<typeof db.volunteerTasks.findByFamilyId>>[number]): VolunteerTask {
+  return {
+    id: dbTask.id,
+    familyId: dbTask.familyId,
+    eventId: dbTask.eventId,
+    title: dbTask.title,
+    description: dbTask.description,
+    assignedParentId: dbTask.assignedParentId,
+    status: toVolunteerStatus(dbTask.status),
+    estimatedHours: dbTask.estimatedHours,
+    scheduledFor: dbTask.scheduledFor,
+    completedAt: dbTask.completedAt,
+    icon: dbTask.icon,
+    iconColor: dbTask.iconColor,
+  };
+}
+
+function mapDbSchoolContactToDomain(dbContact: Awaited<ReturnType<typeof db.schoolContacts.findByFamilyId>>[number]): SchoolContact {
+  return {
+    id: dbContact.id,
+    name: dbContact.name,
+    initials: dbContact.initials,
+    role: toContactRole(dbContact.role),
+    roleLabel: dbContact.roleLabel,
+    email: dbContact.email,
+    phone: dbContact.phone,
+    avatarColor: dbContact.avatarColor,
+  };
+}
+
+function mapDbSchoolVaultDocumentToDomain(
+  dbDocument: Awaited<ReturnType<typeof db.schoolVaultDocuments.findByFamilyId>>[number]
+): SchoolVaultDocument {
+  return {
+    id: dbDocument.id,
+    familyId: dbDocument.familyId,
+    title: dbDocument.title,
+    fileType:
+      dbDocument.fileType === "pdf" ||
+      dbDocument.fileType === "image" ||
+      dbDocument.fileType === "archive" ||
+      dbDocument.fileType === "document" ||
+      dbDocument.fileType === "spreadsheet"
+        ? dbDocument.fileType
+        : "document",
+    status: toDocumentStatus(dbDocument.status),
+    statusLabel: dbDocument.statusLabel,
+    addedAt: dbDocument.addedAt,
+    addedBy: dbDocument.addedBy,
+    sizeBytes: dbDocument.sizeBytes,
+    url: dbDocument.url,
+    actionDeadline: dbDocument.actionDeadline,
+  };
+}
+
+function mapDbLunchMenuToDomain(dbMenu: Awaited<ReturnType<typeof db.lunchMenus.findByFamilyIdSince>>[number]): LunchMenu {
+  return {
+    date: dbMenu.date,
+    mainOption: dbMenu.mainOption,
+    alternativeOption: dbMenu.alternativeOption,
+    side: dbMenu.side,
+    accountBalance: dbMenu.accountBalance,
+  };
+}
 
 // ─── Module-level constants (avoid Date.now() inside render) ──────────────────
-
-const NOW = new Date();
-const TODAY_STR = NOW.toISOString().split("T")[0];
-const FAMILY_ID = "family-demo";
-const CURRENT_PARENT_ID = "parent-alex";
-const OTHER_PARENT_ID = "parent-sarah";
-
-// Mock parent display names
-const PARENT_NAMES: Record<string, string> = {
-  "parent-alex":  "Alex (Me)",
-  "parent-sarah": "Sarah",
-};
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
 // ── Event Cards ───────────────────────────────────────────────────────────────
 
-function EventCardBadge({ event }: Readonly<{ event: SchoolEvent }>) {
+function EventCardBadge({
+  event,
+  currentParentId,
+  parentNames,
+}: Readonly<{
+  event: SchoolEvent;
+  currentParentId: string;
+  parentNames: Record<string, string>;
+}>) {
   if (event.actionRequired) {
     return (
       <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
@@ -71,10 +215,10 @@ function EventCardBadge({ event }: Readonly<{ event: SchoolEvent }>) {
   }
 
   const attendingNames = event.attendingParentIds.map(
-    (id) => PARENT_NAMES[id] ?? id
+    (id) => parentNames[id] ?? id
   );
   if (attendingNames.length > 0) {
-    const isCurrentParent = event.attendingParentIds.includes(CURRENT_PARENT_ID);
+    const isCurrentParent = event.attendingParentIds.includes(currentParentId);
     return (
       <span className="text-xs text-slate-600 dark:text-slate-400">
         {isCurrentParent ? "You are volunteering" : `${attendingNames[0]} attending`}
@@ -88,7 +232,14 @@ function EventCardBadge({ event }: Readonly<{ event: SchoolEvent }>) {
 function EventCard({
   event,
   engine,
-}: Readonly<{ event: SchoolEvent; engine: PTAEngine }>) {
+  currentParentId,
+  parentNames,
+}: Readonly<{
+  event: SchoolEvent;
+  engine: PTAEngine;
+  currentParentId: string;
+  parentNames: Record<string, string>;
+}>) {
   const isAccentTeal = event.accentColor === "teal";
   const isAccentAmber = event.accentColor === "amber";
 
@@ -131,7 +282,7 @@ function EventCard({
       </p>
 
       <div className="mt-3 flex items-center gap-2">
-        <EventCardBadge event={event} />
+        <EventCardBadge event={event} currentParentId={currentParentId} parentNames={parentNames} />
       </div>
     </div>
   );
@@ -142,14 +293,18 @@ function EventCard({
 function VolunteerTaskRow({
   task,
   suggestedParentId,
+  currentParentId,
+  parentNames,
 }: Readonly<{
   task: VolunteerTask;
   suggestedParentId: string | null;
+  currentParentId: string;
+  parentNames: Record<string, string>;
 }>) {
   const isOpen = task.status === "open";
-  const isAssignedToCurrentUser = task.assignedParentId === CURRENT_PARENT_ID;
+  const isAssignedToCurrentUser = task.assignedParentId === currentParentId;
   const assigneeName = task.assignedParentId
-    ? (PARENT_NAMES[task.assignedParentId] ?? task.assignedParentId)
+    ? (parentNames[task.assignedParentId] ?? task.assignedParentId)
     : "Unassigned";
 
   const iconBgMap: Record<string, string> = {
@@ -187,7 +342,7 @@ function VolunteerTaskRow({
               </div>
               <span className="text-xs font-medium text-slate-500">
                 {suggestedParentId
-                  ? `Suggested: ${PARENT_NAMES[suggestedParentId] ?? suggestedParentId}`
+                  ? `Suggested: ${parentNames[suggestedParentId] ?? suggestedParentId}`
                   : "Unassigned"}
               </span>
             </div>
@@ -199,7 +354,7 @@ function VolunteerTaskRow({
           <>
             <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700">
               <div className="size-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
-                {(PARENT_NAMES[task.assignedParentId ?? ""] ?? "?")[0]}
+                {(parentNames[task.assignedParentId ?? ""] ?? "?")[0]}
               </div>
               <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
                 {assigneeName}
@@ -316,7 +471,13 @@ function VaultDocumentRow({
 
 function VolunteerBalanceBar({
   balances,
-}: Readonly<{ balances: VolunteerBalance[] }>) {
+  currentParentId,
+  parentNames,
+}: Readonly<{
+  balances: VolunteerBalance[];
+  currentParentId: string;
+  parentNames: Record<string, string>;
+}>) {
   if (balances.length < 2) return null;
 
   const total = balances.reduce((s, b) => s + b.totalHoursCommitted, 0);
@@ -335,17 +496,17 @@ function VolunteerBalanceBar({
           <div
             key={b.parentId}
             className={`h-full rounded-full transition-all ${
-              b.parentId === CURRENT_PARENT_ID ? "bg-primary" : "bg-slate-300 dark:bg-slate-600"
+              b.parentId === currentParentId ? "bg-primary" : "bg-slate-300 dark:bg-slate-600"
             }`}
             style={{ width: `${pct(b)}%` }}
-            title={`${PARENT_NAMES[b.parentId] ?? b.parentId}: ${b.totalHoursCommitted}h`}
+            title={`${parentNames[b.parentId] ?? b.parentId}: ${b.totalHoursCommitted}h`}
           />
         ))}
       </div>
       <div className="flex justify-between mt-1">
         {balances.map((b) => (
           <span key={b.parentId} className="text-[10px] text-slate-500">
-            {PARENT_NAMES[b.parentId] ?? b.parentId}: {b.totalHoursCommitted}h
+            {parentNames[b.parentId] ?? b.parentId}: {b.totalHoursCommitted}h
           </span>
         ))}
       </div>
@@ -415,25 +576,74 @@ function LunchWidget({
 export default async function SchoolPortalPage({
   searchParams,
 }: Readonly<{ searchParams?: Promise<{ q?: string }> }>) {
+  const now = new Date();
+  const todayStr = now.toISOString().split("T")[0];
+
+  const user = await requireAuth();
+  const currentParent = await db.parents.findByUserId(user.userId);
+  if (!currentParent) {
+    redirect("/calendar/wizard?onboarding=1");
+  }
+
+  let dbFamilyParents: Awaited<ReturnType<typeof db.parents.findByFamilyId>> = [];
+  let dbSchoolEvents: Awaited<ReturnType<typeof db.schoolEvents.findUpcoming>> = [];
+  let dbVolunteerTasks: Awaited<ReturnType<typeof db.volunteerTasks.findByFamilyId>> = [];
+  let dbSchoolContacts: Awaited<ReturnType<typeof db.schoolContacts.findByFamilyId>> = [];
+  let dbSchoolVaultDocuments: Awaited<ReturnType<typeof db.schoolVaultDocuments.findByFamilyId>> = [];
+  let dbLunchMenus: Awaited<ReturnType<typeof db.lunchMenus.findByFamilyIdSince>> = [];
+
+  try {
+    [
+      dbFamilyParents,
+      dbSchoolEvents,
+      dbVolunteerTasks,
+      dbSchoolContacts,
+      dbSchoolVaultDocuments,
+      dbLunchMenus,
+    ] = await Promise.all([
+      db.parents.findByFamilyId(currentParent.familyId),
+      db.schoolEvents.findUpcoming(currentParent.familyId, now.toISOString()),
+      db.volunteerTasks.findByFamilyId(currentParent.familyId),
+      db.schoolContacts.findByFamilyId(currentParent.familyId),
+      db.schoolVaultDocuments.findByFamilyId(currentParent.familyId),
+      db.lunchMenus.findByFamilyIdSince(currentParent.familyId, todayStr),
+    ]);
+  } catch (error) {
+    console.error("[School] Failed to load school portal data", error);
+  }
+
+  const allEvents = dbSchoolEvents.map(mapDbSchoolEventToDomain);
+  const allTasks = dbVolunteerTasks.map(mapDbVolunteerTaskToDomain);
+  const allContacts = dbSchoolContacts.map(mapDbSchoolContactToDomain);
+  const allDocs = dbSchoolVaultDocuments.map(mapDbSchoolVaultDocumentToDomain);
+  const allMenus = dbLunchMenus.map(mapDbLunchMenuToDomain);
+
+  const parentNames: Record<string, string> = dbFamilyParents.reduce<Record<string, string>>(
+    (acc, parent) => {
+      acc[parent.id] = parent.id === currentParent.id ? `${parent.name} (Me)` : parent.name;
+      return acc;
+    },
+    {}
+  );
+
+  if (!parentNames[currentParent.id]) {
+    parentNames[currentParent.id] = `${currentParent.name} (Me)`;
+  }
+
+  const parentIdsForBalances =
+    dbFamilyParents.length > 0
+      ? dbFamilyParents.map((parent) => parent.id)
+      : [currentParent.id];
+
   const engine = new PTAEngine();
   const params = await searchParams;
   const searchQuery = (params?.q ?? "").trim();
 
-  // ── Data assembly ──────────────────────────────────────────────────────────
-  const allEvents   = createMockSchoolEvents(FAMILY_ID, NOW);
-  const allTasks    = createMockVolunteerTasks(FAMILY_ID, NOW);
-  const allContacts = createMockSchoolContacts();
-  const allDocs     = createMockVaultDocuments(FAMILY_ID, NOW);
-  const allMenus    = createMockLunchMenus(24.5);
-
   // Sorted events: action-required first, then chronological
-  const upcomingEvents = engine.getUpcomingEvents(allEvents, allTasks, NOW);
+  const upcomingEvents = engine.getUpcomingEvents(allEvents, allTasks, now);
 
-  // Volunteer balances across both parents
-  const balances = engine.calculateVolunteerBalances(allTasks, [
-    CURRENT_PARENT_ID,
-    OTHER_PARENT_ID,
-  ]);
+  // Volunteer balances across family parents
+  const balances = engine.calculateVolunteerBalances(allTasks, parentIdsForBalances);
 
   // Pre-compute suggested assignee for each open task
   const taskSuggestions = new Map<string, string | null>(
@@ -447,10 +657,10 @@ export default async function SchoolPortalPage({
   const sortedDocs = engine.getVaultDocuments(allDocs);
 
   // Today's lunch
-  const todayLunch = engine.getDailyLunch(allMenus, TODAY_STR);
+  const todayLunch = engine.getDailyLunch(allMenus, todayStr);
 
   // Pending action count for notification badge
-  const pendingCount = engine.getPendingActionCount(allEvents, allDocs, NOW);
+  const pendingCount = engine.getPendingActionCount(allEvents, allDocs, now);
 
   const contactResults = engine.searchContacts(allContacts, searchQuery);
   const visibleContacts = searchQuery
@@ -617,7 +827,7 @@ export default async function SchoolPortalPage({
                   <span aria-hidden="true" className="material-symbols-outlined text-base">chevron_left</span>
                 </button>
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  {NOW.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                  {now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                 </span>
                 <button
                   aria-label="Next month"
@@ -630,7 +840,13 @@ export default async function SchoolPortalPage({
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {upcomingEvents.slice(0, 4).map((event) => (
-                <EventCard key={event.id} event={event} engine={engine} />
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  engine={engine}
+                  currentParentId={currentParent.id}
+                  parentNames={parentNames}
+                />
               ))}
             </div>
           </section>
@@ -652,7 +868,11 @@ export default async function SchoolPortalPage({
                 </div>
 
                 {/* Fairness balance bar */}
-                <VolunteerBalanceBar balances={balances} />
+                <VolunteerBalanceBar
+                  balances={balances}
+                  currentParentId={currentParent.id}
+                  parentNames={parentNames}
+                />
 
                 <div className="space-y-3">
                   {allTasks.map((task) => (
@@ -660,6 +880,8 @@ export default async function SchoolPortalPage({
                       key={task.id}
                       task={task}
                       suggestedParentId={taskSuggestions.get(task.id) ?? null}
+                      currentParentId={currentParent.id}
+                      parentNames={parentNames}
                     />
                   ))}
                 </div>

@@ -294,6 +294,7 @@ type AuthErrorCode =
   | "rate_limited"
   | "account_locked"
   | "account_disabled"
+  | "service_unavailable"
   | "email_not_verified";
 
 /**
@@ -320,6 +321,7 @@ function parseErrorParams(params: Record<string, string | string[] | undefined>)
     rate_limited: "Too many login attempts. Please try again later.",
     account_locked: "This account is temporarily locked.",
     account_disabled: "This account has been disabled. Please contact support.",
+    service_unavailable: "We’re having trouble connecting right now. Please try again in a moment.",
     email_not_verified: "Please verify your email before logging in.",
   };
   

@@ -22,7 +22,7 @@ async function startNextStep(formData: FormData): Promise<void> {
   redirect(`/calendar/wizard/pattern?${params.toString()}`);
 }
 
-async function cancelWizard(_: FormData): Promise<void> {
+async function cancelWizard(): Promise<void> {
   "use server";
   redirect("/calendar");
 }

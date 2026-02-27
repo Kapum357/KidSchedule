@@ -7,12 +7,13 @@
  * - Post grid with pagination
  * - Newsletter signup CTA
  *
- * Once a database layer is added, replace createMockBlogPosts() with
- * real queries and use URL search params for category/page filtering.
+ * Fetches live blog posts from the database using the BlogEngine
+ * to calculate featured post, filters, and pagination.
  */
 
 import { Suspense } from "react";
-import { BlogEngine, createMockBlogPosts } from "@/lib/blog-engine";
+import { BlogEngine } from "@/lib/blog-engine";
+import { db } from "@/lib/persistence";
 import type { BlogCategory, BlogPost } from "@/types";
 import { PaginationControls } from "./pagination-controls";
 import { OptimizedImage } from "@/components/optimized-image";
@@ -248,22 +249,48 @@ function NewsletterCTA() {
  * - Category filtering and pagination
  * - Read time calculation
  *
- * In production, replace createMockBlogPosts() with database queries and
- * fetch activeFilters/pageNumber from URL search params.
  */
-export default function BlogPage() {
-  // Data assembly (in real app, fetch from database)
-  const engine = new BlogEngine();
-  const allPosts = createMockBlogPosts(28); // Simulate 28 posts across 5 pages
-  const featured = engine.getFeaturedPost(allPosts);
+export default async function BlogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string; page?: string }>;
+}) {
+  // ── Get search params ──────────────────────────────────────────────────
+  const params = await searchParams;
+  const activeCategory = (params.category as BlogCategory | undefined) ?? undefined;
+  const pageNumber = parseInt(params.page ?? "1");
 
-  // Simulated filter state (in real app, from URL params)
+  // ── Fetch blog posts from database ────────────────────────────────────
+  const postsPerPage = 12;
+  const { posts: dbPosts } = await db.blogPosts.findPublished({
+    limit: postsPerPage * 5, // Fetch enough for featured + grid
+    offset: 0,
+    categories: activeCategory ? [activeCategory] : undefined,
+  });
+
+  // Transform DbBlogPost to BlogPost by parsing categories and reconstructing author
+  const allPosts: BlogPost[] = dbPosts.map((post) => ({
+    ...post,
+    categories: JSON.parse(post.categories) as BlogCategory[],
+    author: {
+      name: post.authorName,
+      title: post.authorTitle,
+      avatarUrl: post.authorAvatarUrl,
+    },
+  }));
+
+  // ── Compose data using BlogEngine ─────────────────────────────────────
+  const engine = new BlogEngine();
+  const featured = engine.getFeaturedPost(allPosts);
+  const filtered = activeCategory
+    ? allPosts.filter((p) => p.categories.includes(activeCategory))
+    : allPosts;
+
   const activeFilters = new Set<BlogCategory>();
-  const currentPage = 1;
 
   // Get paginated results
-  const pageData = engine.getPage(allPosts, {
-    pageNumber: currentPage,
+  const pageData = engine.getPage(filtered, {
+    pageNumber,
     pageSize: 6,
     categories: Array.from(activeFilters),
     sort: "recent",
@@ -323,7 +350,7 @@ export default function BlogPage() {
             ))}
 
             {/* Newsletter CTA (mid-grid) */}
-            {pageData.totalPostCount > 6 && currentPage === 1 && (
+            {pageData.totalPostCount > 6 && pageNumber === 1 && (
               <div className="col-span-1 md:col-span-2 lg:col-span-3 my-8">
                 <NewsletterCTA />
               </div>
