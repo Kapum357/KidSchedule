@@ -132,7 +132,8 @@ export function createUserRepository(tx?: SqlClient): UserRepository {
         RETURNING *
       `;
 
-      const rows = await query.unsafe<UserRow[]>(statement, [...values, id] as any[]);
+      const parameters = [...values, id];
+      const rows = await query.unsafe<UserRow[]>(statement, parameters);
       return rows[0] ? rowToDbUser(rows[0]) : null;
     },
 

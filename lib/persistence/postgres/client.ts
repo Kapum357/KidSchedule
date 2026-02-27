@@ -21,6 +21,33 @@ if (!DATABASE_URL) {
   );
 }
 
+const parseSslMode = (connectionString?: string): string | undefined => {
+  if (!connectionString) {
+    return undefined;
+  }
+
+  try {
+    const parsedUrl = new URL(connectionString);
+    return parsedUrl.searchParams.get("sslmode")?.toLowerCase();
+  } catch (error) {
+    console.warn("[DB] Unable to parse DATABASE_URL for sslmode", error);
+    return undefined;
+  }
+};
+
+const sslMode = parseSslMode(DATABASE_URL);
+const forceSsl =
+  (process.env.DB_FORCE_SSL ?? process.env.POSTGRES_FORCE_SSL) === "true";
+const shouldUseSsl =
+  process.env.NODE_ENV === "production" ||
+  forceSsl ||
+  (sslMode && sslMode !== "disable");
+const sslConfig = shouldUseSsl
+  ? {
+      rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === "true",
+    }
+  : false;
+
 // ─── Connection Pool ──────────────────────────────────────────────────────────
 
 /**
@@ -38,17 +65,14 @@ export const sql = DATABASE_URL
       transform: {
         column: (column) => {
           // Convert snake_case to camelCase
-          return column.replace(/_([a-z])/g, (_, letter) =>
+          return column.replaceAll(/_([a-z])/g, (_, letter) =>
             letter.toUpperCase()
           );
         },
       },
 
-      // SSL for production
-      ssl:
-        process.env.NODE_ENV === "production"
-          ? { rejectUnauthorized: false }
-          : false,
+      // SSL policy
+      ssl: sslConfig,
 
       // Debug logging in development
       debug:
