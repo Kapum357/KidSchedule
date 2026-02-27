@@ -496,3 +496,34 @@ STG -. release .-> PRD
 3. Enable CDN env (`CLOUDINARY_*` or `IMGIX_*`) without code changes.
 4. Monitor image error rates, cache hit ratios, and Core Web Vitals.
 5. If CDN issues occur, remove CDN env and fall back to local optimizer.
+
+---
+
+## Deployment and Infrastructure
+
+### PostgreSQL Database Deployment
+
+**🚀 Quick Start:**
+```bash
+# Automated single-VPS PostgreSQL deployment
+export VPS_HOST=76.13.106.248
+export ADMIN_USER=ksadmin
+export APP_DOMAIN=v1.kidschedule.com
+bash scripts/deploy-postgres-single-vps.sh
+```
+
+**Key Features:**
+- Localhost-only database access (no public exposure)
+- SCRAM-SHA-256 authentication
+- PgBouncer connection pooling
+- Automated encrypted backups (7-day retention)
+- Comprehensive monitoring via postgres_exporter
+- UFW firewall + fail2ban intrusion detection
+- Docker Compose orchestration
+
+**Architecture:**
+- Target: `v1.kidschedule.com` (76.13.106.248)
+- Database: PostgreSQL 16 (Docker)
+- Pooling: PgBouncer (transaction mode)
+- Monitoring: postgres_exporter + Prometheus-compatible metrics
+- Backups: Daily pg_dump at 02:00 UTC
