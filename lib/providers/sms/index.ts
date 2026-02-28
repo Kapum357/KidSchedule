@@ -7,6 +7,23 @@
 
 import type { SmsSender, SmsSendOptions, SmsSendResult } from "../types";
 import { TwilioAdapter } from "./twilio-adapter";
+export {
+  getSmsDeliveryStatus,
+  updateSmsDeliveryStatus,
+  createSmsDeliveryRecord,
+} from "./status-tracker";
+export {
+  verifyTwilioWebhookSignature,
+  mapTwilioStatusToDeliveryStatus,
+} from "./twilio-webhook";
+
+function maskPhoneForLog(phone: string): string {
+  const trimmed = phone.trim();
+  if (!trimmed) return "***";
+  const last4 = trimmed.slice(-4);
+  const prefix = trimmed.startsWith("+") && trimmed.length >= 2 ? trimmed.slice(0, 2) : "+*";
+  return `${prefix}****${last4}`;
+}
 
 // ─── Console Adapter (Development) ────────────────────────────────────────────
 
@@ -23,7 +40,7 @@ class ConsoleSmsAdapter implements SmsSender {
     console.log("\n" + "=".repeat(60));
     console.log("📱 SMS (DEV MODE - NOT SENT)");
     console.log("=".repeat(60));
-    console.log(`To:       ${to}`);
+    console.log(`To:       ${maskPhoneForLog(to)}`);
     console.log(`Template: ${templateId}`);
     console.log("Variables:");
     Object.entries(variables).forEach(([key, value]) => {

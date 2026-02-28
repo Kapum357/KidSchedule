@@ -13,6 +13,7 @@ import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { requireAuth } from "@/lib/session";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import type { CalendarMonthData, CalendarDayState, CustodyColor, TransitionListItem } from "@/lib/calendar-engine";
 import type {
   CalendarEvent,
@@ -80,6 +81,54 @@ function parseConfirmationStatus(raw: string): ConfirmationStatus {
     return raw;
   }
   return "pending";
+}
+
+type CalendarSearchParams = {
+  conflictWindowMins?: string;
+  year?: string;
+  month?: string;
+};
+
+const DEFAULT_CONFLICT_WINDOW_MINS = 120;
+const ALLOWED_CONFLICT_WINDOW_MINS = new Set<number>([0, 30, 60, 120, 180]);
+
+function isYearParam(value: string): value is `${number}` {
+  if (!/^\d{4}$/.test(value)) {
+    return false;
+  }
+  const year = Number(value);
+  return Number.isInteger(year) && year >= 2000 && year <= 2100;
+}
+
+function isMonthParam(value: string): value is `${number}` {
+  if (!/^\d{1,2}$/.test(value)) {
+    return false;
+  }
+  const month = Number(value);
+  return Number.isInteger(month) && month >= 1 && month <= 12;
+}
+
+function isConflictWindowMinsParam(value: string): value is `${number}` {
+  if (!/^\d{1,3}$/.test(value)) {
+    return false;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && ALLOWED_CONFLICT_WINDOW_MINS.has(parsed);
+}
+
+function buildCalendarUrl(params: {
+  year: number;
+  month: number;
+  conflictWindowMins?: number;
+}): string {
+  const query = new URLSearchParams();
+  query.set("year", String(params.year));
+  query.set("month", String(params.month));
+  if (params.conflictWindowMins !== undefined && Number.isFinite(params.conflictWindowMins)) {
+    query.set("conflictWindowMins", String(params.conflictWindowMins));
+  }
+  return `/calendar?${query.toString()}`;
 }
 
 function mapParent(row: DbParent): Parent {
@@ -497,16 +546,62 @@ function CalendarGrid({ data }: Readonly<{ data: CalendarMonthData }>) {
  */
 export default async function CalendarPage({
   searchParams,
-}: Readonly<{ searchParams?: Promise<{ conflictWindowMins?: string }> }>) {
+}: Readonly<{ searchParams?: Promise<CalendarSearchParams> }>) {
 
   // ── Parse search params ───────────────────────────────────────────────────
   const resolvedParams = await searchParams;
-  const conflictWindowMins = Number(resolvedParams?.conflictWindowMins ?? "120");
 
   // ── Get current month ─────────────────────────────────────────────────────
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  const defaultYear = now.getFullYear();
+  const defaultMonth = now.getMonth() + 1;
+
+  let year = defaultYear;
+  let month = defaultMonth;
+
+  const rawYear = resolvedParams?.year;
+  const rawMonth = resolvedParams?.month;
+  const rawConflictWindowMins = resolvedParams?.conflictWindowMins;
+
+  if (rawYear !== undefined) {
+    if (!isYearParam(rawYear)) {
+      redirect(
+        buildCalendarUrl({
+          year: defaultYear,
+          month: defaultMonth,
+          conflictWindowMins: DEFAULT_CONFLICT_WINDOW_MINS,
+        })
+      );
+    }
+    year = Number(rawYear);
+  }
+
+  if (rawMonth !== undefined) {
+    if (!isMonthParam(rawMonth)) {
+      redirect(
+        buildCalendarUrl({
+          year: defaultYear,
+          month: defaultMonth,
+          conflictWindowMins: DEFAULT_CONFLICT_WINDOW_MINS,
+        })
+      );
+    }
+    month = Number(rawMonth);
+  }
+
+  let conflictWindowMins = DEFAULT_CONFLICT_WINDOW_MINS;
+  if (rawConflictWindowMins !== undefined) {
+    if (!isConflictWindowMinsParam(rawConflictWindowMins)) {
+      redirect(
+        buildCalendarUrl({
+          year,
+          month,
+          conflictWindowMins: DEFAULT_CONFLICT_WINDOW_MINS,
+        })
+      );
+    }
+    conflictWindowMins = Number(rawConflictWindowMins);
+  }
 
   // ── Load calendar data from database ──────────────────────────────────────
   const user = await requireAuth();
@@ -515,18 +610,20 @@ export default async function CalendarPage({
   if (!parent) {
     redirect("/calendar/wizard?onboarding=1");
   }
+  const activeParent = parent as NonNullable<typeof parent>;
 
   const [dbFamily, dbParents, dbChildren, dbEvents, dbChangeRequests] = await Promise.all([
-    db.families.findById(parent.familyId),
-    db.parents.findByFamilyId(parent.familyId),
-    db.children.findByFamilyId(parent.familyId),
-    db.calendarEvents.findByFamilyId(parent.familyId),
-    db.scheduleChangeRequests.findByFamilyId(parent.familyId),
+    db.families.findById(activeParent.familyId),
+    db.parents.findByFamilyId(activeParent.familyId),
+    db.children.findByFamilyId(activeParent.familyId),
+    db.calendarEvents.findByFamilyId(activeParent.familyId),
+    db.scheduleChangeRequests.findByFamilyId(activeParent.familyId),
   ]);
 
   if (!dbFamily) {
     redirect("/calendar/wizard?onboarding=1");
   }
+  const activeFamily = dbFamily as NonNullable<typeof dbFamily>;
 
   if (dbParents.length < 2) {
     redirect("/calendar/wizard?onboarding=1");
@@ -534,11 +631,11 @@ export default async function CalendarPage({
 
   const mappedParents = mapFamilyParents(dbParents);
   const family: Family = {
-    id: dbFamily.id,
+    id: activeFamily.id,
     parents: mappedParents,
     children: dbChildren.map(mapChild),
-    custodyAnchorDate: dbFamily.custodyAnchorDate,
-    schedule: buildFamilySchedule(dbFamily, mappedParents),
+    custodyAnchorDate: activeFamily.custodyAnchorDate,
+    schedule: buildFamilySchedule(activeFamily, mappedParents),
   };
 
   const events = dbEvents.map(mapCalendarEvent);
@@ -548,7 +645,7 @@ export default async function CalendarPage({
     .map(mapChangeRequest);
 
   const settingsEngine = new SettingsEngine();
-  const familySettings = settingsEngine.resolveFamilySettings(dbFamily.id, {
+  const familySettings = settingsEngine.resolveFamilySettings(activeFamily.id, {
     conflictWindow: { windowMins: conflictWindowMins },
   });
 
@@ -564,6 +661,10 @@ export default async function CalendarPage({
     month: "long",
     year: "numeric",
   });
+
+  const previousMonthDate = new Date(year, month - 2, 1);
+  const nextMonthDate = new Date(year, month, 1);
+  const todayDate = new Date();
 
   return (
     <>
@@ -641,18 +742,42 @@ export default async function CalendarPage({
                 {monthName}
               </h1>
               <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-                <button aria-label="Previous month" className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm transition-all text-slate-600 dark:text-slate-300">
+                <Link
+                  aria-label="Previous month"
+                  href={buildCalendarUrl({
+                    year: previousMonthDate.getFullYear(),
+                    month: previousMonthDate.getMonth() + 1,
+                    conflictWindowMins: familySettings.conflictWindow.windowMins,
+                  })}
+                  className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm transition-all text-slate-600 dark:text-slate-300"
+                >
                   <span aria-hidden="true" className="material-symbols-outlined">chevron_left</span>
-                </button>
-                <button aria-label="Next month" className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm transition-all text-slate-600 dark:text-slate-300">
+                </Link>
+                <Link
+                  aria-label="Next month"
+                  href={buildCalendarUrl({
+                    year: nextMonthDate.getFullYear(),
+                    month: nextMonthDate.getMonth() + 1,
+                    conflictWindowMins: familySettings.conflictWindow.windowMins,
+                  })}
+                  className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm transition-all text-slate-600 dark:text-slate-300"
+                >
                   <span aria-hidden="true" className="material-symbols-outlined">
                     chevron_right
                   </span>
-                </button>
+                </Link>
               </div>
-              <button aria-label="Jump to current date" className="text-sm font-bold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors">
+              <Link
+                aria-label="Jump to current date"
+                href={buildCalendarUrl({
+                  year: todayDate.getFullYear(),
+                  month: todayDate.getMonth() + 1,
+                  conflictWindowMins: familySettings.conflictWindow.windowMins,
+                })}
+                className="text-sm font-bold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors"
+              >
                 Today
-              </button>
+              </Link>
             </div>
             <div className="flex gap-2">
               <form action={updateConflictWindow} className="flex items-center gap-2">

@@ -15,6 +15,7 @@ import { db } from "@/lib/persistence";
 import { SchedulePresets } from "@/lib/custody-engine";
 import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/app/theme-toggle";
+import { getDashboardAnalytics } from "@/lib/observability/dashboard-analytics";
 import type {
   ActivityItem,
   CalendarEvent,
@@ -125,6 +126,14 @@ function activityIcon(
   if (type === "moment_uploaded")
     return { icon: "photo_camera", bg: "bg-pink-50 dark:bg-pink-900/20", text: "text-pink-600 dark:text-pink-400" };
   return { icon: "event", bg: "bg-slate-100 dark:bg-slate-800", text: "text-slate-600 dark:text-slate-400" };
+}
+
+function formatUsdFromCents(cents: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  }).format(cents / 100);
 }
 
 // ─── Section Components ───────────────────────────────────────────────────────
@@ -650,6 +659,7 @@ export default async function DashboardPage() {
   };
 
   const data = aggregateDashboard(input);
+  const analytics = await getDashboardAnalytics();
 
 
   return (
@@ -705,6 +715,41 @@ export default async function DashboardPage() {
 
         {/* Content */}
         <div className="px-4 lg:px-8 pb-10 flex flex-col gap-6 max-w-7xl mx-auto w-full">
+          <section
+            aria-label="Operational Snapshot"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            <div className="bg-white dark:bg-[#1A2633] p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Active Users
+              </p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">
+                {analytics.activeUsers}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Current valid sessions</p>
+            </div>
+
+            <div className="bg-white dark:bg-[#1A2633] p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Subscription Revenue
+              </p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">
+                {formatUsdFromCents(analytics.subscriptionRevenueCents)}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Paid this month</p>
+            </div>
+
+            <div className="bg-white dark:bg-[#1A2633] p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                AI Token Usage
+              </p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">
+                {analytics.aiTokenUsage30d.toLocaleString()}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Last 30 days</p>
+            </div>
+          </section>
+
           {/* Family at a Glance */}
           <section
             aria-label="Family at a Glance"

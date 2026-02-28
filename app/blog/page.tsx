@@ -18,6 +18,7 @@ import type { BlogCategory, BlogPost } from "@/types";
 import { PaginationControls } from "./pagination-controls";
 import { OptimizedImage } from "@/components/optimized-image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 const NOW_MS = Date.now();
 
@@ -97,10 +98,49 @@ function FeaturedPostSection({ post }: Readonly<{ post: BlogPost }>) {
 // ─── Category Filter Buttons ───────────────────────────────────────────────────
 
 interface CategoryFilterProps {
-  readonly selectedCategories: Set<BlogCategory>;
+  readonly selectedCategory?: BlogCategory;
 }
 
-function CategoryFilter({ selectedCategories }: CategoryFilterProps) {
+type BlogSearchParams = {
+  category?: string;
+  page?: string;
+};
+
+const BLOG_CATEGORIES: ReadonlySet<BlogCategory> = new Set<BlogCategory>([
+  "custody_tips",
+  "legal_advice",
+  "emotional_wellness",
+  "communication",
+  "financial_planning",
+  "featured",
+]);
+
+function isBlogCategory(value: string): value is BlogCategory {
+  return BLOG_CATEGORIES.has(value as BlogCategory);
+}
+
+function isBlogPageParam(value: string): value is `${number}` {
+  if (!/^\d+$/.test(value)) {
+    return false;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1;
+}
+
+function buildBlogUrl(params: { category?: BlogCategory; page?: number }): string {
+  const next = new URLSearchParams();
+  if (params.category) {
+    next.set("category", params.category);
+  }
+  if (params.page && params.page > 1) {
+    next.set("page", String(params.page));
+  }
+  const query = next.toString();
+  return query.length > 0 ? `/blog?${query}` : "/blog";
+}
+
+function CategoryFilter({ selectedCategory }: CategoryFilterProps) {
   const categoryLabels: Record<BlogCategory, string> = {
     custody_tips: "Custody Tips",
     legal_advice: "Legal Advice",
@@ -121,27 +161,29 @@ function CategoryFilter({ selectedCategories }: CategoryFilterProps) {
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 pb-6">
-        <button
+        <Link
+          href={buildBlogUrl({})}
           className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
-            selectedCategories.size === 0
+            !selectedCategory
               ? "bg-slate-900 text-white"
               : "bg-white border border-slate-200 text-slate-600 hover:border-primary hover:text-primary"
           }`}
         >
           All Posts
-        </button>
+        </Link>
 
         {baseCategories.map((cat) => (
-          <button
+          <Link
             key={cat}
+            href={buildBlogUrl({ category: cat })}
             className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
-              selectedCategories.has(cat)
+              selectedCategory === cat
                 ? "bg-primary text-white"
                 : "bg-white border border-slate-200 text-slate-600 hover:border-primary hover:text-primary"
             }`}
           >
             {categoryLabels[cat]}
-          </button>
+          </Link>
         ))}
       </div>
     </div>
@@ -253,12 +295,28 @@ function NewsletterCTA() {
 export default async function BlogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; page?: string }>;
+  searchParams: Promise<BlogSearchParams>;
 }) {
   // ── Get search params ──────────────────────────────────────────────────
   const params = await searchParams;
-  const activeCategory = (params.category as BlogCategory | undefined) ?? undefined;
-  const pageNumber = parseInt(params.page ?? "1");
+  const rawCategory = params.category;
+  const rawPage = params.page;
+
+  let activeCategory: BlogCategory | undefined;
+  if (rawCategory !== undefined) {
+    if (!isBlogCategory(rawCategory)) {
+      redirect(buildBlogUrl({}));
+    }
+    activeCategory = rawCategory;
+  }
+
+  let pageNumber = 1;
+  if (rawPage !== undefined) {
+    if (!isBlogPageParam(rawPage)) {
+      redirect(buildBlogUrl({ category: activeCategory }));
+    }
+    pageNumber = Number(rawPage);
+  }
 
   // ── Fetch blog posts from database ────────────────────────────────────
   const postsPerPage = 12;
@@ -286,7 +344,9 @@ export default async function BlogPage({
     ? allPosts.filter((p) => p.categories.includes(activeCategory))
     : allPosts;
 
-  const activeFilters = new Set<BlogCategory>();
+  const activeFilters = new Set<BlogCategory>(
+    activeCategory ? [activeCategory] : []
+  );
 
   // Get paginated results
   const pageData = engine.getPage(filtered, {
@@ -295,6 +355,15 @@ export default async function BlogPage({
     categories: Array.from(activeFilters),
     sort: "recent",
   });
+
+  if (pageData.totalPages > 0 && pageNumber > pageData.totalPages) {
+    redirect(
+      buildBlogUrl({
+        category: activeCategory,
+        page: pageData.totalPages,
+      })
+    );
+  }
 
   return (
     <div className="w-full min-h-screen bg-background-light">
@@ -340,7 +409,7 @@ export default async function BlogPage({
       {/* Main Content */}
       <main id="main-content" className="w-full pb-20">
         {/* Category Filters */}
-        <CategoryFilter selectedCategories={activeFilters} />
+        <CategoryFilter selectedCategory={activeCategory} />
 
         {/* Posts Grid */}
         <div className="max-w-7xl mx-auto px-6">

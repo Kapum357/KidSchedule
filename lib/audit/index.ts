@@ -45,11 +45,18 @@ function maskEmail(email: string): string {
 
 /**
  * Masks phone number for logging.
- * +12345678901 → +1***8901
+ * +12345678901 → +1****8901
  */
 function maskPhone(phone: string): string {
-  if (phone.length < 4) return "***";
-  return phone.slice(0, 3) + "***" + phone.slice(-4);
+  const trimmed = phone.trim();
+  if (trimmed.length < 4) return "***";
+
+  const last4 = trimmed.slice(-4);
+  const prefix = trimmed.startsWith("+") && trimmed.length >= 2
+    ? trimmed.slice(0, 2)
+    : "+*";
+
+  return `${prefix}****${last4}`;
 }
 
 /**

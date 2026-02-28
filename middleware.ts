@@ -24,6 +24,7 @@ const PUBLIC_ROUTES = new Set([
   "/forgot-password/check-email",
   "/reset-password",
   "/blog",
+    "/archive",
   "/faq",
   "/privacy",
   "/terms",

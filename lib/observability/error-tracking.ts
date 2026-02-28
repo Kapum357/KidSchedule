@@ -9,6 +9,8 @@
  */
 
 import type { ErrorEvent, ErrorSeverity } from "@/types";
+import { incrementCounter } from "@/lib/observability/metrics";
+import { logEvent } from "@/lib/observability/logger";
 
 // ─── Provider Interface ────────────────────────────────────────────────────────
 
@@ -167,8 +169,16 @@ export async function trackError(
     parentId: options?.parentId,
   };
 
-  // Always log to console for debugging
-  console.error("[Error Tracking]", event);
+  incrementCounter("error.count", 1, {
+    source: "client_error",
+    severity,
+  });
+
+  // Always emit structured log for debugging and operational traceability
+  logEvent("error", "Client error tracked", {
+    source: "error_tracking",
+    event,
+  });
 
   // Send to provider only in production
   if (process.env.NODE_ENV === "production") {
@@ -176,7 +186,10 @@ export async function trackError(
       await provider.captureError(event);
     } catch (err) {
       // Silently fail if provider is unavailable; don't break the app
-      console.error("[Error Tracking Provider]", err);
+      logEvent("error", "Error tracking provider failed", {
+        source: "error_tracking_provider",
+        error: err,
+      });
     }
   }
 }

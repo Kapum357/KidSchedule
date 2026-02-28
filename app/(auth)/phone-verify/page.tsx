@@ -29,8 +29,9 @@
  */
 
 import { redirect } from "next/navigation";
-import { verifyPhoneOTP } from "@/lib/auth";
-import { getCurrentUser } from "@/lib/session";
+import { requestPhoneVerification, verifyPhoneOTP } from "@/lib/auth";
+import { db } from "@/lib/persistence";
+import { requireAuth } from "@/lib/session";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
 
@@ -45,10 +46,7 @@ async function handleVerifyOTP(formData: FormData): Promise<void> {
   "use server";
   
   // Get current user from session
-  const user = await getCurrentUser();
-  if (!user) {
-    redirect("/login");
-  }
+  const user = await requireAuth();
   
   // Extract the 6 OTP digits from form inputs
   const digit1 = (formData.get("digit1") as string | null) ?? "";
@@ -110,6 +108,29 @@ async function handleVerifyOTP(formData: FormData): Promise<void> {
 //   redirect("/phone-verify?resent=true");
 // }
 
+async function handleResendOTP(): Promise<void> {
+  "use server";
+
+  const user = await requireAuth();
+
+  const dbUser = await db.users.findById(user.userId);
+  const phone = dbUser?.phone;
+  if (!phone) {
+    redirect("/phone-verify?error=no_phone&message=No phone number found. Please update your profile first.");
+  }
+
+  const resendResult = await requestPhoneVerification(user.userId, phone as string);
+  if (!resendResult.success) {
+    const params = new URLSearchParams({
+      error: resendResult.error ?? "resend_failed",
+      message: resendResult.errorMessage ?? "Could not resend verification code.",
+    });
+    redirect(`/phone-verify?${params.toString()}`);
+  }
+
+  redirect("/phone-verify?resent=true");
+}
+
 // ─── Progress Stepper Component ────────────────────────────────────────────────
 
 function ProgressStepper({ currentStep, totalSteps }: Readonly<{ currentStep: number; totalSteps: number }>) {
@@ -159,7 +180,7 @@ function OTPInput() {
       <div className="text-center mb-8">
         <p className="text-sm text-text-sub dark:text-slate-400">
           Didn&apos;t receive the code?{" "}
-          <button className="text-primary font-bold hover:text-primary-dark transition-colors ml-1" type="button">
+          <button className="text-primary font-bold hover:text-primary-dark transition-colors ml-1" formAction={handleResendOTP} type="submit">
             Resend Code
           </button>
           <span className="ml-1 text-xs opacity-60 font-mono">(00:30)</span>
@@ -276,12 +297,30 @@ function Header() {
  * - Implement resend button with countdown timer (client-side)
  * - Show error banner if rate-limited or OTP expired
  */
-export default async function PhoneVerifyPage() {
-  // In production: read error from search params
-  // const searchParams = useSearchParams();
-  // const error = searchParams.get("error");
-  // const message = searchParams.get("message");
-  // const attemptsRemaining = searchParams.get("attemptsRemaining");
+interface PageProps {
+  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function PhoneVerifyPage({ searchParams }: Readonly<PageProps>) {
+  const user = await requireAuth();
+
+  const currentVerification = await db.phoneVerifications.findByUserId(user.userId);
+  let phoneDisplay = currentVerification
+    ? `${currentVerification.phone.slice(0, 2)}****${currentVerification.phone.slice(-4)}`
+    : null;
+
+  if (!phoneDisplay) {
+    const dbUser = await db.users.findById(user.userId);
+    if (dbUser?.phone) {
+      const requestResult = await requestPhoneVerification(user.userId, dbUser.phone);
+      phoneDisplay = requestResult.phoneDisplay ?? `${dbUser.phone.slice(0, 2)}****${dbUser.phone.slice(-4)}`;
+    }
+  }
+
+  const params = await searchParams;
+  const message = typeof params.message === "string" ? params.message : "";
+  const error = typeof params.error === "string" ? params.error : "";
+  const resent = params.resent === "true";
 
   return (
     <>
@@ -310,13 +349,25 @@ export default async function PhoneVerifyPage() {
               </h2>
               <p className="text-text-sub dark:text-slate-400 text-base leading-relaxed">
                 We&apos;ve sent a 6-digit code to{" "}
-                <span className="font-semibold text-text-main dark:text-white">+1 (555) ***-88</span>. Enter it below to
+                <span className="font-semibold text-text-main dark:text-white">{phoneDisplay ?? "+1****0000"}</span>. Enter it below to
                 secure your account.{" "}
                 <a className="text-primary hover:underline ml-1 text-sm font-medium" href="#">
                   Change number
                 </a>
               </p>
             </div>
+
+            {resent && (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-900/20 dark:text-emerald-200">
+                New verification code sent.
+              </div>
+            )}
+
+            {error && message && (
+              <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-800/40 dark:bg-rose-900/20 dark:text-rose-200">
+                {message}
+              </div>
+            )}
 
             {/* OTP Input Form */}
             <OTPInput />

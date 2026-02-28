@@ -38,6 +38,38 @@ import { ThemeToggle } from "@/app/theme-toggle";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/persistence";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+
+type SchoolTab = "overview" | "events" | "volunteering" | "contacts" | "vault";
+
+type SchoolSearchParams = {
+  q?: string;
+  tab?: string;
+};
+
+const SCHOOL_TABS: ReadonlySet<SchoolTab> = new Set<SchoolTab>([
+  "overview",
+  "events",
+  "volunteering",
+  "contacts",
+  "vault",
+]);
+
+function isSchoolTab(value: string): value is SchoolTab {
+  return SCHOOL_TABS.has(value as SchoolTab);
+}
+
+function buildSchoolUrl(params: { tab?: SchoolTab; q?: string }): string {
+  const next = new URLSearchParams();
+  if (params.tab && params.tab !== "overview") {
+    next.set("tab", params.tab);
+  }
+  if (params.q && params.q.trim().length > 0) {
+    next.set("q", params.q.trim());
+  }
+  const query = next.toString();
+  return query.length > 0 ? `/school?${query}` : "/school";
+}
 
 function parseJsonStringArray(input: string): string[] {
   try {
@@ -563,7 +595,6 @@ function LunchWidget({
  * School & PTA Portal – Server Component.
  *
  * Data flow:
- *   createMock*() → PTAEngine methods → render
  *
  * In production:
  *   db.schoolEvent.findMany({ where: { familyId, startAt: { gte: now } } })
@@ -575,7 +606,7 @@ function LunchWidget({
  */
 export default async function SchoolPortalPage({
   searchParams,
-}: Readonly<{ searchParams?: Promise<{ q?: string }> }>) {
+}: Readonly<{ searchParams?: Promise<SchoolSearchParams> }>) {
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
 
@@ -584,6 +615,7 @@ export default async function SchoolPortalPage({
   if (!currentParent) {
     redirect("/calendar/wizard?onboarding=1");
   }
+  const activeParent = currentParent as NonNullable<typeof currentParent>;
 
   let dbFamilyParents: Awaited<ReturnType<typeof db.parents.findByFamilyId>> = [];
   let dbSchoolEvents: Awaited<ReturnType<typeof db.schoolEvents.findUpcoming>> = [];
@@ -601,12 +633,12 @@ export default async function SchoolPortalPage({
       dbSchoolVaultDocuments,
       dbLunchMenus,
     ] = await Promise.all([
-      db.parents.findByFamilyId(currentParent.familyId),
-      db.schoolEvents.findUpcoming(currentParent.familyId, now.toISOString()),
-      db.volunteerTasks.findByFamilyId(currentParent.familyId),
-      db.schoolContacts.findByFamilyId(currentParent.familyId),
-      db.schoolVaultDocuments.findByFamilyId(currentParent.familyId),
-      db.lunchMenus.findByFamilyIdSince(currentParent.familyId, todayStr),
+      db.parents.findByFamilyId(activeParent.familyId),
+      db.schoolEvents.findUpcoming(activeParent.familyId, now.toISOString()),
+      db.volunteerTasks.findByFamilyId(activeParent.familyId),
+      db.schoolContacts.findByFamilyId(activeParent.familyId),
+      db.schoolVaultDocuments.findByFamilyId(activeParent.familyId),
+      db.lunchMenus.findByFamilyIdSince(activeParent.familyId, todayStr),
     ]);
   } catch (error) {
     console.error("[School] Failed to load school portal data", error);
@@ -620,24 +652,33 @@ export default async function SchoolPortalPage({
 
   const parentNames: Record<string, string> = dbFamilyParents.reduce<Record<string, string>>(
     (acc, parent) => {
-      acc[parent.id] = parent.id === currentParent.id ? `${parent.name} (Me)` : parent.name;
+      acc[parent.id] = parent.id === activeParent.id ? `${parent.name} (Me)` : parent.name;
       return acc;
     },
     {}
   );
 
-  if (!parentNames[currentParent.id]) {
-    parentNames[currentParent.id] = `${currentParent.name} (Me)`;
+  if (!parentNames[activeParent.id]) {
+    parentNames[activeParent.id] = `${activeParent.name} (Me)`;
   }
 
   const parentIdsForBalances =
     dbFamilyParents.length > 0
       ? dbFamilyParents.map((parent) => parent.id)
-      : [currentParent.id];
+      : [activeParent.id];
 
   const engine = new PTAEngine();
   const params = await searchParams;
   const searchQuery = (params?.q ?? "").trim();
+
+  let activeTab: SchoolTab = "overview";
+  const rawTab = params?.tab;
+  if (rawTab !== undefined) {
+    if (!isSchoolTab(rawTab)) {
+      redirect(buildSchoolUrl({ q: searchQuery }));
+    }
+    activeTab = rawTab as SchoolTab;
+  }
 
   // Sorted events: action-required first, then chronological
   const upcomingEvents = engine.getUpcomingEvents(allEvents, allTasks, now);
@@ -666,6 +707,13 @@ export default async function SchoolPortalPage({
   const visibleContacts = searchQuery
     ? contactResults.map((result) => result.contact)
     : allContacts;
+
+  const showEvents = activeTab === "overview" || activeTab === "events";
+  const showVolunteering =
+    activeTab === "overview" || activeTab === "volunteering";
+  const showContacts = activeTab === "overview" || activeTab === "contacts";
+  const showVault = activeTab === "overview" || activeTab === "vault";
+  const showRightRail = showVault;
 
   return (
     <>
@@ -807,7 +855,30 @@ export default async function SchoolPortalPage({
         {/* ── Content ────────────────────────────────────────────────────────── */}
         <div className="px-4 lg:px-8 pb-10 flex flex-col gap-6 max-w-7xl mx-auto w-full">
 
+          <div className="flex flex-wrap items-center gap-2">
+            {([
+              { key: "overview", label: "Overview" },
+              { key: "events", label: "Events" },
+              { key: "volunteering", label: "Volunteering" },
+              { key: "contacts", label: "Contacts" },
+              { key: "vault", label: "Vault" },
+            ] as const).map((tab) => (
+              <Link
+                key={tab.key}
+                href={buildSchoolUrl({ tab: tab.key, q: searchQuery })}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  activeTab === tab.key
+                    ? "bg-primary text-white"
+                    : "bg-white border border-slate-200 text-slate-600 hover:border-primary hover:text-primary"
+                }`}
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </div>
+
           {/*── Upcoming Events ─────────────────────────────────────────────── */}
+          {showEvents && (
           <section
             aria-label="School Calendar"
             className="bg-white dark:bg-[#1A2633] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm"
@@ -844,18 +915,20 @@ export default async function SchoolPortalPage({
                   key={event.id}
                   event={event}
                   engine={engine}
-                  currentParentId={currentParent.id}
+                  currentParentId={activeParent.id}
                   parentNames={parentNames}
                 />
               ))}
             </div>
           </section>
+          )}
 
           {/* ── Two-column layout ───────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 flex flex-col gap-6">
+          <div className={`grid grid-cols-1 ${showRightRail ? "lg:grid-cols-3" : "lg:grid-cols-1"} gap-6`}>
+            <div className={`${showRightRail ? "lg:col-span-2" : ""} flex flex-col gap-6`}>
 
               {/* ── Volunteering Sync ──────────────────────────────────────── */}
+              {showVolunteering && (
               <div className="bg-white dark:bg-[#1A2633] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-slate-900 dark:text-white text-lg">
@@ -870,7 +943,7 @@ export default async function SchoolPortalPage({
                 {/* Fairness balance bar */}
                 <VolunteerBalanceBar
                   balances={balances}
-                  currentParentId={currentParent.id}
+                  currentParentId={activeParent.id}
                   parentNames={parentNames}
                 />
 
@@ -880,14 +953,16 @@ export default async function SchoolPortalPage({
                       key={task.id}
                       task={task}
                       suggestedParentId={taskSuggestions.get(task.id) ?? null}
-                      currentParentId={currentParent.id}
+                      currentParentId={activeParent.id}
                       parentNames={parentNames}
                     />
                   ))}
                 </div>
               </div>
+              )}
 
               {/* ── School Contacts ─────────────────────────────────────────── */}
+              {showContacts && (
               <div className="bg-white dark:bg-[#1A2633] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-slate-900 dark:text-white text-lg">
@@ -915,12 +990,15 @@ export default async function SchoolPortalPage({
                   ))}
                 </div>
               </div>
+              )}
             </div>
 
             {/* ── Right sidebar ──────────────────────────────────────────────── */}
+            {showRightRail && (
             <div className="lg:col-span-1 flex flex-col gap-6">
 
               {/* ── School Vault ───────────────────────────────────────────── */}
+              {showVault && (
               <div className="bg-gradient-to-br from-primary-light/50 to-white dark:from-primary/10 dark:to-[#1A2633] p-6 rounded-xl border border-primary-light dark:border-primary/20 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2">
@@ -947,6 +1025,7 @@ export default async function SchoolPortalPage({
                   View All Documents
                 </button>
               </div>
+              )}
 
               {/* ── Today's Lunch ─────────────────────────────────────────── */}
               {todayLunch ? (
@@ -957,6 +1036,7 @@ export default async function SchoolPortalPage({
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
       </main>

@@ -19,6 +19,7 @@ import { verifyRecaptchaToken } from "../security/recaptcha";
 import { getEmailSender } from "../providers/email";
 import { getSmsSender } from "../providers/sms";
 import { db } from "../persistence";
+import { createStripeCustomerForUser } from "../billing/stripe-billing";
 import {
   createEmailVerificationToken,
   verifyEmailVerificationToken,
@@ -313,7 +314,7 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
   const passwordHash = await hashPassword(password);
   
   // Create user
-  await db.users.create({
+  const createdUser = await db.users.create({
     email: normalizedEmail,
     emailVerified: false,
     passwordHash,
@@ -321,6 +322,21 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
     phoneVerified: false,
     isDisabled: false,
   });
+
+  // Create corresponding Stripe customer when billing integration is enabled.
+  // If this fails, keep registration successful and reconcile later via billing APIs/webhooks.
+  try {
+    await createStripeCustomerForUser({
+      userId: createdUser.id,
+      email: createdUser.email,
+      fullName: createdUser.fullName,
+    });
+  } catch (error) {
+    console.error("[Auth] Stripe customer provisioning failed", {
+      userId: createdUser.id,
+      error: error instanceof Error ? error.message : "unknown_error",
+    });
+  }
 
   // Send email verification
   const verifyToken = createEmailVerificationToken(normalizedEmail);
@@ -690,7 +706,7 @@ export async function requestPhoneVerification(
   
   // Send OTP via SMS
   const smsSender = getSmsSender();
-  await smsSender.send({
+  const smsResult = await smsSender.send({
     to: normalizedPhone,
     templateId: "otp-verification",
     variables: {
@@ -698,6 +714,14 @@ export async function requestPhoneVerification(
       expiryMinutes: "5",
     },
   });
+
+  if (!smsResult.success) {
+    return {
+      success: false,
+      error: "sms_delivery_failed",
+      errorMessage: smsResult.error ?? "Could not send verification code. Please try again.",
+    };
+  }
   
   return {
     success: true,

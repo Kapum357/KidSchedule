@@ -25,7 +25,6 @@ export interface AccessTokenPayload extends JWTPayload {
 
 /**
  * Get RS256 private key from environment.
- * In production: Store in AWS Secrets Manager, Azure Key Vault, etc.
  *
  * To generate a keypair:
  *   openssl genrsa -out private.pem 2048

@@ -10,15 +10,17 @@
  */
 
 import postgres from "postgres";
+import { incrementCounter, observeDuration } from "@/lib/observability/metrics";
+import { logEvent } from "@/lib/observability/logger";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
-  console.warn(
-    "[DB] DATABASE_URL not set. Database operations will fail in production."
-  );
+  logEvent("warn", "DATABASE_URL not set. Database operations will fail in production.", {
+    source: "db",
+  });
 }
 
 const parseSslMode = (connectionString?: string): string | undefined => {
@@ -30,7 +32,10 @@ const parseSslMode = (connectionString?: string): string | undefined => {
     const parsedUrl = new URL(connectionString);
     return parsedUrl.searchParams.get("sslmode")?.toLowerCase();
   } catch (error) {
-    console.warn("[DB] Unable to parse DATABASE_URL for sslmode", error);
+    logEvent("warn", "Unable to parse DATABASE_URL for sslmode", {
+      source: "db",
+      error,
+    });
     return undefined;
   }
 };
@@ -57,7 +62,7 @@ const sslConfig = shouldUseSsl
 export const sql = DATABASE_URL
   ? postgres(DATABASE_URL, {
       // Connection pool settings
-      max: Number(process.env.DATABASE_POOL_SIZE ?? 10),
+      max: Number(process.env.DATABASE_POOL_SIZE ?? 20),
       idle_timeout: 20,
       connect_timeout: Number(process.env.DATABASE_POOL_TIMEOUT ?? 30000) / 1000,
 
@@ -79,7 +84,12 @@ export const sql = DATABASE_URL
         process.env.NODE_ENV === "development" &&
         process.env.LOG_LEVEL === "debug"
           ? (connection, query, params) => {
-              console.log("[SQL]", query, params);
+              logEvent("debug", "SQL query", {
+                source: "sql",
+                connection,
+                query,
+                params,
+              });
             }
           : undefined,
     })
@@ -102,11 +112,27 @@ export const sql = DATABASE_URL
  * Returns true if connection succeeds, false otherwise.
  */
 export async function checkDatabaseConnection(): Promise<boolean> {
+  const startedAt = Date.now();
+
   try {
     await sql`SELECT 1 as ok`;
+    observeDuration("db.query.duration", Date.now() - startedAt, {
+      source: "db_connection_check",
+      status: "ok",
+    });
     return true;
   } catch (error) {
-    console.error("[DB] Connection check failed:", error);
+    observeDuration("db.query.duration", Date.now() - startedAt, {
+      source: "db_connection_check",
+      status: "error",
+    });
+    incrementCounter("error.count", 1, {
+      source: "db_connection",
+    });
+    logEvent("error", "Database connection check failed", {
+      source: "db",
+      error,
+    });
     return false;
   }
 }

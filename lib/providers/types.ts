@@ -40,13 +40,18 @@ export interface SmsSendOptions {
   variables: Record<string, string>;
   /** Optional sender ID or messaging service SID */
   from?: string;
+  /** Optional family scope for deterministic proxy number assignment */
+  familyId?: string;
 }
 
 export interface SmsSendResult {
   success: boolean;
   messageId?: string;
+  status?: "queued" | "accepted" | "sent" | "delivered" | "undelivered" | "failed";
+  providerStatus?: string;
   error?: string;
   errorCode?: string;
+  retryCount?: number;
 }
 
 export interface SmsSender {

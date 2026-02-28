@@ -5,6 +5,7 @@
 import type { FamilyRepository } from "../repositories";
 import type { DbFamily } from "../types";
 import { sql, type SqlClient } from "./client";
+import { getProxyNumberForFamily } from "@/lib/providers/sms/proxy-number";
 
 type FamilyRow = {
   id: string;
@@ -21,6 +22,7 @@ function rowToDb(row: FamilyRow): DbFamily {
     name: row.name,
     custodyAnchorDate: row.custodyAnchorDate.toISOString().slice(0, 10),
     scheduleId: row.scheduleId ?? "",
+    proxyPhoneNumber: getProxyNumberForFamily(row.id) ?? undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

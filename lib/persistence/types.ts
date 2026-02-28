@@ -114,6 +114,7 @@ export interface DbFamily {
   name: string;
   custodyAnchorDate: string;
   scheduleId: string;
+  proxyPhoneNumber?: string;
   createdAt: string;
   updatedAt: string;
 }

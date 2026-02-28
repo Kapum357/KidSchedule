@@ -7,7 +7,6 @@
 
 import type { EmailSender, EmailSendOptions, EmailSendResult } from "../types";
 import { SendGridAdapter } from "./sendgrid-adapter";
-import { SESAdapter } from "./ses-adapter";
 
 // ─── Console Adapter (Development) ────────────────────────────────────────────
 
@@ -59,7 +58,6 @@ let cachedSender: EmailSender | null = null;
  *
  * Environment variable EMAIL_PROVIDER controls which adapter is used:
  *   - "sendgrid" → SendGridAdapter
- *   - "ses" → SESAdapter
  *   - "console" or undefined → ConsoleEmailAdapter (dev only)
  */
 export function getEmailSender(): EmailSender {
@@ -73,14 +71,11 @@ export function getEmailSender(): EmailSender {
     case "sendgrid":
       cachedSender = new SendGridAdapter();
       break;
-    case "ses":
-      cachedSender = new SESAdapter();
-      break;
     case "console":
     default:
       if (process.env.NODE_ENV === "production") {
         console.warn(
-          "[Email] Using console adapter in production. Set EMAIL_PROVIDER to sendgrid or ses."
+          "[Email] Using console adapter in production. Set EMAIL_PROVIDER to sendgrid."
         );
       }
       cachedSender = new ConsoleEmailAdapter();
@@ -92,4 +87,4 @@ export function getEmailSender(): EmailSender {
 
 // Re-export types
 export type { EmailSender, EmailSendOptions, EmailSendResult };
-export { SendGridAdapter, SESAdapter, ConsoleEmailAdapter };
+export { SendGridAdapter, ConsoleEmailAdapter };
