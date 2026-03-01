@@ -93,3 +93,13 @@ export function getMetricAverage(
   const total = selected.reduce((sum, point) => sum + point.value, 0);
   return total / selected.length;
 }
+
+// ─── Test Helpers ─────────────────────────────────────────────────────────────
+// The internal `points` buffer is module-scoped, so callers cannot clear it during
+// a unit test. Exporting a reset function makes it easy to start each test with a
+// clean slate. This helper is intentionally unexported in production code – tests
+// reference it directly and it does nothing unless imported.
+
+export function _test_resetMetrics(): void {
+  points.length = 0;
+}

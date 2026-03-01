@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/session";
-import { createProratedUpgrade } from "@/lib/billing/stripe-billing";
+import { getCurrentUser } from "@/lib";
+import { createProratedUpgrade } from "@/lib/stripe-billing";
 import { observeApiException, observeApiRequest } from "@/lib/observability/api-observability";
 
 interface UpgradeRequestBody {

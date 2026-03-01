@@ -68,7 +68,8 @@ export class TwilioAdapter implements SmsSender {
       };
     }
 
-    const body = this.interpolateTemplate(template, variables);
+    // cast to string map because the interpolation engine works on strings
+    const body = this.interpolateTemplate(template, variables as Record<string, string>);
 
     // Build request body
     const formData = new URLSearchParams({

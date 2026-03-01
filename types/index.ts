@@ -42,19 +42,6 @@ export interface Family {
  * A schedule is composed of an ordered list of blocks.  The engine repeats
  * this list cyclically starting from `Family.custodyAnchorDate`.
  *
- * Example – alternating weeks:
- *   [{ parentId: "A", days: 7 }, { parentId: "B", days: 7 }]
- *
- * Example – 2-2-3 standard rotation (parent A holds first block):
- *   [
- *     { parentId: "A", days: 2 },
- *     { parentId: "B", days: 2 },
- *     { parentId: "A", days: 3 },
- *     { parentId: "B", days: 2 },
- *     { parentId: "A", days: 2 },
- *     { parentId: "B", days: 3 },
- *   ]
- *
  * The engine loops through these blocks indefinitely from the anchor date.
  */
 export interface ScheduleBlock {
@@ -528,13 +515,6 @@ export interface PhoneVerificationResult {
   verificationId?: string;
 }
 
-export type OTPVerificationError =
-  | "invalid_otp"
-  | "otp_expired"
-  | "too_many_attempts"
-  | "rate_limited"
-  | "phone_not_found";
-
 // ─── School / PTA Portal ──────────────────────────────────────────────────────
 
 export type SchoolEventType =
@@ -670,18 +650,6 @@ export interface ContactSearchResult {
   contact: SchoolContact;
   /** 0–100 relevance score */
   score: number;
-}
-
-/** Aggregated PTA portal data for server component rendering */
-export interface PTAPortalData {
-  family: Family;
-  currentParent: Parent;
-  upcomingEvents: SchoolEvent[];
-  volunteerTasks: VolunteerTask[];
-  contacts: SchoolContact[];
-  vaultDocuments: SchoolVaultDocument[];
-  todayLunch?: LunchMenu;
-  volunteerBalances: VolunteerBalance[];
 }
 
 // ─── Dashboard Aggregate ──────────────────────────────────────────────────────

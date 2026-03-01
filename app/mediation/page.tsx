@@ -8,7 +8,7 @@
  */
 
 import { db } from "@/lib/persistence";
-import { requireAuth } from "@/lib/session";
+import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
 import { ConflictClimateAnalyzer } from "@/lib/conflict-analyzer";
 import { MediationAnalyzer, type WarningSignal } from "@/lib/mediation-analyzer";

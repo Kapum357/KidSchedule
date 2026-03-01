@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireAuth } from "@/lib/session";
+import { requireAuth } from "@/lib";
 import { db } from "@/lib/persistence";
 
 function formatDate(iso: string): string {

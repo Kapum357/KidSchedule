@@ -9,8 +9,9 @@
  */
 
 import { db } from "@/lib/persistence";
-import { requireAuth } from "@/lib/session";
+import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
+import { verifyOrigin } from "@/lib/security/csrf";
 
 type ChangeType = "swap" | "cancel" | "extra";
 
@@ -200,6 +201,16 @@ function validateChangeRequestInput(input: ChangeRequestInput): string | undefin
 
 async function submitChangeRequest(formData: FormData): Promise<void> {
   "use server";
+
+  // ── CSRF / Origin check ─────────────────────────────────────────────────────
+  // additional protection beyond Next.js built-in verification.  invalid
+  // origins result in a transparent redirect to the form with an error message.
+  const originCheck = await verifyOrigin();
+  if (!originCheck.valid) {
+    const params = new URLSearchParams();
+    params.set("error", "invalid_origin");
+    redirect(`/calendar/change-request?${params.toString()}`);
+  }
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   const user = await requireAuth();

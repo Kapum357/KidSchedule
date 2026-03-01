@@ -9,6 +9,7 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
+import { AUTH_PAGE_HEADERS, SECURITY_HEADERS } from "@/lib/security/headers";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 
@@ -145,34 +146,27 @@ function buildCSP(nonce: string): string {
   return directives.join("; ");
 }
 
-function applySecurityHeaders(response: NextResponse, nonce: string): void {
-  // Prevent MIME type sniffing
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  
-  // XSS protection
-  response.headers.set("X-XSS-Protection", "1; mode=block");
-  
-  // Prevent clickjacking
-  response.headers.set("X-Frame-Options", "DENY");
-  
-  // Control referrer
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  
-  // Permissions policy
-  response.headers.set(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=()"
-  );
 
-  // HSTS (Strict Transport Security) – only in production
-  if (process.env.NODE_ENV === "production") {
-    response.headers.set(
-      "Strict-Transport-Security",
-      "max-age=31536000; includeSubDomains; preload"
-    );
+/**
+ * Apply security headers to a response.  When `isAuthPage` is true we
+ * merge in the extra cache‑control and pragma headers defined in
+ * `AUTH_PAGE_HEADERS`.
+ */
+function applySecurityHeaders(
+  response: NextResponse,
+  nonce: string,
+  isAuthPage = false
+): void {
+  const headersToApply = isAuthPage ? AUTH_PAGE_HEADERS : SECURITY_HEADERS;
+
+  for (const [key, value] of Object.entries(headersToApply)) {
+    if (key === "Content-Security-Policy") continue; // handled specially below
+    response.headers.set(key, value as string);
   }
 
   // CSP with per-request nonce (required for Next.js inline hydration/runtime scripts)
+  // We can't rely on the pre-built string above since it doesn't include the nonce.
+  // dynamic CSP built with nonce defined in middleware
   response.headers.set("Content-Security-Policy", buildCSP(nonce));
 }
 
@@ -209,6 +203,12 @@ function isAuthRoute(pathname: string): boolean {
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
   const nonce = generateNonce();
+
+  if (pathname.startsWith("/api/")) {
+    const apiResponse = NextResponse.next();
+    applySecurityHeaders(apiResponse, nonce);
+    return apiResponse;
+  }
   
   // Get tokens from cookies
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
@@ -224,13 +224,13 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     if (isAuthRoute(pathname) && isAccessValid) {
       const dashboardUrl = new URL("/dashboard", request.url);
       const response = NextResponse.redirect(dashboardUrl);
-      applySecurityHeaders(response, nonce);
+      applySecurityHeaders(response, nonce, isAuthRoute(pathname));
       return response;
     }
     
     // Allow access to public route
     const response = createNextResponseWithNonce(request, nonce);
-    applySecurityHeaders(response, nonce);
+    applySecurityHeaders(response, nonce, isAuthRoute(pathname));
     return response;
   }
   
@@ -239,7 +239,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   // Valid access token – allow access
   if (isAccessValid && accessPayload) {
     const response = createNextResponseWithNonce(request, nonce);
-    applySecurityHeaders(response, nonce);
+    applySecurityHeaders(response, nonce, isAuthRoute(pathname));
     
     // Add user context to headers for server components
     response.headers.set("x-user-id", accessPayload.sub);
@@ -292,7 +292,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
   
   const response = NextResponse.redirect(loginUrl);
-  applySecurityHeaders(response, nonce);
+  applySecurityHeaders(response, nonce, isAuthRoute(pathname));
   
   // Clear invalid cookies
   response.cookies.delete(ACCESS_TOKEN_COOKIE);

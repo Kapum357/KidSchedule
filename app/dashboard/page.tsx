@@ -10,7 +10,7 @@
  */
 
 import { aggregateDashboard } from "@/lib/dashboard-aggregator";
-import { requireAuth } from "@/lib/session";
+import { requireAuth } from "@/lib";
 import { db } from "@/lib/persistence";
 import { SchedulePresets } from "@/lib/custody-engine";
 import { redirect } from "next/navigation";

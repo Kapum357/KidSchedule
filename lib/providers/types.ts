@@ -1,3 +1,5 @@
+/* eslint-disable header/header */
+/* eslint-disable unicorn/no-unreadable-array-destructuring */
 /**
  * KidSchedule – Provider Interface Types
  *
@@ -7,11 +9,15 @@
 
 // ─── Email Provider Types ─────────────────────────────────────────────────────
 
-export interface EmailSendOptions {
+export interface EmailSendOptions<
+  T extends EmailTemplateId = EmailTemplateId
+> {
   to: string;
   subject: string;
-  templateId: string;
-  variables: Record<string, string>;
+  templateId: T;
+  // variables object is keyed according to the chosen template; the helper
+  // `EmailVariablesMap` provides concrete shapes for well-known templates.
+  variables: EmailVariablesMap[T];
   /** Optional reply-to email address */
   replyTo?: string;
   /** Optional email categories/tags for tracking */
@@ -34,20 +40,30 @@ export interface EmailSender {
 
 // ─── SMS Provider Types ──────────────────────────────────────────────────────
 
-export interface SmsSendOptions {
+export interface SmsSendOptions<
+  T extends SmsTemplateId = SmsTemplateId
+> {
   to: string;
-  templateId: string;
-  variables: Record<string, string>;
+  templateId: T;
+  variables: SmsVariablesMap[T];
   /** Optional sender ID or messaging service SID */
   from?: string;
   /** Optional family scope for deterministic proxy number assignment */
   familyId?: string;
 }
 
+export type SmsDeliveryStatus =
+  | "queued"
+  | "accepted"
+  | "sent"
+  | "delivered"
+  | "undelivered"
+  | "failed";
+
 export interface SmsSendResult {
   success: boolean;
   messageId?: string;
-  status?: "queued" | "accepted" | "sent" | "delivered" | "undelivered" | "failed";
+  status?: SmsDeliveryStatus;
   providerStatus?: string;
   error?: string;
   errorCode?: string;
@@ -77,6 +93,37 @@ export const EMAIL_TEMPLATES = {
 
 export type EmailTemplateId = (typeof EMAIL_TEMPLATES)[keyof typeof EMAIL_TEMPLATES];
 
+// Map each email template id to its expected variables shape.  New templates
+// should extend this map so that callers receive compile‑time hints and
+// the compiler enforces the presence/absence of required fields.
+export interface EmailVariablesMap {
+  [EMAIL_TEMPLATES.PASSWORD_RESET]: PasswordResetEmailVariables;
+  [EMAIL_TEMPLATES.PASSWORD_RESET_CONFIRMATION]: {
+    email: string;
+    userName?: string;
+  };
+  [EMAIL_TEMPLATES.EMAIL_VERIFICATION]: {
+    email: string;
+    verifyLink: string;
+    userName?: string;
+    expiryHours: string;
+  };
+  [EMAIL_TEMPLATES.WELCOME]: {
+    email: string;
+    userName?: string;
+  };
+  [EMAIL_TEMPLATES.PHONE_VERIFIED]: {
+    phone: string;
+  };
+  [EMAIL_TEMPLATES.SESSION_REVOKED]: {
+    email: string;
+    userName?: string;
+  };
+  [EMAIL_TEMPLATES.CUSTODY_TRANSITION_REMINDER]: Record<string, string>;
+  [EMAIL_TEMPLATES.SCHEDULE_CHANGE_REQUEST]: Record<string, string>;
+  [EMAIL_TEMPLATES.SCHEDULE_CHANGE_RESPONSE]: Record<string, string>;
+}
+
 // ─── SMS Template IDs ────────────────────────────────────────────────────────
 
 export const SMS_TEMPLATES = {
@@ -87,6 +134,13 @@ export const SMS_TEMPLATES = {
 } as const;
 
 export type SmsTemplateId = (typeof SMS_TEMPLATES)[keyof typeof SMS_TEMPLATES];
+
+export interface SmsVariablesMap {
+  [SMS_TEMPLATES.OTP_VERIFICATION]: OtpSmsVariables;
+  [SMS_TEMPLATES.PHONE_VERIFICATION_SUCCESS]: PhoneVerificationSuccessVariables;
+  [SMS_TEMPLATES.CUSTODY_TRANSITION_ALERT]: Record<string, string>;
+  [SMS_TEMPLATES.URGENT_MESSAGE]: Record<string, string>;
+}
 
 // ─── Template Variable Schemas ───────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser } from "@/lib";
 import { db } from "@/lib/persistence";
-import { createBillingPortalSession } from "@/lib/billing/stripe-billing";
+import { createBillingPortalSession } from "@/lib/stripe-billing";
 import { observeApiException, observeApiRequest } from "@/lib/observability/api-observability";
 
 interface PortalRequestBody {

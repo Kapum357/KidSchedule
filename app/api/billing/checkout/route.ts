@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser } from "@/lib";
 import { db } from "@/lib/persistence";
-import { createCheckoutSession } from "@/lib/billing/stripe-billing";
+import { createCheckoutSession } from "@/lib/stripe-billing";
 import { observeApiException, observeApiRequest } from "@/lib/observability/api-observability";
 
 interface CheckoutRequestBody {

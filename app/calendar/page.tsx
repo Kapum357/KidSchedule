@@ -11,7 +11,7 @@ import { CalendarMonthEngine } from "@/lib/calendar-engine";
 import { SchedulePresets } from "@/lib/custody-engine";
 import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
-import { requireAuth } from "@/lib/session";
+import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type {

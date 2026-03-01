@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   processStripeWebhookEvent,
   verifyAndConstructStripeEvent,
-} from "@/lib/billing/stripe-billing";
+} from "@/lib/stripe-billing";
 import { logEvent } from "@/lib/observability/logger";
 import { observeApiRequest } from "@/lib/observability/api-observability";
 

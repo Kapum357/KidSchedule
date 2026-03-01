@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireAuth } from "@/lib/session";
+import { requireAuth } from "@/lib";
 import { db } from "@/lib/persistence";
 import { analyzeMessageTone, getMediationAssistantTips } from "@/lib/providers/ai";
 import type { Message } from "@/types";

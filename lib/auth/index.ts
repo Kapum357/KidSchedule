@@ -12,14 +12,14 @@
  */
 
 import { AuthEngine, validatePasswordStrength } from "../auth-engine";
-import { createSession, revokeAllSessions } from "../session";
-import { audit } from "../audit";
+import { createSession, revokeAllSessions } from "..";
+import { audit } from "..";
 import { getRequestContext } from "../security/csrf";
 import { verifyRecaptchaToken } from "../security/recaptcha";
 import { getEmailSender } from "../providers/email";
 import { getSmsSender } from "../providers/sms";
 import { db } from "../persistence";
-import { createStripeCustomerForUser } from "../billing/stripe-billing";
+import { createStripeCustomerForUser } from "../stripe-billing";
 import {
   createEmailVerificationToken,
   verifyEmailVerificationToken,

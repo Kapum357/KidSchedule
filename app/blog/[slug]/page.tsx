@@ -20,7 +20,7 @@ import type { ArticleReadingSession, BlogCategory, BlogPost } from "@/types";
 import { BlogArticleEngine } from "@/lib/blog-article-engine";
 import { db } from "@/lib/persistence";
 import type { DbBlogPost } from "@/lib/persistence/types";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser } from "@/lib";
 import Link from "next/link";
 import { OptimizedImage } from "@/components/optimized-image";
 import { ArticleContent, ARTICLE_CONTENT_CLASSNAMES } from "@/components/article-content";

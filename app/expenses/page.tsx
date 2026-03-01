@@ -9,7 +9,7 @@
  */
 
 import { db } from "@/lib/persistence";
-import { requireAuth } from "@/lib/session";
+import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";

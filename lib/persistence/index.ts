@@ -1,3 +1,4 @@
+/* eslint-disable import/export */
 /**
  * KidSchedule – Persistence Layer
  *
@@ -62,6 +63,18 @@ export const db = new Proxy({} as UnitOfWork, {
   },
 });
 
+// ─── Test helpers ─────────────────────────────────────────────────────────────
+// We expose a method for tests to clear the singleton. Most test suites
+// will call `await initDb(fake)` directly, but resetting between tests
+// avoids state leakage when multiple files exercise persistence. This
+// helper is not intended for production use and therefore is prefixed with
+// `_test_` to deter accidental consumption.
+export function _test_resetDbInstance(): void {
+  _dbInstance = null;
+}
+
 // Re-export types
+/* eslint-disable-next-line import/export */
 export * from "./types";
+/* eslint-disable-next-line import/export */
 export * from "./repositories";

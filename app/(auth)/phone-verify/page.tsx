@@ -31,7 +31,7 @@
 import { redirect } from "next/navigation";
 import { requestPhoneVerification, verifyPhoneOTP } from "@/lib/auth";
 import { db } from "@/lib/persistence";
-import { requireAuth } from "@/lib/session";
+import { requireAuth } from "@/lib";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
 

@@ -57,7 +57,13 @@ export class SendGridAdapter implements EmailSender {
     const sendgridTemplateId = SENDGRID_TEMPLATE_MAP[templateId];
     if (!sendgridTemplateId || sendgridTemplateId.startsWith("d-xxx")) {
       // Fallback: send plain text email if template not configured
-      return this.sendPlainText(to, subject, this.renderFallbackText(templateId, variables));
+      // variables may be a more specific interface; cast to string map for
+      // the fallback renderer which only handles generic substitutions.
+      return this.sendPlainText(
+        to,
+        subject,
+        this.renderFallbackText(templateId, variables as Record<string, string>)
+      );
     }
 
     const payload = {

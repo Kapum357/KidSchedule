@@ -2,12 +2,6 @@
  * KidSchedule – Security Monitoring
  *
  * Server-side monitoring utilities for security telemetry and alerting.
- *
- * Coverage:
- *  1) Failed login attempts per IP
- *  2) Account lockouts (daily count)
- *  3) Password reset requests (spike detection)
- *  4) Session hijacking attempts (token misuse)
  */
 
 import { db } from "../persistence";

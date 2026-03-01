@@ -5,27 +5,6 @@
  * config injection via <script id="tailwind-config">. The config extends
  * Tailwind's default theme with KidSchedule design tokens.
  *
- * Usage in Server Components:
- *
- *   import { getThemeConfigScript } from "@/lib/theme-config";
- *
- *   export default function MyPage() {
- *     return (
- *       <>
- *         {getThemeConfigScript()}
- *         <main>...</main>
- *       </>
- *     );
- *   }
- *
- * Or manually inline (for pages that need page-specific overrides):
- *
- *   <script
- *     id="tailwind-config"
- *     type="application/json"
- *     dangerouslySetInnerHTML={{ __html: JSON.stringify(THEME_CONFIG) }}
- *   />
- *
  * Architecture Notes:
  * - CSS custom properties are defined in globals.css (:root and html.dark)
  * - This config maps Tailwind utilities to those CSS variables

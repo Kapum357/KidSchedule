@@ -1,6 +1,6 @@
 import Fuse from "fuse.js";
 import type { SearchAdapter as SearchAdapterContract, SearchDoc, SearchHit, SearchOptions } from "@/types";
-import { SEARCH_BACKEND, SEARCH_DEFAULTS } from "@/lib/infrastructure/search-config";
+import { SEARCH_BACKEND, SEARCH_DEFAULTS } from "@/lib/search-config";
 
 export type SearchAdapter = SearchAdapterContract;
 

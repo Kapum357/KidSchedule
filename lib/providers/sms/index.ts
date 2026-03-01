@@ -16,6 +16,11 @@ export {
   verifyTwilioWebhookSignature,
   mapTwilioStatusToDeliveryStatus,
 } from "./twilio-webhook";
+export {
+  startPhoneVerification,
+  checkPhoneVerification,
+  isValidE164Phone,
+} from "./twilio-verify";
 
 function maskPhoneForLog(phone: string): string {
   const trimmed = phone.trim();
