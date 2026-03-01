@@ -125,7 +125,6 @@ export const SECURITY_HEADERS = {
     "camera=()",
     "microphone=()",
     "geolocation=()",
-    "interest-cohort=()", // Disable FLoC
   ].join(", "),
 
   // HSTS (Strict Transport Security)

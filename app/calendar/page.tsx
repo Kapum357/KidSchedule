@@ -2,19 +2,23 @@
  * KidSchedule – Calendar Page (Month View)
  *
  * A Next.js Server Component that renders a full-month custody calendar with
- * events, transitions, and request overlays.
- *
+ * events, transitions, and request overlays. Matches the v2 reference design:
+ * sidebar wizard CTA, data-driven pending requests, custody-key legend with
+ * icon guide, side-by-side split custody cells, and a mobile FAB.
  */
 
 import { CalendarMonthEngine } from "@/lib/calendar-engine";
 import { SchedulePresets } from "@/lib/custody-engine";
-import { SettingsEngine } from "@/lib/settings-engine";
 import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { requireAuth } from "@/lib/session";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import type { CalendarMonthData, CalendarDayState, CustodyColor, TransitionListItem } from "@/lib/calendar-engine";
+import type {
+  CalendarMonthData,
+  CalendarDayState,
+  TransitionListItem,
+} from "@/lib/calendar-engine";
 import type {
   CalendarEvent,
   Child,
@@ -33,35 +37,12 @@ import type {
   DbScheduleChangeRequest,
 } from "@/lib/persistence/types";
 
-async function updateConflictWindow(formData: FormData): Promise<void> {
-  "use server";
+// ─── Search Params ───────────────────────────────────────────────────────────
 
-  const requestedWindowMins = Number((formData.get("conflictWindowMins") as string | null) ?? "120");
-  const familyId = (formData.get("familyId") as string | null) ?? "family-demo";
-  const settingsEngine = new SettingsEngine();
-  const resolved = settingsEngine.resolveFamilySettings(familyId, {
-    conflictWindow: { windowMins: requestedWindowMins },
-  });
-
-  // In production: persist resolved.conflictWindow.windowMins by authenticated familyId.
-  const params = new URLSearchParams();
-  params.set("conflictWindowMins", String(resolved.conflictWindow.windowMins));
-  redirect(`/calendar?${params.toString()}`);
-}
-
-// ─── Helper: Custody Color to Tailwind ────────────────────────────────────────
-
-function getCustodyBackgroundClass(color: CustodyColor): string {
-  if (color === "primary") {
-    return "bg-primary/5";
-  }
-
-  if (color === "secondary") {
-    return "bg-secondary/5";
-  }
-
-  return ""; // split handled manually with absolute positioning
-}
+type CalendarSearchParams = {
+  year?: string;
+  month?: string;
+};
 
 const EVENT_CATEGORIES = new Set<EventCategory>([
   "custody",
@@ -73,7 +54,9 @@ const EVENT_CATEGORIES = new Set<EventCategory>([
 ]);
 
 function parseEventCategory(raw: string): EventCategory {
-  return EVENT_CATEGORIES.has(raw as EventCategory) ? (raw as EventCategory) : "other";
+  return EVENT_CATEGORIES.has(raw as EventCategory)
+    ? (raw as EventCategory)
+    : "other";
 }
 
 function parseConfirmationStatus(raw: string): ConfirmationStatus {
@@ -83,53 +66,26 @@ function parseConfirmationStatus(raw: string): ConfirmationStatus {
   return "pending";
 }
 
-type CalendarSearchParams = {
-  conflictWindowMins?: string;
-  year?: string;
-  month?: string;
-};
-
-const DEFAULT_CONFLICT_WINDOW_MINS = 120;
-const ALLOWED_CONFLICT_WINDOW_MINS = new Set<number>([0, 30, 60, 120, 180]);
-
 function isYearParam(value: string): value is `${number}` {
-  if (!/^\d{4}$/.test(value)) {
-    return false;
-  }
+  if (!/^\d{4}$/.test(value)) return false;
   const year = Number(value);
   return Number.isInteger(year) && year >= 2000 && year <= 2100;
 }
 
 function isMonthParam(value: string): value is `${number}` {
-  if (!/^\d{1,2}$/.test(value)) {
-    return false;
-  }
+  if (!/^\d{1,2}$/.test(value)) return false;
   const month = Number(value);
   return Number.isInteger(month) && month >= 1 && month <= 12;
 }
 
-function isConflictWindowMinsParam(value: string): value is `${number}` {
-  if (!/^\d{1,3}$/.test(value)) {
-    return false;
-  }
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && ALLOWED_CONFLICT_WINDOW_MINS.has(parsed);
-}
-
-function buildCalendarUrl(params: {
-  year: number;
-  month: number;
-  conflictWindowMins?: number;
-}): string {
+function buildCalendarUrl(params: { year: number; month: number }): string {
   const query = new URLSearchParams();
   query.set("year", String(params.year));
   query.set("month", String(params.month));
-  if (params.conflictWindowMins !== undefined && Number.isFinite(params.conflictWindowMins)) {
-    query.set("conflictWindowMins", String(params.conflictWindowMins));
-  }
   return `/calendar?${query.toString()}`;
 }
+
+// ─── Data Mappers ─────────────────────────────────────────────────────────────
 
 function mapParent(row: DbParent): Parent {
   return {
@@ -151,9 +107,11 @@ function mapChild(row: DbChild): Child {
   };
 }
 
-function resolveScheduleBlocks(scheduleId: string | null | undefined, parents: [Parent, Parent]) {
+function resolveScheduleBlocks(
+  scheduleId: string | null | undefined,
+  parents: [Parent, Parent]
+) {
   const [primary, secondary] = parents;
-
   switch (scheduleId) {
     case "alternating-weeks":
       return SchedulePresets.alternatingWeeks(primary.id, secondary.id);
@@ -166,10 +124,6 @@ function resolveScheduleBlocks(scheduleId: string | null | undefined, parents: [
 }
 
 function formatScheduleName(scheduleId: string | null | undefined): string {
-  if (!scheduleId) {
-    return "Family Schedule";
-  }
-
   switch (scheduleId) {
     case "alternating-weeks":
       return "Alternating Weeks";
@@ -182,7 +136,10 @@ function formatScheduleName(scheduleId: string | null | undefined): string {
   }
 }
 
-function buildFamilySchedule(dbFamily: DbFamily, parents: [Parent, Parent]): CustodySchedule {
+function buildFamilySchedule(
+  dbFamily: DbFamily,
+  parents: [Parent, Parent]
+): CustodySchedule {
   return {
     id: dbFamily.scheduleId || "family-schedule",
     name: formatScheduleName(dbFamily.scheduleId),
@@ -195,15 +152,9 @@ function mapFamilyParents(rows: DbParent[]): [Parent, Parent] {
   const sorted = rows
     .slice()
     .sort((a, b) => {
-      if (a.role === b.role) {
-        return a.name.localeCompare(b.name);
-      }
-      if (a.role === "primary") {
-        return -1;
-      }
-      if (b.role === "primary") {
-        return 1;
-      }
+      if (a.role === b.role) return a.name.localeCompare(b.name);
+      if (a.role === "primary") return -1;
+      if (b.role === "primary") return 1;
       return a.name.localeCompare(b.name);
     })
     .map(mapParent);
@@ -211,7 +162,6 @@ function mapFamilyParents(rows: DbParent[]): [Parent, Parent] {
   if (sorted.length < 2) {
     throw new Error("Family must have at least two parents for calendar rendering.");
   }
-
   return [sorted[0], sorted[1]] as [Parent, Parent];
 }
 
@@ -250,7 +200,7 @@ function mapChangeRequest(row: DbScheduleChangeRequest): ScheduleChangeRequest {
   };
 }
 
-// ─── Sidebar Components ───────────────────────────────────────────────────────
+// ─── Sidebar: Upcoming Transition Item ────────────────────────────────────────
 
 function UpcomingTransitionItem({
   item,
@@ -259,18 +209,26 @@ function UpcomingTransitionItem({
   item: TransitionListItem;
   parentColor: "primary" | "secondary";
 }>) {
-
+  const isIncoming = parentColor === "primary";
   return (
     <div
-      className={`relative pl-4 border-l-2 ${parentColor === "primary" ? "border-primary" : "border-secondary"}`}
+      className={`relative pl-4 border-l-2 ${
+        isIncoming ? "border-primary" : "border-secondary"
+      }`}
     >
       <button
-        className="bg-slate-50 dark:bg-slate-800 p-3 rounded-r-lg rounded-bl-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-        aria-label={`${parentColor === "primary" ? "Drop-off" : "Pick-up"} ${item.label} at ${item.timeStr}`}
+        className={`bg-slate-50 dark:bg-slate-800 p-3 rounded-r-lg rounded-bl-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+          !isIncoming ? "opacity-80" : ""
+        }`}
+        aria-label={`${isIncoming ? "Drop-off" : "Pick-up"} on ${item.label} at ${item.timeStr}`}
       >
         <div className="flex justify-between items-start mb-1">
           <span
-            className={`text-xs font-bold ${parentColor === "primary" ? "text-primary bg-primary/10" : "text-secondary bg-secondary/10"} px-2 py-0.5 rounded`}
+            className={`text-xs font-bold px-2 py-0.5 rounded ${
+              isIncoming
+                ? "text-primary bg-primary/10"
+                : "text-secondary bg-secondary/10"
+            }`}
           >
             {item.label}
           </span>
@@ -279,7 +237,7 @@ function UpcomingTransitionItem({
           </span>
         </div>
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          {parentColor === "primary" ? "Drop-off" : "Pick-up"}
+          {isIncoming ? "Drop-off" : "Pick-up"}
         </p>
         {item.transition.location && (
           <div className="flex items-center gap-1 mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -294,7 +252,15 @@ function UpcomingTransitionItem({
   );
 }
 
-function PendingRequest() {
+// ─── Sidebar: Pending Request Card ────────────────────────────────────────────
+
+function PendingRequestCard({
+  request,
+  requesterName,
+}: Readonly<{
+  request: ScheduleChangeRequest;
+  requesterName: string;
+}>) {
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-sm">
       <div className="flex items-center gap-3 mb-2">
@@ -305,34 +271,64 @@ function PendingRequest() {
         </div>
         <div>
           <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-            Halloween Swap
+            {request.title}
           </p>
-          <p className="text-xs text-slate-500">Requested by Sarah</p>
+          <p className="text-xs text-slate-500">Requested by {requesterName}</p>
         </div>
       </div>
-      <p className="text-xs text-slate-600 dark:text-slate-400 mb-3 bg-slate-50 dark:bg-slate-800 p-2 rounded">
-        &quot;Can we switch weekends so I can take Leo trick-or-treating?&quot;
-      </p>
+      {request.description && (
+        <p className="text-xs text-slate-600 dark:text-slate-400 mb-3 bg-slate-50 dark:bg-slate-800 p-2 rounded italic">
+          &ldquo;{request.description}&rdquo;
+        </p>
+      )}
       <div className="flex gap-2">
         <a
-          className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-center"
           href="/calendar/change-requests"
+          className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold py-2 rounded-lg hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-colors text-center"
         >
-          Review
+          Decline
         </a>
-        <a className="flex-1 bg-primary text-white text-xs font-bold py-2 rounded-lg hover:opacity-90 text-center" href="/calendar/change-requests">
-          Open
+        <a
+          href="/calendar/change-requests"
+          className="flex-1 bg-primary text-white text-xs font-bold py-2 rounded-lg hover:opacity-90 transition-colors shadow-sm text-center"
+        >
+          Approve
         </a>
       </div>
     </div>
   );
 }
 
-function CalendarSidebar({ data }: Readonly<{ data: CalendarMonthData }>) {
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
+
+function CalendarSidebar({
+  data,
+  pendingRequests,
+  otherParent,
+}: Readonly<{
+  data: CalendarMonthData;
+  pendingRequests: ScheduleChangeRequest[];
+  otherParent: Parent;
+}>) {
+  function requesterName(req: ScheduleChangeRequest): string {
+    return req.requestedBy === otherParent.id
+      ? otherParent.name.split(" ")[0]
+      : "Co-Parent";
+  }
+
+  const shownRequests = pendingRequests.slice(0, 2);
+
   return (
-    <nav aria-label="Calendar sidebar" className="w-full md:w-80 lg:w-96 flex flex-col gap-6 bg-white dark:bg-slate-900 p-6 border-r border-slate-200 dark:border-slate-800 overflow-y-auto">
-      {/* Main CTA */}
-      <a href="/calendar/wizard" aria-label="Open schedule wizard" className="group flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-primary to-blue-600 p-4 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
+    <aside
+      aria-label="Calendar sidebar"
+      className="w-full md:w-80 lg:w-96 flex flex-col gap-6 bg-white dark:bg-slate-900 p-6 border-r border-slate-200 dark:border-slate-800 overflow-y-auto"
+    >
+      {/* Schedule Wizard CTA */}
+      <a
+        href="/calendar/wizard"
+        aria-label="Open Schedule Wizard"
+        className="group flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-primary to-blue-600 p-4 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all transform hover:-translate-y-0.5"
+      >
         <div className="flex flex-col items-start gap-1">
           <span className="text-white font-bold text-lg">Schedule Wizard</span>
           <span className="text-blue-100 text-xs font-medium">
@@ -340,14 +336,16 @@ function CalendarSidebar({ data }: Readonly<{ data: CalendarMonthData }>) {
           </span>
         </div>
         <div className="bg-white/20 rounded-lg p-2 text-white group-hover:bg-white/30 transition-colors">
-          <span aria-hidden="true" className="material-symbols-outlined">magic_button</span>
+          <span aria-hidden="true" className="material-symbols-outlined">
+            auto_fix_high
+          </span>
         </div>
       </a>
 
       {/* Upcoming Transitions */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-slate-900 dark:text-slate-100 font-bold text-sm uppercase tracking-wider text-opacity-80">
+          <h3 className="text-slate-900 dark:text-slate-100 font-bold text-sm uppercase tracking-wider">
             Upcoming Transitions
           </h3>
           <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-sm">
@@ -366,99 +364,157 @@ function CalendarSidebar({ data }: Readonly<{ data: CalendarMonthData }>) {
               }
             />
           ))}
+          {data.upcomingTransitions.length === 0 && (
+            <p className="text-sm text-slate-400 italic">
+              No transitions in the next 14 days.
+            </p>
+          )}
         </div>
       </div>
 
       {/* Pending Requests */}
       <div className="flex flex-col gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
         <div className="flex items-center justify-between">
-          <h3 className="text-slate-900 dark:text-slate-100 font-bold text-sm uppercase tracking-wider text-opacity-80">
+          <h3 className="text-slate-900 dark:text-slate-100 font-bold text-sm uppercase tracking-wider">
             Pending Requests
           </h3>
-          <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
-            1 New
-          </span>
+          {shownRequests.length > 0 && (
+            <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
+              {shownRequests.length} New
+            </span>
+          )}
         </div>
-        <PendingRequest />
+        {shownRequests.length > 0 ? (
+          shownRequests.map((req) => (
+            <PendingRequestCard
+              key={req.id}
+              request={req}
+              requesterName={requesterName(req)}
+            />
+          ))
+        ) : (
+          <p className="text-sm text-slate-400 italic">No pending requests.</p>
+        )}
       </div>
 
-      {/* Calendar Key */}
+      {/* Custody Key */}
       <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800">
         <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">
           Custody Key
         </h4>
-        <div className="flex gap-4">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-primary"></div>
+            <div className="w-3 h-3 rounded bg-primary/20 border border-primary shrink-0" />
             <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-              You
+              You (Parent A)
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-secondary"></div>
+            <div className="w-3 h-3 rounded bg-secondary/20 border border-secondary shrink-0" />
             <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-              {data.otherParent.name} (Co-Parent)
+              {otherParent.name.split(" ")[0]} (Parent B)
             </span>
+          </div>
+          {/* Icon guide */}
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <div className="flex items-center gap-1">
+              <span aria-hidden="true" className="material-symbols-outlined text-xs text-slate-400">
+                attach_money
+              </span>
+              <span className="text-xs text-slate-500">Expense</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span aria-hidden="true" className="material-symbols-outlined text-xs text-slate-400">
+                schedule
+              </span>
+              <span className="text-xs text-slate-500">Event</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span aria-hidden="true" className="material-symbols-outlined text-xs text-slate-400">
+                description
+              </span>
+              <span className="text-xs text-slate-500">Note</span>
+            </div>
           </div>
         </div>
       </div>
-    </nav>
+    </aside>
   );
 }
 
 // ─── Calendar Day Cell ────────────────────────────────────────────────────────
 
-function CalendarDayCell({ day, isToday }: Readonly<{ day: CalendarDayState; isToday: boolean }>) {
-  const isMuted = false; // Previous month days grayed out elsewhere
-  const bgClass = getCustodyBackgroundClass(day.custodyColor);
+function CalendarDayCell({
+  day,
+  isToday,
+  isPrevMonth,
+}: Readonly<{
+  day: CalendarDayState;
+  isToday: boolean;
+  isPrevMonth: boolean;
+}>) {
+  if (isPrevMonth) {
+    return (
+      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 opacity-40 min-h-[120px] border border-transparent">
+        <span className="text-slate-400 font-medium">{day.dayOfMonth}</span>
+      </div>
+    );
+  }
+
+  const hasPending = day.hasPendingRequest;
 
   return (
     <div
-      className={`bg-white dark:bg-slate-900 rounded-xl p-3 min-h-[120px] shadow-sm border ${
+      className={`bg-white dark:bg-slate-900 rounded-xl p-3 min-h-[120px] relative group transition-shadow ${
         isToday
-          ? "border-2 border-primary ring-4 ring-primary/10 shadow-md"
-          : "border-slate-100 dark:border-slate-800"
-      } relative group hover:shadow-md transition-shadow`}
+          ? "border-2 border-primary ring-4 ring-primary/10 shadow-md hover:shadow-lg"
+          : hasPending
+          ? "shadow-sm border border-slate-100 dark:border-slate-800 ring-2 ring-amber-300 dark:ring-amber-700/50 hover:shadow-md"
+          : "shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-md"
+      }`}
     >
       {/* Custody background */}
       {day.custodyColor === "split" ? (
-        <>
-          <div className="absolute top-0 left-0 w-full h-1/2 bg-secondary/10 rounded-t-lg pointer-events-none"></div>
-          <div className="absolute bottom-0 left-0 w-full h-1/2 bg-primary/10 rounded-b-lg pointer-events-none"></div>
-        </>
+        <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none flex">
+          <div className="w-1/2 h-full bg-secondary/10" />
+          <div className="w-1/2 h-full bg-primary/10" />
+        </div>
       ) : (
-        <div className={`absolute inset-0 ${bgClass} rounded-xl pointer-events-none`}></div>
+        <div
+          className={`absolute inset-0 rounded-xl pointer-events-none ${
+            day.custodyColor === "primary" ? "bg-primary/10" : "bg-secondary/10"
+          }`}
+        />
       )}
 
-      {/* Day number */}
+      {/* Day number + event icons */}
       <div className="flex justify-between items-start mb-2 relative z-10">
         {isToday ? (
           <span className="flex items-center justify-center w-7 h-7 bg-primary text-white rounded-full font-bold text-sm shadow-sm">
             {day.dayOfMonth}
           </span>
         ) : (
-          <span className={`text-slate-700 dark:text-slate-300 font-bold ${isMuted ? "opacity-40" : ""}`}>
+          <span className="text-slate-700 dark:text-slate-300 font-bold">
             {day.dayOfMonth}
           </span>
         )}
 
-        {/* Event icons */}
         <div className="flex gap-1">
           {day.events.slice(0, 2).map((evt) => (
             <span
               key={evt.id}
               aria-hidden="true"
-              className={`material-symbols-outlined text-[16px] ${evt.iconColor || "text-slate-400"}`}
+              className={`material-symbols-outlined text-[16px] ${evt.iconColor ?? "text-slate-500"}`}
               title={evt.title}
             >
-              {evt.icon || "event"}
+              {evt.icon ?? "event"}
             </span>
           ))}
-          {day.hasPendingRequest && (
+          {hasPending && (
             <span
               aria-hidden="true"
               className="material-symbols-outlined text-[16px] text-amber-500"
-              title="Pending Request"
+              title="Pending request"
             >
               pending
             </span>
@@ -468,31 +524,64 @@ function CalendarDayCell({ day, isToday }: Readonly<{ day: CalendarDayState; isT
 
       {/* Event pills */}
       <div className="relative z-10 flex flex-col gap-1">
-        {day.events.map((evt) => (
-          <div
-            key={evt.id}
-            className={`${
-              evt.bgColor
-                ? evt.bgColor
-                : 'bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300'
-            } text-[10px] font-bold px-1.5 py-0.5 rounded w-full truncate`}
-            title={evt.title}
-          >
-            {evt.title}
+        {day.events.map((evt) => {
+          if (evt.type === "transition") {
+            return (
+              <div
+                key={evt.id}
+                className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold px-1.5 py-1 rounded w-max shadow-sm"
+              >
+                {evt.title}
+              </div>
+            );
+          }
+          if (evt.type === "note") {
+            return (
+              <div key={evt.id} className="mt-1 space-y-1">
+                <div className="w-full h-1 bg-blue-200 dark:bg-blue-800 rounded-full" />
+                <div className="w-2/3 h-1 bg-blue-200 dark:bg-blue-800 rounded-full" />
+              </div>
+            );
+          }
+          return (
+            <div
+              key={evt.id}
+              className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 font-medium bg-white/60 dark:bg-slate-800/60 rounded px-1 truncate"
+              title={evt.title}
+            >
+              {evt.title}
+            </div>
+          );
+        })}
+
+        {hasPending && day.pendingRequest && (
+          <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-900/20 p-1 rounded">
+            Swap Request
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
 }
 
-// ─── Calendar Grid ───────────────────────────────────────────────────────────
+// ─── Calendar Grid ────────────────────────────────────────────────────────────
 
-function CalendarGrid({ data }: Readonly<{ data: CalendarMonthData }>) {
+function CalendarGrid({
+  data,
+  year,
+  month,
+}: Readonly<{
+  data: CalendarMonthData;
+  year: number;
+  month: number;
+}>) {
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   const weekdayHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  // Months for which a day is a "previous-month" padding cell
+  const currentMonthStr = `${year}-${String(month).padStart(2, "0")}`;
 
   return (
     <section
@@ -500,7 +589,6 @@ function CalendarGrid({ data }: Readonly<{ data: CalendarMonthData }>) {
       className="flex-1 overflow-auto p-8"
     >
       <div className="grid grid-cols-7 gap-4 h-full min-h-[600px]">
-        {/* Weekday headers */}
         {weekdayHeaders.map((day) => (
           <div
             key={day}
@@ -510,48 +598,27 @@ function CalendarGrid({ data }: Readonly<{ data: CalendarMonthData }>) {
           </div>
         ))}
 
-        {/* Day cells */}
-        {data.days.map((day, idx) => (
-          <div
+        {data.days.map((day) => (
+          <CalendarDayCell
             key={day.dateStr}
-            className={idx < 2 ? "opacity-40" : ""} // Gray out prev-month days
-          >
-            <CalendarDayCell
-              day={day}
-              isToday={day.dateStr === todayStr}
-            />
-          </div>
+            day={day}
+            isToday={day.dateStr === todayStr}
+            isPrevMonth={!day.dateStr.startsWith(currentMonthStr)}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-// ─── Main Calendar Page ───────────────────────────────────────────────────────
+// ─── Page Entry Point ─────────────────────────────────────────────────────────
 
-/**
- * Calendar Server Component.
- *
- * async function loadCalendarData(userId: string, year: number, month: number) {
- *   const [family, events, requests, now] = await Promise.all([...]);
- *   return { family, events, requests, now };
- * }
- *
- * export default async function CalendarPage() {
- *   const { family, events, requests } = await loadCalendarData(...);
- *   const engine = new CalendarMonthEngine(family);
- *   const data = engine.getMonthData(year, month, events, requests);
- *   ...
- * }
- */
 export default async function CalendarPage({
   searchParams,
 }: Readonly<{ searchParams?: Promise<CalendarSearchParams> }>) {
 
-  // ── Parse search params ───────────────────────────────────────────────────
+  // ── Parse search params ────────────────────────────────────────────────────
   const resolvedParams = await searchParams;
-
-  // ── Get current month ─────────────────────────────────────────────────────
   const now = new Date();
   const defaultYear = now.getFullYear();
   const defaultMonth = now.getMonth() + 1;
@@ -561,75 +628,43 @@ export default async function CalendarPage({
 
   const rawYear = resolvedParams?.year;
   const rawMonth = resolvedParams?.month;
-  const rawConflictWindowMins = resolvedParams?.conflictWindowMins;
 
   if (rawYear !== undefined) {
     if (!isYearParam(rawYear)) {
-      redirect(
-        buildCalendarUrl({
-          year: defaultYear,
-          month: defaultMonth,
-          conflictWindowMins: DEFAULT_CONFLICT_WINDOW_MINS,
-        })
-      );
+      redirect(buildCalendarUrl({ year: defaultYear, month: defaultMonth }));
     }
     year = Number(rawYear);
   }
 
   if (rawMonth !== undefined) {
     if (!isMonthParam(rawMonth)) {
-      redirect(
-        buildCalendarUrl({
-          year: defaultYear,
-          month: defaultMonth,
-          conflictWindowMins: DEFAULT_CONFLICT_WINDOW_MINS,
-        })
-      );
+      redirect(buildCalendarUrl({ year: defaultYear, month: defaultMonth }));
     }
     month = Number(rawMonth);
   }
 
-  let conflictWindowMins = DEFAULT_CONFLICT_WINDOW_MINS;
-  if (rawConflictWindowMins !== undefined) {
-    if (!isConflictWindowMinsParam(rawConflictWindowMins)) {
-      redirect(
-        buildCalendarUrl({
-          year,
-          month,
-          conflictWindowMins: DEFAULT_CONFLICT_WINDOW_MINS,
-        })
-      );
-    }
-    conflictWindowMins = Number(rawConflictWindowMins);
-  }
-
-  // ── Load calendar data from database ──────────────────────────────────────
+  // ── Auth + DB ──────────────────────────────────────────────────────────────
   const user = await requireAuth();
-
   const parent = await db.parents.findByUserId(user.userId);
-  if (!parent) {
-    redirect("/calendar/wizard?onboarding=1");
-  }
+  if (!parent) redirect("/calendar/wizard?onboarding=1");
+
   const activeParent = parent as NonNullable<typeof parent>;
 
-  const [dbFamily, dbParents, dbChildren, dbEvents, dbChangeRequests] = await Promise.all([
-    db.families.findById(activeParent.familyId),
-    db.parents.findByFamilyId(activeParent.familyId),
-    db.children.findByFamilyId(activeParent.familyId),
-    db.calendarEvents.findByFamilyId(activeParent.familyId),
-    db.scheduleChangeRequests.findByFamilyId(activeParent.familyId),
-  ]);
+  const [dbFamily, dbParents, dbChildren, dbEvents, dbChangeRequests] =
+    await Promise.all([
+      db.families.findById(activeParent.familyId),
+      db.parents.findByFamilyId(activeParent.familyId),
+      db.children.findByFamilyId(activeParent.familyId),
+      db.calendarEvents.findByFamilyId(activeParent.familyId),
+      db.scheduleChangeRequests.findByFamilyId(activeParent.familyId),
+    ]);
 
-  if (!dbFamily) {
-    redirect("/calendar/wizard?onboarding=1");
-  }
+  if (!dbFamily) redirect("/calendar/wizard?onboarding=1");
+  if (dbParents.length < 2) redirect("/calendar/wizard?onboarding=1");
+
   const activeFamily = dbFamily as NonNullable<typeof dbFamily>;
-
-  if (dbParents.length < 2) {
-    redirect("/calendar/wizard?onboarding=1");
-  }
-
   const mappedParents = mapFamilyParents(dbParents);
+
   const family: Family = {
     id: activeFamily.id,
     parents: mappedParents,
@@ -644,18 +679,11 @@ export default async function CalendarPage({
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .map(mapChangeRequest);
 
-  const settingsEngine = new SettingsEngine();
-  const familySettings = settingsEngine.resolveFamilySettings(activeFamily.id, {
-    conflictWindow: { windowMins: conflictWindowMins },
-  });
+  const pendingRequests = changeRequests.filter((r) => r.status === "pending");
 
-  // ── Compute calendar ──────────────────────────────────────────────────────
+  // ── Compute calendar ───────────────────────────────────────────────────────
   const engine = new CalendarMonthEngine(family);
   const data = engine.getMonthData(year, month, events, changeRequests, now);
-  const conflicts = engine.detectConflicts(
-    events,
-    familySettings.conflictWindow.windowMins
-  );
 
   const monthName = new Date(year, month - 1).toLocaleDateString([], {
     month: "long",
@@ -666,9 +694,11 @@ export default async function CalendarPage({
   const nextMonthDate = new Date(year, month, 1);
   const todayDate = new Date();
 
+  const otherParent = mappedParents[1];
+
   return (
     <>
-      {/* Top Navigation */}
+      {/* ── Top Nav Header ────────────────────────────────────────────────── */}
       <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 sticky top-0 z-50">
         <div className="flex items-center gap-4">
           <div className="size-8 text-primary">
@@ -678,50 +708,59 @@ export default async function CalendarPage({
               viewBox="0 0 48 48"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <g clipPath="url(#clip0_6_543)">
+              <g clipPath="url(#clip0_cal)">
                 <path
                   d="M42.1739 20.1739L27.8261 5.82609C29.1366 7.13663 28.3989 10.1876 26.2002 13.7654C24.8538 15.9564 22.9595 18.3449 20.6522 20.6522C18.3449 22.9595 15.9564 24.8538 13.7654 26.2002C10.1876 28.3989 7.13663 29.1366 5.82609 27.8261L20.1739 42.1739C21.4845 43.4845 24.5355 42.7467 28.1133 40.548C30.3042 39.2016 32.6927 37.3073 35 35C37.3073 32.6927 39.2016 30.3042 40.548 28.1133C42.7467 24.5355 43.4845 21.4845 42.1739 20.1739Z"
                   fill="currentColor"
                 />
+                <path
+                  clipRule="evenodd"
+                  d="M7.24189 26.4066C7.31369 26.4411 7.64204 26.5637 8.52504 26.3738C9.59462 26.1438 11.0343 25.5311 12.7183 24.4963C14.7583 23.2426 17.0256 21.4503 19.238 19.238C21.4503 17.0256 23.2426 14.7583 24.4963 12.7183C25.5311 11.0343 26.1438 9.59463 26.3738 8.52504C26.5637 7.64204 26.4411 7.31369 26.4066 7.24189C26.345 7.21246 26.143 7.14535 25.6664 7.1918C24.9745 7.25925 23.9954 7.5498 22.7699 8.14278C20.3369 9.32007 17.3369 11.4915 14.4142 14.4142C11.4915 17.3369 9.32007 20.3369 8.14278 22.7699C7.5498 23.9954 7.25925 24.9745 7.1918 25.6664C7.14534 26.143 7.21246 26.345 7.24189 26.4066ZM29.9001 10.7285C29.4519 12.0322 28.7617 13.4172 27.9042 14.8126C26.465 17.1544 24.4686 19.6641 22.0664 22.0664C19.6641 24.4686 17.1544 26.465 14.8126 27.9042C13.4172 28.7617 12.0322 29.4519 10.7285 29.9001L21.5754 40.747C21.6001 40.7606 21.8995 40.931 22.8729 40.7217C23.9424 40.4916 25.3821 39.879 27.0661 38.8441C29.1062 37.5904 31.3734 35.7982 33.5858 33.5858C35.7982 31.3734 37.5904 29.1062 38.8441 27.0661C39.879 25.3821 40.4916 23.9425 40.7216 22.8729C40.931 21.8995 40.7606 21.6001 40.747 21.5754L29.9001 10.7285ZM29.2403 4.41187L43.5881 18.7597C44.9757 20.1473 44.9743 22.1235 44.6322 23.7139C44.2714 25.3919 43.4158 27.2666 42.252 29.1604C40.8128 31.5022 38.8165 34.012 36.4142 36.4142C34.012 38.8165 31.5022 40.8128 29.1604 42.252C27.2666 43.4158 25.3919 44.2714 23.7139 44.6322C22.1235 44.9743 20.1473 44.9757 18.7597 43.5881L4.41187 29.2403C3.29027 28.1187 3.08209 26.5973 3.21067 25.2783C3.34099 23.9415 3.8369 22.4852 4.54214 21.0277C5.96129 18.0948 8.43335 14.7382 11.5858 11.5858C14.7382 8.43335 18.0948 5.9613 21.0277 4.54214C22.4852 3.8369 23.9415 3.34099 25.2783 3.21067C26.5973 3.08209 28.1187 3.29028 29.2403 4.41187Z"
+                  fill="currentColor"
+                  fillRule="evenodd"
+                />
               </g>
+              <defs>
+                <clipPath id="clip0_cal">
+                  <rect fill="white" height="48" width="48" />
+                </clipPath>
+              </defs>
             </svg>
           </div>
           <h2 className="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-[-0.015em]">
             KidSchedule
           </h2>
         </div>
+
         <div className="flex flex-1 justify-end gap-8">
-          <nav aria-label="Primary calendar navigation" className="hidden md:flex items-center gap-9">
-            <a
-              className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors"
-              href="/dashboard"
-            >
+          <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-9">
+            <a className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors" href="/dashboard">
               Dashboard
             </a>
-            <a
-              className="text-primary text-sm font-bold leading-normal border-b-2 border-primary pb-0.5"
-              href="/calendar"
-            >
+            <a className="text-primary text-sm font-bold leading-normal border-b-2 border-primary pb-0.5" href="/calendar">
               Calendar
             </a>
-            <a
-              className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors"
-              href="/expenses"
-            >
+            <a className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors" href="/expenses">
               Expenses
             </a>
-            <a
-              className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors"
-              href="/messages"
-            >
+            <a className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors" href="/messages">
               Messages
+            </a>
+            <a className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors" href="/settings/profile">
+              Profile
             </a>
           </nav>
           <div className="flex gap-2">
-            <button aria-label="View notifications" className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+            <button
+              aria-label="View notifications"
+              className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            >
               <span aria-hidden="true" className="material-symbols-outlined">notifications</span>
             </button>
-            <button aria-label="Open settings" className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+            <button
+              aria-label="Open settings"
+              className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            >
               <span aria-hidden="true" className="material-symbols-outlined">settings</span>
             </button>
             <ThemeToggle />
@@ -729,13 +768,20 @@ export default async function CalendarPage({
         </div>
       </header>
 
-      {/* Main layout */}
-      <main id="main-content" className="flex-1 flex flex-col md:flex-row overflow-hidden h-[calc(100vh-65px)]">
-        <CalendarSidebar data={data} />
+      {/* ── Body Layout ───────────────────────────────────────────────────── */}
+      <main
+        id="main-content"
+        className="flex-1 flex flex-col md:flex-row overflow-hidden h-[calc(100vh-65px)]"
+      >
+        <CalendarSidebar
+          data={data}
+          pendingRequests={pendingRequests}
+          otherParent={otherParent}
+        />
 
-        {/* Main calendar section */}
+        {/* ── Main calendar section ──────────────────────────────────────── */}
         <section className="flex-1 flex flex-col bg-background-light dark:bg-background-dark overflow-hidden relative">
-          {/* Calendar controls */}
+          {/* Calendar controls bar */}
           <div className="flex items-center justify-between px-8 py-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm z-10">
             <div className="flex items-center gap-4">
               <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
@@ -747,7 +793,6 @@ export default async function CalendarPage({
                   href={buildCalendarUrl({
                     year: previousMonthDate.getFullYear(),
                     month: previousMonthDate.getMonth() + 1,
-                    conflictWindowMins: familySettings.conflictWindow.windowMins,
                   })}
                   className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm transition-all text-slate-600 dark:text-slate-300"
                 >
@@ -758,52 +803,26 @@ export default async function CalendarPage({
                   href={buildCalendarUrl({
                     year: nextMonthDate.getFullYear(),
                     month: nextMonthDate.getMonth() + 1,
-                    conflictWindowMins: familySettings.conflictWindow.windowMins,
                   })}
                   className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm transition-all text-slate-600 dark:text-slate-300"
                 >
-                  <span aria-hidden="true" className="material-symbols-outlined">
-                    chevron_right
-                  </span>
+                  <span aria-hidden="true" className="material-symbols-outlined">chevron_right</span>
                 </Link>
               </div>
               <Link
-                aria-label="Jump to current date"
+                aria-label="Jump to current month"
                 href={buildCalendarUrl({
                   year: todayDate.getFullYear(),
                   month: todayDate.getMonth() + 1,
-                  conflictWindowMins: familySettings.conflictWindow.windowMins,
                 })}
                 className="text-sm font-bold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors"
               >
                 Today
               </Link>
             </div>
+
             <div className="flex gap-2">
-              <form action={updateConflictWindow} className="flex items-center gap-2">
-                <input type="hidden" name="familyId" value={family.id} />
-                <label htmlFor="conflictWindowMins" className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Conflict window
-                </label>
-                <select
-                  id="conflictWindowMins"
-                  name="conflictWindowMins"
-                  defaultValue={String(familySettings.conflictWindow.windowMins)}
-                  className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200"
-                >
-                  <option value="0">0 min</option>
-                  <option value="30">30 min</option>
-                  <option value="60">60 min</option>
-                  <option value="120">120 min</option>
-                  <option value="180">180 min</option>
-                </select>
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
-                >
-                  Apply
-                </button>
-              </form>
+              {/* View switcher */}
               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
                 <button className="px-4 py-1.5 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm font-bold rounded shadow-sm">
                   Month
@@ -815,23 +834,29 @@ export default async function CalendarPage({
                   List
                 </button>
               </div>
-              <button aria-label="Create new calendar event" className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white rounded-lg text-sm font-bold hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors">
-                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
-                  add
-                </span>
-                {" "}
+              {/* New Event */}
+              <Link
+                href="/calendar/change-request"
+                aria-label="Create new event"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white rounded-lg text-sm font-bold hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors shadow-md"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">add</span>
                 New Event
-              </button>
+              </Link>
             </div>
           </div>
 
-          <div className="px-8 py-3 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-900/20 text-sm text-amber-800 dark:text-amber-200">
-            Detected <span className="font-bold">{conflicts.length}</span>{" "}
-            potential conflict{conflicts.length === 1 ? "" : "s"} using a {familySettings.conflictWindow.windowMins}-minute window.
-          </div>
-
           {/* Calendar grid */}
-          <CalendarGrid data={data} />
+          <CalendarGrid data={data} year={year} month={month} />
+
+          {/* Mobile FAB */}
+          <Link
+            href="/calendar/change-request"
+            aria-label="Create new event"
+            className="md:hidden absolute bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg flex items-center justify-center z-50 hover:bg-opacity-90 transition-colors"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-3xl">add</span>
+          </Link>
         </section>
       </main>
     </>

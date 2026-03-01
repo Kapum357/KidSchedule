@@ -1,3 +1,15 @@
+/**
+ * KidSchedule – New Schedule Change Request Form
+ *
+ * - Interactive date/time selection with calendar preview
+ * - Three change types: swap (with makeup period), cancel (no makeup), extra time
+ * - AI-assisted conflict detection based on tone and request type
+ * - Server-side validation and database persistence
+ * - Responsive modal-style layout with side-by-side form and preview
+ */
+
+import { db } from "@/lib/persistence";
+import { requireAuth } from "@/lib/session";
 import { redirect } from "next/navigation";
 
 type ChangeType = "swap" | "cancel" | "extra";
@@ -189,6 +201,14 @@ function validateChangeRequestInput(input: ChangeRequestInput): string | undefin
 async function submitChangeRequest(formData: FormData): Promise<void> {
   "use server";
 
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  const user = await requireAuth();
+  const parent = await db.parents.findByUserId(user.userId);
+  if (!parent) redirect("/calendar/wizard?onboarding=1");
+
+  const activeParent = parent as NonNullable<typeof parent>;
+
+  // ── Parse & Validate ───────────────────────────────────────────────────────
   const input = parseChangeRequestFormData(formData);
   const baseParams = buildQueryStringFromInput(input);
   const validationError = validateChangeRequestInput(input);
@@ -199,14 +219,74 @@ async function submitChangeRequest(formData: FormData): Promise<void> {
     redirect(`/calendar/change-request?${params.toString()}`);
   }
 
-  const success = new URLSearchParams(baseParams);
-  success.set("success", "1");
+  // ── Generate Request Metadata ──────────────────────────────────────────────
+  const title = generateRequestTitle(
+    input.changeType,
+    input.startDate,
+    input.endDate
+  );
 
-  // Future persistence wiring point:
-  // - save ScheduleChangeRequest to lib/persistence boundary
-  // - notify co-parent through provider adapters
-  // - emit activity item: schedule_change_requested
-  redirect(`/calendar/change-request?${success.toString()}`);
+  // ── Persist to Database ────────────────────────────────────────────────────
+  const createPayload: Record<string, unknown> = {
+    familyId: activeParent.familyId,
+    requestedBy: activeParent.id,
+    title,
+    description: input.notes || undefined,
+    givingUpPeriodStart: input.startDate,
+    givingUpPeriodEnd: input.endDate,
+    status: "pending" as const,
+  };
+
+  // Only include requestedMakeUp* fields for swap requests so we don't assign
+  // undefined to fields that are expected to be strings by the DB client types.
+  if (input.changeType === "swap") {
+    createPayload.requestedMakeUpStart = input.startDate;
+    createPayload.requestedMakeUpEnd = input.endDate;
+  }
+
+  const newRequest = await db.scheduleChangeRequests.create(createPayload as any);
+
+  // ── Redirect to Detail View ────────────────────────────────────────────────
+  redirect(`/calendar/change-request/${newRequest.id}`);
+}
+
+/**
+ * Generate a human-readable title for the request based on change type and dates.
+ *
+ * Examples:
+ *   - "Time Swap: Dec 20 – 22" (swap type)
+ *   - "Cancel Custody: Dec 20 – 22" (cancel type)
+ *   - "Extra Time: Dec 20 – 22" (extra type)
+ */
+function generateRequestTitle(
+  changeType: ChangeType,
+  startDate: string,
+  endDate: string
+): string {
+  const start = new Date(startDate + "T00:00:00Z");
+  const end = new Date(endDate + "T00:00:00Z");
+
+  const startFormatted = start.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  });
+  const endFormatted = end.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  });
+
+  const dateRange =
+    startDate === endDate
+      ? startFormatted
+      : `${startFormatted} – ${endFormatted}`;
+
+  const typeLabel = {
+    swap: "Time Swap",
+    cancel: "Cancel Custody",
+    extra: "Extra Time",
+  }[changeType];
+
+  return `${typeLabel}: ${dateRange}`;
 }
 
 function monthYearLabel(date: Date): string {
@@ -261,9 +341,16 @@ function formatReasonLabel(reason: ChangeReason): string {
   return REASON_OPTIONS.find((option) => option.value === reason)?.label ?? "Work Commitment";
 }
 
+export const dynamic = "force-dynamic";
+
 export default async function NewScheduleChangeRequestPage({
   searchParams,
 }: Readonly<{ searchParams?: Promise<ChangeRequestSearchParams> }>) {
+  // ── Auth ────────────────────────────────────────────────────────────────────
+  const user = await requireAuth();
+  const parent = await db.parents.findByUserId(user.userId);
+  if (!parent) redirect("/calendar/wizard?onboarding=1");
+
   const resolvedSearchParams = await searchParams;
   const state = resolvePageState(resolvedSearchParams);
 

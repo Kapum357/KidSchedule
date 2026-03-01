@@ -161,7 +161,7 @@ function applySecurityHeaders(response: NextResponse, nonce: string): void {
   // Permissions policy
   response.headers.set(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    "camera=(), microphone=(), geolocation=()"
   );
 
   // HSTS (Strict Transport Security) – only in production

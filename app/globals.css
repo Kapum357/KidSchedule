@@ -72,6 +72,19 @@
   --color-border-focus: var(--color-primary);
   --color-border-error: var(--color-error);
   
+  /* Dashboard – page/surface tokens */
+  --color-bg-app: #f6f8f7;
+  --color-surface-card: #ffffff;
+  --color-primary-hover-v2: #4FB8A9;
+
+  /* Dashboard – accent chips */
+  --color-chip-blue-bg: #E0F2FE;
+  --color-chip-blue-fg: #0369A1;
+  --color-chip-orange-bg: #FFF7ED;
+  --color-chip-orange-fg: #C2410C;
+  --color-chip-purple-bg: #F3E8FF;
+  --color-chip-purple-fg: #7E22CE;
+
   /* Focus Ring */
   --color-focus-ring: rgba(107, 202, 189, 0.5);
   --focus-ring-width: 3px;
@@ -193,6 +206,10 @@ html.dark {
   --color-border-focus: var(--color-primary);
   --color-border-error: var(--color-error);
   
+  /* Dashboard – dark page/surface tokens */
+  --color-bg-app: #141e1d;
+  --color-surface-card: #1e2928;
+
   /* Focus Ring */
   --color-focus-ring: rgba(125, 211, 200, 0.4);
   
@@ -304,9 +321,25 @@ html.dark {
   --color-border: var(--color-border);
   --color-border-hover: var(--color-border-hover);
   
+  /* Dashboard tokens */
+  --color-bg-app: var(--color-bg-app);
+  --color-surface-card: var(--color-surface-card);
+  --color-chip-blue-bg: var(--color-chip-blue-bg);
+  --color-chip-blue-fg: var(--color-chip-blue-fg);
+  --color-chip-orange-bg: var(--color-chip-orange-bg);
+  --color-chip-orange-fg: var(--color-chip-orange-fg);
+  --color-chip-purple-bg: var(--color-chip-purple-bg);
+  --color-chip-purple-fg: var(--color-chip-purple-fg);
+
   /* Fonts */
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+}
+
+/* ─── Material Symbols Fill Utility ───────────────────────────────────────── */
+
+.icon-filled {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
