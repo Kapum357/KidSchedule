@@ -1,4 +1,3 @@
-/* eslint-disable import/export */
 /**
  * KidSchedule – Persistence Layer
  *
@@ -74,7 +73,5 @@ export function _test_resetDbInstance(): void {
 }
 
 // Re-export types
-/* eslint-disable-next-line import/export */
 export * from "./types";
-/* eslint-disable-next-line import/export */
 export * from "./repositories";

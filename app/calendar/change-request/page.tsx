@@ -9,6 +9,7 @@
  */
 
 import { db } from "@/lib/persistence";
+import type { DbScheduleChangeRequest } from "@/lib/persistence/types";
 import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
 import { verifyOrigin } from "@/lib/security/csrf";
@@ -238,24 +239,23 @@ async function submitChangeRequest(formData: FormData): Promise<void> {
   );
 
   // ── Persist to Database ────────────────────────────────────────────────────
-  const createPayload: Record<string, unknown> = {
+  const createPayload: Omit<DbScheduleChangeRequest, "id" | "createdAt"> = {
     familyId: activeParent.familyId,
     requestedBy: activeParent.id,
     title,
     description: input.notes || undefined,
     givingUpPeriodStart: input.startDate,
     givingUpPeriodEnd: input.endDate,
-    status: "pending" as const,
+    // Database requires make-up fields; use the same dates when not swapping
+    requestedMakeUpStart: input.changeType === "swap" ? input.startDate : input.startDate,
+    requestedMakeUpEnd: input.changeType === "swap" ? input.endDate : input.endDate,
+    status: "pending",
+    // optional fields
+    respondedAt: undefined,
+    responseNote: undefined,
   };
 
-  // Only include requestedMakeUp* fields for swap requests so we don't assign
-  // undefined to fields that are expected to be strings by the DB client types.
-  if (input.changeType === "swap") {
-    createPayload.requestedMakeUpStart = input.startDate;
-    createPayload.requestedMakeUpEnd = input.endDate;
-  }
-
-  const newRequest = await db.scheduleChangeRequests.create(createPayload as any);
+  const newRequest = await db.scheduleChangeRequests.create(createPayload);
 
   // ── Redirect to Detail View ────────────────────────────────────────────────
   redirect(`/calendar/change-request/${newRequest.id}`);

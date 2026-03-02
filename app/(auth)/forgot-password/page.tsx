@@ -3,19 +3,6 @@
  *
  * Server Component that renders password reset request form.
  * Users enter their email to receive a password reset link.
- *
- * Server Action `handlePasswordResetRequest`:
- *   1. Validates email format
- *   2. Calls production auth service (rate-limited, privacy-preserving)
- *   3. Sends reset email via configured provider
- *   4. Redirects to success page
- *
- * Security considerations:
- *   - Email validation prevents obvious malformed addresses
- *   - Token is single-use and expires in 1 hour
- *   - Response identical for "user not found" and success (privacy)
- *   - Rate limiting prevents email spray attacks
- *   - Audit logging for security monitoring
  */
 
 import { redirect } from "next/navigation";

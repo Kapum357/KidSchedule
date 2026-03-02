@@ -1,5 +1,3 @@
-/* eslint-disable header/header */
-/* eslint-disable unicorn/no-unreadable-array-destructuring */
 /**
  * KidSchedule – Provider Interface Types
  *

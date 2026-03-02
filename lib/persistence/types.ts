@@ -86,7 +86,10 @@ export type AuditAction =
   | "session.revoke"
   | "session.revoke_all"
   | "rate_limit.triggered"
-  | "security.suspicious_activity";
+  | "security.suspicious_activity"
+  | "calendar.event.create"
+  | "calendar.event.update"
+  | "calendar.event.delete";
 
 export interface DbAuditLog {
   id: string;

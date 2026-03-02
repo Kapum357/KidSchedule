@@ -85,7 +85,6 @@ function getBasicAuth(): string {
 }
 
 function getVerifyBaseUrl(): string {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID ?? "";
   const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID ?? "";
   return `https://verify.twilio.com/v2/Services/${serviceSid}`;
 }

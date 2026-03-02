@@ -6,26 +6,6 @@
  * This page handles SMS-based OTP verification for account security.
  * Users enter a 6-digit code sent to their phone.
  *
- * Features:
- * - 6-digit OTP input with auto-focus between fields
- * - Countdown timer for resend button (60 seconds)
- * - Attempt limiting (max 5 failed attempts)
- * - Phone number masking (privacy-first display)
- * - Progress stepper (Step 2 of 3)
- * - Server Action for OTP validation
- *
- * Security:
- * - OTP sent via SMS (secure, out-of-band channel)
- * - Constant-time comparison prevents timing attacks
- * - Hashed OTP in database (not plaintext)
- * - Max 5 attempts before 15-min lockout
- * - 5-minute OTP validity window
- *
- * UX Considerations:
- * - Auto-move to next field when digit entered
- * - Copy-paste support (if user pastes "123456", fills all fields)
- * - Resend button disabled with countdown
- * - Clear error messages with remaining attempts
  */
 
 import { redirect } from "next/navigation";
