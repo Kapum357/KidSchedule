@@ -146,5 +146,46 @@ describe('ICS Generator', () => {
       // Verify escaped characters in category
       expect(result).toContain('CATEGORIES:work\\;meeting');
     });
+
+    it('generates timed event with UTC datetime format', () => {
+      const events = [
+        {
+          id: 'event-3',
+          familyId: 'family-123',
+          title: 'Soccer Practice',
+          startDate: new Date('2024-03-15T14:30:00Z'),
+          endDate: new Date('2024-03-15T15:30:00Z'),
+          isAllDay: false,
+          category: 'Sports',
+        },
+      ];
+
+      const result = generateICalFeed(events, {
+        id: 'family-123',
+        name: 'Smith Family',
+      });
+
+      // Verify VEVENT block exists
+      expect(result).toContain('BEGIN:VEVENT');
+      expect(result).toContain('END:VEVENT');
+
+      // Verify DTSTART uses UTC datetime format for timed events
+      expect(result).toContain('DTSTART:20240315T143000Z');
+
+      // Verify VALUE=DATE is NOT used for timed events
+      expect(result).not.toContain('VALUE=DATE');
+
+      // Verify UID format
+      expect(result).toContain('UID:event-event-3@family-123.kidschedule.app');
+
+      // Verify SUMMARY with title
+      expect(result).toContain('SUMMARY:Soccer Practice');
+
+      // Verify CATEGORIES
+      expect(result).toContain('CATEGORIES:Sports');
+
+      // Verify DTSTAMP exists (with current UTC time)
+      expect(result).toMatch(/DTSTAMP:\d{8}T\d{6}Z/);
+    });
   });
 });
