@@ -187,5 +187,70 @@ describe('ICS Generator', () => {
       // Verify DTSTAMP exists (with current UTC time)
       expect(result).toMatch(/DTSTAMP:\d{8}T\d{6}Z/);
     });
+
+    it('handles multiple special characters in all fields', () => {
+      const events = [
+        {
+          id: 'event-4',
+          familyId: 'family-456',
+          title: 'Team Meeting; Preparation',
+          description: 'Discuss: Budget, Timeline\nQ&A Session',
+          location: 'Room #5; Building A',
+          startDate: new Date('2024-03-20T10:00:00Z'),
+          endDate: new Date('2024-03-20T11:00:00Z'),
+          isAllDay: false,
+          category: 'Work,Important',
+        },
+      ];
+
+      const result = generateICalFeed(events, {
+        id: 'family-456',
+        name: "Johnson's Team",
+      });
+
+      // Verify title sanitization with semicolon
+      expect(result).toContain('SUMMARY:Team Meeting\\; Preparation');
+
+      // Verify description sanitization with comma and newline (colon is not escaped per RFC 5545)
+      expect(result).toContain('DESCRIPTION:Discuss: Budget\\, Timeline\\nQ&A Session');
+
+      // Verify location sanitization with semicolon
+      expect(result).toContain('LOCATION:Room #5\\; Building A');
+
+      // Verify category sanitization with comma
+      expect(result).toContain('CATEGORIES:Work\\,Important');
+    });
+
+    it('correctly escapes backslashes before other special characters', () => {
+      const events = [
+        {
+          id: 'event-5',
+          familyId: 'family-456',
+          title: 'Path: C:\\Users\\Documents',
+          description: 'Notes: Use \\ separator',
+          startDate: new Date('2024-03-21T09:00:00Z'),
+          endDate: new Date('2024-03-21T10:00:00Z'),
+          isAllDay: false,
+          category: 'Info',
+        },
+      ];
+
+      const result = generateICalFeed(events, {
+        id: 'family-456',
+        name: 'Test',
+      });
+
+      // Backslashes should be escaped: input \ becomes \\ in ICS output
+      // Verify that backslash escaping works by checking the escaped sequence
+      const summaryLine = result.split('\r\n').find(line => line.startsWith('SUMMARY:'));
+      const descriptionLine = result.split('\r\n').find(line => line.startsWith('DESCRIPTION:'));
+
+      expect(summaryLine).toBeDefined();
+      expect(descriptionLine).toBeDefined();
+
+      // Each input backslash should become two backslashes in the output
+      expect(summaryLine).toEqual('SUMMARY:Path: C:\\\\Users\\\\Documents');
+      expect(descriptionLine).toEqual('DESCRIPTION:Notes: Use \\\\ separator');
+    });
   });
 });
