@@ -252,5 +252,49 @@ describe('ICS Generator', () => {
       expect(summaryLine).toEqual('SUMMARY:Path: C:\\\\Users\\\\Documents');
       expect(descriptionLine).toEqual('DESCRIPTION:Notes: Use \\\\ separator');
     });
+
+    it('should include multiple events and omit optional fields when missing', () => {
+      const events: DbCalendarEvent[] = [
+        {
+          id: 'event-1',
+          familyId: 'family-1',
+          title: 'Event 1',
+          // No description or location
+          startDate: new Date('2026-03-10'),
+          endDate: new Date('2026-03-11'),
+          isAllDay: true,
+          category: 'activity',
+        },
+        {
+          id: 'event-2',
+          familyId: 'family-1',
+          title: 'Event 2',
+          description: 'With description',
+          location: 'At home',
+          startDate: new Date('2026-03-15'),
+          endDate: new Date('2026-03-16'),
+          isAllDay: true,
+          category: 'medical',
+        },
+      ];
+
+      const result = generateICalFeed(events, { id: 'family-1', name: 'Smith' });
+
+      // Both events present
+      expect(result.match(/BEGIN:VEVENT/g)).toHaveLength(2);
+      expect(result).toContain('UID:event-event-1@family-1.kidschedule.app');
+      expect(result).toContain('UID:event-event-2@family-1.kidschedule.app');
+
+      // Optional fields only in Event 2
+      const event1Index = result.indexOf('UID:event-event-1@family-1.kidschedule.app');
+      const event2Index = result.indexOf('UID:event-event-2@family-1.kidschedule.app');
+      const event1Section = result.substring(event1Index, event2Index);
+      const event2Section = result.substring(event2Index);
+
+      expect(event1Section).not.toContain('DESCRIPTION:');
+      expect(event1Section).not.toContain('LOCATION:');
+      expect(event2Section).toContain('DESCRIPTION:With description');
+      expect(event2Section).toContain('LOCATION:At home');
+    });
   });
 });
