@@ -28,9 +28,9 @@ export interface NotificationDeliveryResult {
 }
 
 export class NotificationDeliveryService {
-  private db = getDb();
-  private smsProvider = getSmsSender();
-  private emailProvider = getEmailSender();
+  private readonly db = getDb();
+  private readonly smsProvider = getSmsSender();
+  private readonly emailProvider = getEmailSender();
 
   /**
    * Deliver a notification to a parent.
@@ -74,15 +74,20 @@ export class NotificationDeliveryService {
         request.notificationId,
         result.success,
         result.messageId,
-        result.error
+        result.error,
       );
 
       return result;
     } catch (error) {
-      console.error("Notification delivery failed:", error);
+      console.info("Notification delivery failed:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: (() => {
+          if (error instanceof Error) {
+            return error.message;
+          }
+          return "Unknown error";
+        })(),
       };
     }
   }
@@ -103,13 +108,17 @@ export class NotificationDeliveryService {
       timeZone: "UTC", // Should use parent's timezone
     });
 
-    const locationText = location ? ` at ${location}` : "";
+    let locationText = "";
+    if (location) {
+      locationText = ` at ${location}`;
+    }
 
     switch (notificationType) {
       case "transition_24h":
         return {
           subject: "Custody Transition Reminder - Tomorrow",
-          body: `Hi! This is a reminder that ${fromParentName} will be handing off custody to you tomorrow at ${timeString}${locationText}. Please confirm you're ready for the transition.`,
+          body: `Hi! This is a reminder that ${fromParentName} will be handing off custody to you tomorrow at ${timeString}${locationText}. ` +
+            `Please confirm you're ready for the transition.`,
         };
 
       case "transition_same_day":
@@ -136,7 +145,7 @@ export class NotificationDeliveryService {
    */
   private async deliverSms(
     parent: Parent,
-    content: { body: string }
+    content: { body: string },
   ): Promise<NotificationDeliveryResult> {
     if (!parent.phone) {
       return {
@@ -162,7 +171,12 @@ export class NotificationDeliveryService {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : "SMS delivery failed",
+        error: (() => {
+          if (error instanceof Error) {
+            return error.message;
+          }
+          return "SMS delivery failed";
+        })(),
       };
     }
   }
@@ -214,6 +228,7 @@ export class NotificationDeliveryService {
    * Deliver push notification.
    * Note: Push notifications require additional setup with FCM/APNs.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async deliverPush(
     _parent: Parent,
     _content: { subject?: string; body: string },

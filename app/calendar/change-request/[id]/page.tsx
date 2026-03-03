@@ -323,7 +323,7 @@ export default async function ChangeRequestDetailPage({
   ]);
 
   if (!dbRequest) {
-    redirect("/calendar/change-requests");
+    redirect("/calendar/change-request");
   }
 
   if (dbParents.length < 2) {

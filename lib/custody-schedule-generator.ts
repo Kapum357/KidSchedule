@@ -405,10 +405,7 @@ function generateEOWEvents(input: ScheduleGeneratorInput): ScheduleEvent[] {
   currentDate.setUTCDate(currentDate.getUTCDate() + daysUntilFriday);
 
   // Calculate which parent owns this first weekend based on anchor alignment.
-  const fridayStr = currentDate.toISOString().split("T")[0];
-  const fridaysFromAnchor = daysBetweenDateStrings(anchorDate, fridayStr);
   const EOW_CYCLE_LENGTH = 14;
-  const weekendNumber = Math.floor(fridaysFromAnchor / EOW_CYCLE_LENGTH);
   let weekendCount = 0;
   const iterationDate = new Date(currentDate);
 

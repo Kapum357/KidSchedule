@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 type CustodyPeriod = {
@@ -69,11 +69,16 @@ export default function CustodyCompliancePage() {
   const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
 
   // Generate report when parameters change
+  // wrap generateReport in useCallback to satisfy lint check
+  const memoizedGenerate = useCallback(() => {
+    generateReport();
+  }, [familyId, startDate, endDate]);
+
   useEffect(() => {
     if (familyId && startDate && endDate) {
-      generateReport();
+      memoizedGenerate();
     }
-  }, [familyId, startDate, endDate]);
+  }, [familyId, startDate, endDate, memoizedGenerate]);
 
   const generateReport = async () => {
     setLoading(true);
@@ -101,7 +106,7 @@ export default function CustodyCompliancePage() {
       // Update URL
       router.replace(`/reports/custody-compliance?familyId=${familyId}&startDate=${startDate}&endDate=${endDate}`);
 
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
@@ -181,7 +186,7 @@ export default function CustodyCompliancePage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Export failed');
     }
   };

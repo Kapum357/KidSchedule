@@ -9,6 +9,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/persistence";
 import { CustodyComplianceEngine } from "@/lib/custody-compliance-engine";
 import { z } from "zod";
+import {
+  getAuthenticatedUser,
+  userBelongsToFamily,
+  unauthorized,
+  forbidden,
+} from "../../calendar/utils";
 
 const complianceEngine = new CustodyComplianceEngine();
 
@@ -74,44 +80,53 @@ export async function GET(request: NextRequest) {
 
     const validatedQuery = QuerySchema.parse(queryData);
 
-    // Check if user has access to this family
+    // Authenticate and authorize membership
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return unauthorized("unauthenticated", "Authentication required");
+    }
+
+    const canAccess = await userBelongsToFamily(auth.userId, validatedQuery.familyId);
+    if (!canAccess) {
+      return forbidden("not_family_member", "User is not a member of this family");
+    }
+
+    // Check if family exists
     const db = getDb();
     const family = await db.families.findById(validatedQuery.familyId);
-
     if (!family) {
       return NextResponse.json(
         { error: "Family not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
-
-    // TODO: Add authorization check to ensure user is a parent in this family
 
     // Generate the compliance report
     const report = await complianceEngine.generateComplianceReport(
       validatedQuery.familyId,
       validatedQuery.startDate,
-      validatedQuery.endDate
+      validatedQuery.endDate,
     );
 
     return NextResponse.json(report);
 
   } catch (error) {
-    console.error("Error generating custody compliance report:", error);
+    console.info("Error generating custody compliance report:", error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
           error: "Invalid request parameters",
-          details: error.issues
+          details: (error as z.ZodError).issues,
         },
-        { status: 400 }
+
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -130,7 +145,7 @@ export async function POST(request: NextRequest) {
     // Export the report in the requested format
     const exportedData = await complianceEngine.exportForLegalProceedings(
       validatedData.report,
-      validatedData.format
+      validatedData.format,
     );
 
     // Set appropriate headers based on format
@@ -163,7 +178,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: "Invalid request body",
-          details: error.issues,
+          details: (error as z.ZodError).issues,
         },
         { status: 400 },
       );

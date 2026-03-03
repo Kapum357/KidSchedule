@@ -293,6 +293,7 @@ export class CustodyComplianceEngine {
   /**
    * Apply schedule overrides to the scheduled transitions.
    */
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   private applyOverridesToTransitions(
     transitions: any[],
     _overrides: ScheduleOverride[],
@@ -302,6 +303,7 @@ export class CustodyComplianceEngine {
     // This is a simplified implementation.
     return transitions;
   }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   /**
    * Calculate summary metrics from compliance periods.

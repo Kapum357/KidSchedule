@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
  * Retry failed notifications.
  * POST /api/notifications/retry
  */
-export async function PUT(request: NextRequest) {
+export async function PUT(_request: NextRequest) {
   try {
     // Authenticate user
     const auth = await getAuthenticatedUser();

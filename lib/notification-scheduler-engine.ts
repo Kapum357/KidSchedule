@@ -5,9 +5,7 @@
  * Generates 24-hour advance alerts and same-day notifications.
  */
 
-import type { Family, Parent, CalendarEvent } from "@/types";
-import { CustodyEngine } from "./custody-engine";
-import { getDb } from "@/lib/persistence";
+import type { Parent, CalendarEvent } from "@/types";
 
 export interface ScheduledNotification {
   id: string;
@@ -123,7 +121,8 @@ export class NotificationSchedulerEngine {
   private createAdvanceNotification(
     transition: TransitionInfo,
     now: Date,
-    _timeZone: string,
+    // timezone presently unused but kept for future localization
+    _timeZone?: string,
   ): ScheduledNotification | null {
     const transitionTime = new Date(transition.startTime);
     const advanceTime = new Date(transitionTime.getTime() - 24 * 60 * 60 * 1000); // 24 hours before
@@ -153,7 +152,7 @@ export class NotificationSchedulerEngine {
   private createSameDayNotification(
     transition: TransitionInfo,
     now: Date,
-    _timeZone: string,
+    _timeZone?: string,
   ): ScheduledNotification | null {
     const transitionTime = new Date(transition.startTime);
     const sameDayTime = new Date(transitionTime.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
@@ -183,7 +182,7 @@ export class NotificationSchedulerEngine {
   private createReminderNotification(
     transition: TransitionInfo,
     now: Date,
-    _timeZone: string,
+    _timeZone?: string,
   ): ScheduledNotification | null {
     const transitionTime = new Date(transition.startTime);
     const REMINDER_MINUTES_BEFORE = 15;
