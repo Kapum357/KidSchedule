@@ -13,6 +13,7 @@ import { generateCustodySchedule } from "@/lib/custody-schedule-generator";
 import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
 import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
+import { CalendarFeedSubscription } from "@/app/calendar/calendar-feed-subscription";
 import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -343,10 +344,12 @@ function CalendarSidebar({
   data,
   pendingRequests,
   otherParent,
+  familyId,
 }: Readonly<{
   data: CalendarMonthData;
   pendingRequests: ScheduleChangeRequest[];
   otherParent: Parent;
+  familyId: string;
 }>) {
   function requesterName(req: ScheduleChangeRequest): string {
     return req.requestedBy === otherParent.id
@@ -434,6 +437,9 @@ function CalendarSidebar({
           <p className="text-sm text-slate-400 italic">No pending requests.</p>
         )}
       </div>
+
+      {/* Calendar Feed Subscription */}
+      <CalendarFeedSubscription familyId={familyId} />
 
       {/* Custody Key */}
       <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -844,6 +850,7 @@ export default async function CalendarPage({
           data={data}
           pendingRequests={pendingRequests}
           otherParent={otherParent}
+          familyId={activeFamily.id}
         />
 
         {/* ── Main calendar section ──────────────────────────────────────── */}

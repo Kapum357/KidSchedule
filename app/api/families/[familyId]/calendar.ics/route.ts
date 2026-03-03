@@ -18,9 +18,13 @@ export const runtime = 'nodejs';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { familyId: string } }
+  { params }: { params: Promise<{ familyId: string }>},
 ) {
+  let familyId: string = '';
   try {
+    // Await params as required by Next.js 15+
+    familyId = (await params).familyId;
+
     // Step 1: Check authentication
     const user = await getAuthenticatedUser();
     if (!user) {
@@ -28,19 +32,19 @@ export async function GET(
     }
 
     // Step 2: Check authorization - user must be member of family
-    const belongsToFamily = await userBelongsToFamily(user.userId, params.familyId);
+    const belongsToFamily = await userBelongsToFamily(user.userId, familyId);
     if (!belongsToFamily) {
       return forbidden('not_family_member', 'You do not belong to this family');
     }
 
     // Step 3: Fetch family details
-    const family = await db.families.findById(params.familyId);
+    const family = await db.families.findById(familyId);
     if (!family) {
       return forbidden('family_not_found', 'Family not found');
     }
 
     // Step 4: Fetch family's events
-    const events = await db.calendarEvents.findByFamilyId(params.familyId);
+    const events = await db.calendarEvents.findByFamilyId(familyId);
 
     // Step 5: Convert database events to iCalendar event format
     // Database stores events with startAt/endAt as ISO strings, but generateICalFeed expects Date objects
@@ -72,7 +76,7 @@ export async function GET(
     });
   } catch (error) {
     console.error('[ICS Feed] Error generating calendar feed', {
-      familyId: params.familyId,
+      familyId,
       error: error instanceof Error ? error.message : 'unknown',
     });
 
