@@ -34,13 +34,4 @@ export class SettingsEngine {
   }
 }
 
-export function createMockFamilySettings(
-  familyId: string,
-  windowMins: number = DEFAULT_CONFLICT_WINDOW_MINS
-): FamilySettings {
-  const engine = new SettingsEngine();
-  return engine.resolveFamilySettings(familyId, {
-    conflictWindow: { windowMins },
-    searchBackend: SEARCH_BACKEND,
-  });
-}
+
