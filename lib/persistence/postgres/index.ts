@@ -18,6 +18,9 @@ import { createParentRepository } from "./parent-repository";
 import { createChildRepository } from "./child-repository";
 import { createCalendarEventRepository } from "./calendar-event-repository";
 import { createScheduleChangeRequestRepository } from "./schedule-change-request-repository";
+import { createScheduleOverrideRepository } from "./schedule-override-repository";
+import { createHolidayRepository } from "./holiday-repository";
+import { createHolidayExceptionRuleRepository } from "./holiday-exception-rule-repository";
 import { createBlogPostRepository } from "./blog-post-repository";
 import { createSchoolEventRepository } from "./school-event-repository";
 import { createVolunteerTaskRepository } from "./volunteer-task-repository";
@@ -31,6 +34,7 @@ import {
   createHashChainVerificationRepository,
 } from "./messaging-repository";
 import { createMomentRepository, createMomentReactionRepository } from "./moments-repository";
+import { createScheduledNotificationRepository } from "./scheduled-notification-repository";
 
 // ─── Unit of Work Implementation ──────────────────────────────────────────────
 
@@ -61,6 +65,9 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     children: createChildRepository(tx),
     calendarEvents: createCalendarEventRepository(tx),
     scheduleChangeRequests: createScheduleChangeRequestRepository(tx),
+    scheduleOverrides: createScheduleOverrideRepository(tx),
+    holidays: createHolidayRepository(tx),
+    holidayExceptionRules: createHolidayExceptionRuleRepository(tx),
     blogPosts: createBlogPostRepository(tx),
     schoolEvents: createSchoolEventRepository(tx),
     volunteerTasks: createVolunteerTaskRepository(tx),
@@ -73,6 +80,7 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     hashChainVerifications: createHashChainVerificationRepository(),
     moments: createMomentRepository(),
     momentReactions: createMomentReactionRepository(),
+    scheduledNotifications: createScheduledNotificationRepository(),
 
     // Transaction methods - these are no-ops for direct UoW usage
     // Use withTransaction() for actual transaction support

@@ -1,28 +1,7 @@
-/**
- * KidSchedule – CalendarMonthEngine
- *
- * ALGORITHM OVERVIEW
- * ─────────────────────────────────────────────────────────────────────────────
- * The calendar view must integrate custody state, events, transitions, and
- * pending requests into a cohesive month grid. The engine orchestrates:
- *
- *   1. Custody per-day coloring using the CustodyEngine
- *   2. Split-custody detection (transition times that fall on a calendar day)
- *   3. Event overlay and stacking (transitions > expenses > notes)
- *   4. Sidebar sidebar transitions with location metadata
- *
- * DESIGN RATIONALE
- * ─────────────────────────────────────────────────────────────────────────────
- * The calendar is purely *read* – it computes derived state from raw records
- * without mutation. All algorithms are O(days in month × blocks) or O(events),
- * which are constant for any month view.
- *
- * Split-custody days are inferred by checking if a transition time falls
- * between midnight and midnight of the calendar day. This avoids storing
- * a separate "split day" flag in the database.
- */
+// KidSchedule – CalendarMonthEngine
 
 import { CustodyEngine } from "@/lib/custody-engine";
+
 import type {
   CalendarConflict,
   CalendarEvent,
@@ -30,6 +9,7 @@ import type {
   Parent,
   ScheduleChangeRequest,
   ScheduleTransition,
+  ScheduleEvent,
 } from "@/types";
 
 // ─── Public Types ────────────────────────────────────────────────────────────
@@ -387,6 +367,61 @@ export class CalendarMonthEngine {
     };
   }
 
+  /**
+   * Builds the complete calendar data for a month using custody events from the schedule generator.
+   *
+   * @param year         4-digit year (e.g. 2024)
+   * @param month        Month 1–12
+   * @param custodyEvents Custody events from the schedule generator
+   * @param calendarEvents All calendar events for the family
+   * @param requests     All custody change requests
+   * @param now          Reference "now" for sidebar computation (default: today)
+   *
+   * @returns Complete CalendarMonthData ready for rendering
+   */
+  getMonthDataFromEvents(
+    year: number,
+    month: number,
+    custodyEvents: ScheduleEvent[],
+    calendarEvents: CalendarEvent[],
+    requests: ScheduleChangeRequest[],
+    now: Date = new Date()
+  ): CalendarMonthData {
+    const daysInMonthNum = daysInMonth(year, month);
+    const startingDow = getStartingDayOfWeek(year, month);
+
+    const requestsByDate = this.buildPendingRequestLookup(requests);
+
+    // Build custody and transition data from events
+    const { custodyByDate, transitionsByDate } = this.buildCustodyFromEvents(
+      custodyEvents,
+      year,
+      month
+    );
+
+    const days: CalendarDayState[] = [
+      ...this.buildPrevMonthPadding(startingDow, year, month),
+      ...this.buildCurrentMonthDaysFromEvents(
+        year,
+        month,
+        daysInMonthNum,
+        custodyByDate,
+        transitionsByDate,
+        calendarEvents,
+        requestsByDate
+      ),
+    ];
+
+    return {
+      year,
+      month,
+      days,
+      upcomingTransitions: this.buildUpcomingTransitionsFromEvents(custodyEvents, now),
+      currentParent: this.family.parents[0],
+      otherParent: this.family.parents[1],
+    };
+  }
+
   private buildPendingRequestLookup(
     requests: ScheduleChangeRequest[]
   ): Map<string, ScheduleChangeRequest> {
@@ -549,6 +584,158 @@ export class CalendarMonthEngine {
     return status.currentParent.id === this.family.parents[0].id
       ? "primary"
       : "secondary";
+  }
+
+  private buildCustodyFromEvents(
+    custodyEvents: ScheduleEvent[],
+    year: number,
+    month: number
+  ): {
+    custodyByDate: Map<string, Parent>;
+    transitionsByDate: Map<string, ScheduleTransition>;
+  } {
+    const custodyByDate = new Map<string, Parent>();
+    const transitionsByDate = new Map<string, ScheduleTransition>();
+
+    // Filter events for this month
+    const monthStart = dateToMidnightUTC(`${year}-${String(month).padStart(2, "0")}-01`);
+    const monthEnd = new Date(monthStart);
+    monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
+    monthEnd.setUTCDate(0); // Last day of month
+    monthEnd.setUTCHours(23, 59, 59, 999);
+
+    for (const event of custodyEvents) {
+      const eventStart = new Date(event.start_at);
+      const eventEnd = new Date(event.end_at);
+
+      // Skip events outside this month
+      if (eventEnd <= monthStart || eventStart >= monthEnd) continue;
+
+      const startDate = eventStart > monthStart ? eventStart : monthStart;
+      const endDate = eventEnd < monthEnd ? eventEnd : monthEnd;
+
+      // For each day this event covers
+      for (
+        let date = new Date(startDate);
+        date <= endDate;
+        date.setUTCDate(date.getUTCDate() + 1)
+      ) {
+        const dateStr = dateToISOString(date);
+        const parent = this.parentMap.get(event.parent_id);
+        if (parent) {
+          custodyByDate.set(dateStr, parent);
+        }
+      }
+
+      // Check if this event represents a transition (starts mid-day)
+      const eventDateStr = dateToISOString(eventStart);
+      if (eventStart.getUTCHours() > 0 || eventStart.getUTCMinutes() > 0) {
+        const existingParent = custodyByDate.get(eventDateStr);
+        if (existingParent && existingParent.id !== event.parent_id) {
+          // This is a transition day
+          transitionsByDate.set(eventDateStr, {
+            at: eventStart,
+            fromParent: existingParent,
+            toParent: this.parentMap.get(event.parent_id)!,
+          });
+        }
+      }
+    }
+
+    return { custodyByDate, transitionsByDate };
+  }
+
+  private buildCurrentMonthDaysFromEvents(
+    year: number,
+    month: number,
+    daysInMonthNum: number,
+    custodyByDate: Map<string, Parent>,
+    transitionsByDate: Map<string, ScheduleTransition>,
+    calendarEvents: CalendarEvent[],
+    requestsByDate: Map<string, ScheduleChangeRequest>
+  ): CalendarDayState[] {
+    const days: CalendarDayState[] = [];
+    const monthStr = String(month).padStart(2, "0");
+
+    for (let dayOfMonth = 1; dayOfMonth <= daysInMonthNum; dayOfMonth++) {
+      const dayStr = String(dayOfMonth).padStart(2, "0");
+      const dateStr = `${year}-${monthStr}-${dayStr}`;
+
+      const custodyParent = custodyByDate.get(dateStr) || this.family.parents[0];
+      const transition = transitionsByDate.get(dateStr);
+
+      let custodyColor: CustodyColor;
+      if (transition) {
+        custodyColor = "split";
+      } else if (custodyParent.id === this.family.parents[0].id) {
+        custodyColor = "primary";
+      } else {
+        custodyColor = "secondary";
+      }
+
+      const mergedEvents = mergeEventsForDay(
+        dateStr,
+        transition,
+        calendarEvents
+      );
+
+      days.push({
+        dateStr,
+        dayOfMonth,
+        custodyParent,
+        transitionToParent: transition?.toParent,
+        custodyColor,
+        events: mergedEvents,
+        hasPendingRequest: requestsByDate.has(dateStr),
+        pendingRequest: requestsByDate.get(dateStr),
+        transition,
+      });
+    }
+
+    return days;
+  }
+
+  private buildUpcomingTransitionsFromEvents(
+    custodyEvents: ScheduleEvent[],
+    now: Date
+  ): TransitionListItem[] {
+    const upcomingTransitions: TransitionListItem[] = [];
+    const sidebarCutoff = new Date(now);
+    sidebarCutoff.setUTCDate(sidebarCutoff.getUTCDate() + 14);
+
+    // Find transition events (events that start mid-day)
+    const transitionEvents = custodyEvents.filter((event) => {
+      const startTime = new Date(event.start_at);
+      return startTime.getUTCHours() > 0 || startTime.getUTCMinutes() > 0;
+    });
+
+    for (const event of transitionEvents) {
+      const transitionTime = new Date(event.start_at);
+      if (transitionTime > sidebarCutoff || transitionTime < now) continue;
+
+      const fromParent = this.family.parents.find(p => p.id !== event.parent_id)!;
+      const toParent = this.parentMap.get(event.parent_id)!;
+
+      upcomingTransitions.push({
+        transition: {
+          at: transitionTime,
+          fromParent,
+          toParent,
+        },
+        label: formatTransitionLabel({
+          at: transitionTime,
+          fromParent,
+          toParent,
+        }, now),
+        timeStr: formatTransitionTime(transitionTime),
+        isUpcoming: transitionTime > now,
+      });
+    }
+
+    // Sort by date
+    upcomingTransitions.sort((a, b) => a.transition.at.getTime() - b.transition.at.getTime());
+
+    return upcomingTransitions.slice(0, 10);
   }
 
   /**

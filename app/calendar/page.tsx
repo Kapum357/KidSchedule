@@ -9,6 +9,8 @@
 
 import { CalendarMonthEngine } from "@/lib/calendar-engine";
 import { SchedulePresets } from "@/lib/custody-engine";
+import { generateCustodySchedule } from "@/lib/custody-schedule-generator";
+import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
 import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { requireAuth } from "@/lib";
@@ -28,6 +30,7 @@ import type {
   Family,
   Parent,
   ScheduleChangeRequest,
+  ScheduleOverride,
 } from "@/types";
 import type {
   DbCalendarEvent,
@@ -35,7 +38,9 @@ import type {
   DbFamily,
   DbParent,
   DbScheduleChangeRequest,
+  DbScheduleOverride,
 } from "@/lib/persistence/types";
+import { SchedulePattern } from "@/types";
 
 // ─── Search Params ───────────────────────────────────────────────────────────
 
@@ -136,6 +141,18 @@ function formatScheduleName(scheduleId: string | null | undefined): string {
   }
 }
 
+function mapScheduleIdToPattern(scheduleId: string | null | undefined): SchedulePattern {
+  switch (scheduleId) {
+    case "alternating-weeks":
+      return SchedulePattern.SEVEN_SEVEN;
+    case "3-4-4-3":
+      return SchedulePattern.FIVE_TWO_TWO_FIVE; // Closest match
+    case "2-2-3":
+    default:
+      return SchedulePattern.TWO_TWO_THREE;
+  }
+}
+
 function buildFamilySchedule(
   dbFamily: DbFamily,
   parents: [Parent, Parent]
@@ -197,6 +214,27 @@ function mapChangeRequest(row: DbScheduleChangeRequest): ScheduleChangeRequest {
     createdAt: row.createdAt,
     respondedAt: row.respondedAt ?? undefined,
     responseNote: row.responseNote ?? undefined,
+  };
+}
+
+function mapScheduleOverride(row: DbScheduleOverride): ScheduleOverride {
+  return {
+    id: row.id,
+    familyId: row.familyId,
+    type: row.overrideType,
+    title: row.title,
+    description: row.description ?? undefined,
+    effectiveStart: row.effectiveStart,
+    effectiveEnd: row.effectiveEnd,
+    custodianParentId: row.custodianParentId,
+    sourceEventId: row.sourceEventId ?? undefined,
+    sourceRequestId: row.sourceRequestId ?? undefined,
+    sourceMediationId: row.sourceMediationId ?? undefined,
+    priority: row.priority,
+    status: row.status as ScheduleOverride["status"],
+    createdAt: row.createdAt,
+    createdBy: row.createdBy,
+    notes: row.notes ?? undefined,
   };
 }
 
@@ -650,13 +688,14 @@ export default async function CalendarPage({
 
   const activeParent = parent as NonNullable<typeof parent>;
 
-  const [dbFamily, dbParents, dbChildren, dbEvents, dbChangeRequests] =
+  const [dbFamily, dbParents, dbChildren, dbEvents, dbChangeRequests, dbOverrides] =
     await Promise.all([
       db.families.findById(activeParent.familyId),
       db.parents.findByFamilyId(activeParent.familyId),
       db.children.findByFamilyId(activeParent.familyId),
       db.calendarEvents.findByFamilyId(activeParent.familyId),
       db.scheduleChangeRequests.findByFamilyId(activeParent.familyId),
+      db.scheduleOverrides.findActiveByFamilyId(activeParent.familyId),
     ]);
 
   if (!dbFamily) redirect("/calendar/wizard?onboarding=1");
@@ -665,13 +704,41 @@ export default async function CalendarPage({
   const activeFamily = dbFamily as NonNullable<typeof dbFamily>;
   const mappedParents = mapFamilyParents(dbParents);
 
+  // Generate custody schedule using the new generator
+  const scheduleInput = {
+    family_id: activeFamily.id,
+    child_id: dbChildren[0]?.id || "default-child", // Use first child or default
+    pattern: mapScheduleIdToPattern(activeFamily.scheduleId),
+    timezone: "America/New_York", // Default timezone, could be stored in family
+    date_range: {
+      start: `${year - 1}-01-01`, // Generate for a wide range to cover the month
+      end: `${year + 1}-12-31`,
+    },
+    anchor: {
+      anchor_date: activeFamily.custodyAnchorDate,
+      anchor_parent_id: mappedParents[0].id, // Primary parent
+      other_parent_id: mappedParents[1].id, // Secondary parent
+    },
+  };
+
+  const custodyResult = generateCustodySchedule(scheduleInput);
+  let custodyEvents = custodyResult.events;
+
   const family: Family = {
     id: activeFamily.id,
     parents: mappedParents,
     children: dbChildren.map(mapChild),
     custodyAnchorDate: activeFamily.custodyAnchorDate,
-    schedule: buildFamilySchedule(activeFamily, mappedParents),
+    schedule: buildFamilySchedule(activeFamily, mappedParents), // Keep for backward compatibility
   };
+
+  // Apply schedule overrides
+  if (dbOverrides.length > 0) {
+    custodyEvents = ScheduleOverrideEngine.applyOverrides(
+      custodyEvents,
+      dbOverrides.map(mapScheduleOverride),
+    );
+  }
 
   const events = dbEvents.map(mapCalendarEvent);
   const changeRequests = dbChangeRequests
@@ -683,7 +750,7 @@ export default async function CalendarPage({
 
   // ── Compute calendar ───────────────────────────────────────────────────────
   const engine = new CalendarMonthEngine(family);
-  const data = engine.getMonthData(year, month, events, changeRequests, now);
+  const data = engine.getMonthDataFromEvents(year, month, custodyEvents, events, changeRequests, now);
 
   const monthName = new Date(year, month - 1).toLocaleDateString([], {
     month: "long",

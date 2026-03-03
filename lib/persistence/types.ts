@@ -376,3 +376,66 @@ export interface DbMomentReaction {
   emoji: string;
   reactedAt: string;
 }
+
+// ─── Schedule Override Entities ───────────────────────────────────────────────
+
+export interface DbScheduleOverride {
+  id: string;
+  familyId: string;
+  type: "holiday" | "swap" | "mediation" | "manual";
+  overrideType: "holiday" | "swap" | "mediation" | "manual";
+  title: string;
+  description?: string;
+  effectiveStart: string;
+  effectiveEnd: string;
+  custodianParentId: string;
+  sourceEventId?: string;
+  sourceRequestId?: string;
+  sourceMediationId?: string;
+  priority: number;
+  status: "active" | "expired" | "superseded" | "cancelled";
+  createdAt: string;
+  createdBy: string;
+  notes?: string;
+}
+
+export interface DbHolidayDefinition {
+  id: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  type: "federal" | "state" | "religious" | "cultural";
+  jurisdiction: string;
+  description?: string;
+  createdAt: string;
+}
+
+export interface DbHolidayExceptionRule {
+  familyId: string;
+  holidayId: string;
+  custodianParentId: string;
+  isEnabled: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Scheduled Notifications ─────────────────────────────────────────────────
+
+export interface DbScheduledNotification {
+  id: string;
+  familyId: string;
+  parentId: string;
+  notificationType: "transition_24h" | "transition_same_day" | "transition_reminder";
+  scheduledAt: string;
+  sentAt?: string;
+  deliveryStatus: "pending" | "sent" | "failed" | "cancelled";
+  deliveryMethod: "sms" | "email" | "push";
+  messageId?: string;
+  errorMessage?: string;
+  transitionAt: string;
+  fromParentId: string;
+  toParentId: string;
+  location?: string;
+  createdAt: string;
+  updatedAt: string;
+}

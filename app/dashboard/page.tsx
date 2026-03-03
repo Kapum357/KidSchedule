@@ -27,6 +27,7 @@ import type {
   Parent,
   Reminder,
   ScheduleChangeRequest,
+  ScheduleTransition,
 } from "@/types";
 
 // ─── Color Constants (Design v2) ──────────────────────────────────────────────
@@ -266,10 +267,16 @@ function DashboardHeader({
 
 function CustodyScheduleCard({
   custody,
+  upcomingTransitions,
+  monthlyOwnership,
+  family,
   isCurrentUser,
   upcomingEvents,
 }: Readonly<{
   custody: CustodyStatus;
+  upcomingTransitions: ScheduleTransition[];
+  monthlyOwnership: { [parentId: string]: number };
+  family: Family;
   isCurrentUser: boolean;
   upcomingEvents: CalendarEvent[];
 }>) {
@@ -287,6 +294,9 @@ function CustodyScheduleCard({
     : formatTransition(custody.periodEnd);
 
   const nextEvent = upcomingEvents[0];
+
+  // Find the co-parent (the one who doesn't currently have custody)
+  const coParent = upcomingTransitions[0]?.toParent || upcomingTransitions[0]?.fromParent;
 
   return (
     <div className={`${CARD} p-6 md:col-span-2 xl:col-span-2`}>
@@ -352,12 +362,82 @@ function CustodyScheduleCard({
                   {dropoffTime}
                   {custody.transitionLocation ? ` • ${custody.transitionLocation}` : " • School Pickup"}
                 </p>
+                {coParent && (
+                  <div className="flex gap-2 mt-2">
+                    {coParent.phone && (
+                      <a
+                        href={`tel:${coParent.phone}`}
+                        className="inline-flex items-center gap-1 text-xs text-[#6BCABD] hover:text-[#4FB8A9] font-medium"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">call</span>
+                        Call
+                      </a>
+                    )}
+                    <a
+                      href="/messages"
+                      className="inline-flex items-center gap-1 text-xs text-[#6BCABD] hover:text-[#4FB8A9] font-medium"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">chat</span>
+                      Message
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Right: timeline */}
+          {/* Monthly Ownership */}
+          <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-white/5">
+            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+              This Month's Ownership
+            </h4>
+            <div className="space-y-2">
+              {Object.entries(monthlyOwnership).map(([parentId, percentage]) => {
+                // Find parent by ID from family data
+                const parent = family.parents.find(p => p.id === parentId);
+                if (!parent) {
+                  return null;
+                }
+                return (
+                  <div key={parentId} className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                      {parent.name.split(" ")[0]}
+                    </span>
+                    <span className="text-sm font-bold text-slate-800 dark:text-white">
+                      {percentage}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Upcoming Transitions */}
+          <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-white/5">
+            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+              Next 5 Transitions
+            </h4>
+            <div className="space-y-3">
+              {upcomingTransitions.slice(0, 5).map((transition) => (
+                <div key={transition.at.getTime()} className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0">
+                    <span aria-hidden="true" className="material-symbols-outlined text-slate-500 text-[16px]">
+                      swap_horiz
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-800 dark:text-white">
+                      {transition.fromParent.name.split(" ")[0]} → {transition.toParent.name.split(" ")[0]}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {formatTransition(transition.at)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
         <div className="w-full md:w-60 bg-slate-50 dark:bg-white/5 rounded-xl p-5 border border-slate-100 dark:border-white/5 self-stretch flex flex-col justify-center shrink-0">
           <div className="relative pl-4 border-l-2 border-slate-200 dark:border-slate-700 space-y-6">
             {/* Dot 1 — Now */}
@@ -841,6 +921,9 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-7xl mx-auto pb-24">
             <CustodyScheduleCard
               custody={data.custody}
+              upcomingTransitions={data.upcomingTransitions}
+              monthlyOwnership={data.monthlyOwnership}
+              family={data.family}
               isCurrentUser={isCurrentUserCustody}
               upcomingEvents={data.upcomingEvents}
             />

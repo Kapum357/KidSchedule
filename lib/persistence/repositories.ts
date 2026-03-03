@@ -23,6 +23,9 @@ import type {
   DbChild,
   DbCalendarEvent,
   DbScheduleChangeRequest,
+  DbScheduleOverride,
+  DbHolidayDefinition,
+  DbHolidayExceptionRule,
   DbBlogPost,
   DbSchoolEvent,
   DbVolunteerTask,
@@ -35,6 +38,7 @@ import type {
   DbHashChainVerification,
   DbMoment,
   DbMomentReaction,
+  DbScheduledNotification,
   AuditAction,
 } from "./types";
 
@@ -164,6 +168,56 @@ export interface ScheduleChangeRequestRepository {
     id: string,
     data: Partial<DbScheduleChangeRequest>
   ): Promise<DbScheduleChangeRequest | null>;
+}
+
+// ─── Schedule Override Repository ─────────────────────────────────────────────
+
+export interface ScheduleOverrideRepository {
+  findById(id: string): Promise<DbScheduleOverride | null>;
+  findByFamilyId(familyId: string): Promise<DbScheduleOverride[]>;
+  findActiveByFamilyId(familyId: string): Promise<DbScheduleOverride[]>;
+  findByTimeRange(
+    familyId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<DbScheduleOverride[]>;
+  create(
+    override: Omit<DbScheduleOverride, "id" | "createdAt">
+  ): Promise<DbScheduleOverride>;
+  update(
+    id: string,
+    data: Partial<DbScheduleOverride>
+  ): Promise<DbScheduleOverride | null>;
+  cancel(id: string): Promise<boolean>;
+}
+
+// ─── Holiday Repository ───────────────────────────────────────────────────────
+
+export interface HolidayRepository {
+  findById(id: string): Promise<DbHolidayDefinition | null>;
+  findByJurisdiction(jurisdiction: string): Promise<DbHolidayDefinition[]>;
+  findByDateRange(
+    jurisdiction: string,
+    startDate: string,
+    endDate: string
+  ): Promise<DbHolidayDefinition[]>;
+  create(
+    holiday: Omit<DbHolidayDefinition, "id" | "createdAt">
+  ): Promise<DbHolidayDefinition>;
+}
+
+// ─── Holiday Exception Rule Repository ────────────────────────────────────────
+
+export interface HolidayExceptionRuleRepository {
+  findByFamilyId(familyId: string): Promise<DbHolidayExceptionRule[]>;
+  findByFamilyAndHoliday(
+    familyId: string,
+    holidayId: string
+  ): Promise<DbHolidayExceptionRule | null>;
+  upsert(
+    rule: Omit<DbHolidayExceptionRule, "createdAt" | "updatedAt">
+  ): Promise<DbHolidayExceptionRule>;
+  delete(familyId: string, holidayId: string): Promise<boolean>;
 }
 
 // ─── Blog Post Repository ─────────────────────────────────────────────────────
@@ -300,6 +354,20 @@ export interface MomentReactionRepository {
   deleteByMomentIdAndParentId(momentId: string, parentId: string): Promise<boolean>;
 }
 
+// ─── Scheduled Notification Repository ────────────────────────────────────────
+
+export interface ScheduledNotificationRepository {
+  findById(id: string): Promise<DbScheduledNotification | null>;
+  findPendingByTimeRange(startTime: string, endTime: string, limit?: number): Promise<DbScheduledNotification[]>;
+  findByFamilyId(familyId: string): Promise<DbScheduledNotification[]>;
+  findByParentId(parentId: string): Promise<DbScheduledNotification[]>;
+  findFailed(limit?: number): Promise<DbScheduledNotification[]>;
+  create(notification: Omit<DbScheduledNotification, "id" | "createdAt" | "updatedAt">): Promise<DbScheduledNotification>;
+  update(id: string, data: Partial<DbScheduledNotification>): Promise<DbScheduledNotification | null>;
+  cancel(id: string): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
+}
+
 // ─── Unit of Work ─────────────────────────────────────────────────────────────
 
 /**
@@ -318,6 +386,9 @@ export interface UnitOfWork {
   children: ChildRepository;
   calendarEvents: CalendarEventRepository;
   scheduleChangeRequests: ScheduleChangeRequestRepository;
+  scheduleOverrides: ScheduleOverrideRepository;
+  holidays: HolidayRepository;
+  holidayExceptionRules: HolidayExceptionRuleRepository;
   blogPosts: BlogPostRepository;
   schoolEvents: SchoolEventRepository;
   volunteerTasks: VolunteerTaskRepository;
@@ -330,6 +401,7 @@ export interface UnitOfWork {
   hashChainVerifications: HashChainVerificationRepository;
   moments: MomentRepository;
   momentReactions: MomentReactionRepository;
+  scheduledNotifications: ScheduledNotificationRepository;
 
   /** Begin a transaction */
   beginTransaction(): Promise<void>;

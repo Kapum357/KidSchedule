@@ -41,6 +41,49 @@ import type {
   ScheduleChangeRequest,
 } from "@/types";
 
+// ─── Helper Functions ─────────────────────────────────────────────────────────
+
+/**
+ * Calculate monthly ownership percentages for the current month.
+ */
+function calculateMonthlyOwnership(engine: CustodyEngine, family: Family, now: Date): { [parentId: string]: number } {
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+  const transitions = engine.getTransitionsInRange(monthStart, monthEnd);
+
+  const ownership: { [parentId: string]: number } = {};
+  const totalMs = monthEnd.getTime() - monthStart.getTime();
+
+  // Initialize ownership for all parents
+  for (const parent of family.parents) {
+    ownership[parent.id] = 0;
+  }
+
+  // Add the initial period from month start to first transition
+  let currentTime = monthStart.getTime();
+  let currentParent = engine.getStatus(monthStart).currentParent;
+
+  for (const transition of transitions) {
+    const periodMs = transition.at.getTime() - currentTime;
+    ownership[currentParent.id] += periodMs;
+    currentParent = transition.toParent;
+    currentTime = transition.at.getTime();
+  }
+
+  // Add the final period from last transition to month end
+  const finalPeriodMs = monthEnd.getTime() - currentTime;
+  ownership[currentParent.id] += finalPeriodMs;
+
+  // Convert to percentages
+  const percentages: { [parentId: string]: number } = {};
+  for (const [parentId, ms] of Object.entries(ownership)) {
+    percentages[parentId] = Math.round((ms / totalMs) * 100);
+  }
+
+  return percentages;
+}
+
 // ─── Aggregator Inputs ────────────────────────────────────────────────────────
 
 export interface AggregatorInput {
@@ -200,6 +243,12 @@ export function aggregateDashboard(input: AggregatorInput): DashboardData {
   const engine = new CustodyEngine(input.family);
   const custody = engine.getStatus(now);
 
+  // ── Upcoming Transitions ───────────────────────────────────────────────────
+  const upcomingTransitions = engine.getUpcomingTransitions(now, 5);
+
+  // ── Monthly Ownership Percentages ──────────────────────────────────────────
+  const monthlyOwnership = calculateMonthlyOwnership(engine, input.family, now);
+
   // ── Upcoming Events ────────────────────────────────────────────────────────
   const upcomingEvents = input.events
     .filter((e) => new Date(e.startAt).getTime() >= now.getTime())
@@ -247,6 +296,8 @@ export function aggregateDashboard(input: AggregatorInput): DashboardData {
     family: input.family,
     currentParent: input.currentParent,
     custody,
+    upcomingTransitions,
+    monthlyOwnership,
     upcomingEvents,
     calendarConflicts,
     pendingChangeRequests,

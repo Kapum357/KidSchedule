@@ -1,0 +1,207 @@
+/**
+ * KidSchedule – Scheduled Notification Repository
+ *
+ * PostgreSQL implementation for managing scheduled notifications.
+ */
+
+import type { ScheduledNotificationRepository } from "../repositories";
+import type { DbScheduledNotification } from "../types";
+import { sql, type SqlClient } from "./client";
+
+type ScheduledNotificationRow = {
+  id: string;
+  family_id: string;
+  parent_id: string;
+  notification_type: DbScheduledNotification["notificationType"];
+  scheduled_at: string;
+  sent_at: string | null;
+  delivery_status: DbScheduledNotification["deliveryStatus"];
+  delivery_method: DbScheduledNotification["deliveryMethod"];
+  message_id: string | null;
+  error_message: string | null;
+  transition_at: string;
+  from_parent_id: string;
+  to_parent_id: string;
+  location: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export interface CreateScheduledNotificationData {
+  familyId: string;
+  parentId: string;
+  notificationType: DbScheduledNotification["notificationType"];
+  scheduledAt: string;
+  deliveryMethod: DbScheduledNotification["deliveryMethod"];
+  transitionAt: string;
+  fromParentId: string;
+  toParentId: string;
+  location?: string;
+}
+
+export interface UpdateScheduledNotificationData {
+  sentAt?: string;
+  deliveryStatus?: DbScheduledNotification["deliveryStatus"];
+  messageId?: string;
+  errorMessage?: string;
+}
+
+export function createScheduledNotificationRepository(tx?: SqlClient): ScheduledNotificationRepository {
+  return new PostgresScheduledNotificationRepository(tx);
+}
+
+class PostgresScheduledNotificationRepository implements ScheduledNotificationRepository {
+  constructor(private readonly tx?: SqlClient) {}
+
+  private get db(): SqlClient {
+    return this.tx || sql;
+  }
+
+  async create(data: CreateScheduledNotificationData): Promise<DbScheduledNotification> {
+    const result = await this.db`
+      INSERT INTO scheduled_notifications (
+        family_id, parent_id, notification_type, scheduled_at, delivery_method,
+        transition_at, from_parent_id, to_parent_id, location
+      ) VALUES (
+        ${data.familyId}, ${data.parentId}, ${data.notificationType}, ${data.scheduledAt},
+        ${data.deliveryMethod}, ${data.transitionAt}, ${data.fromParentId}, ${data.toParentId}, ${data.location || null}
+      )
+      RETURNING *
+    `;
+
+    return this.rowToDb(result[0] as ScheduledNotificationRow);
+  }
+
+  async findById(id: string): Promise<DbScheduledNotification | null> {
+    const result = await this.db`
+      SELECT * FROM scheduled_notifications WHERE id = ${id}
+    `;
+    if (result.length > 0) {
+      return this.rowToDb(result[0] as ScheduledNotificationRow);
+    }
+    return null;
+  }
+
+  async findPendingByTimeRange(
+    startTime: string,
+    endTime: string,
+    limit = 100,
+  ): Promise<DbScheduledNotification[]> {
+    const result = await this.db`
+      SELECT * FROM scheduled_notifications
+      WHERE scheduled_at >= ${startTime}
+        AND scheduled_at <= ${endTime}
+        AND delivery_status = 'pending'
+      ORDER BY scheduled_at ASC
+      LIMIT ${limit}
+    `;
+
+    return result.map(row => this.rowToDb(row as ScheduledNotificationRow));
+  }
+
+  async findByFamilyId(familyId: string): Promise<DbScheduledNotification[]> {
+    const result = await this.db`
+      SELECT * FROM scheduled_notifications
+      WHERE family_id = ${familyId}
+      ORDER BY scheduled_at DESC
+    `;
+
+    return result.map(row => this.rowToDb(row as ScheduledNotificationRow));
+  }
+
+  async findByParentId(parentId: string): Promise<DbScheduledNotification[]> {
+    const result = await this.db`
+      SELECT * FROM scheduled_notifications
+      WHERE parent_id = ${parentId}
+      ORDER BY scheduled_at DESC
+    `;
+
+    return result.map(row => this.rowToDb(row as ScheduledNotificationRow));
+  }
+
+  async findFailed(limit = 50): Promise<DbScheduledNotification[]> {
+    const result = await this.db`
+      SELECT * FROM scheduled_notifications
+      WHERE delivery_status = 'failed'
+      ORDER BY scheduled_at ASC
+      LIMIT ${limit}
+    `;
+
+    return result.map(row => this.rowToDb(row as ScheduledNotificationRow));
+  }
+
+  async update(id: string, data: UpdateScheduledNotificationData): Promise<DbScheduledNotification | null> {
+    const updateFields = [];
+    const values = [];
+
+    if (data.sentAt !== undefined) {
+      updateFields.push('sent_at = $' + (values.length + 1));
+      values.push(data.sentAt);
+    }
+    if (data.deliveryStatus !== undefined) {
+      updateFields.push('delivery_status = $' + (values.length + 1));
+      values.push(data.deliveryStatus);
+    }
+    if (data.messageId !== undefined) {
+      updateFields.push('message_id = $' + (values.length + 1));
+      values.push(data.messageId);
+    }
+    if (data.errorMessage !== undefined) {
+      updateFields.push('error_message = $' + (values.length + 1));
+      values.push(data.errorMessage);
+    }
+
+    if (updateFields.length === 0) {
+      return null;
+    }
+
+    const result = await this.db`
+      UPDATE scheduled_notifications
+      SET ${this.db(updateFields.join(', '))}, updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
+
+    if (result.length > 0) {
+      return this.rowToDb(result[0] as ScheduledNotificationRow);
+    }
+    return null;
+  }
+
+  async cancel(id: string): Promise<boolean> {
+    const result = await this.db`
+      UPDATE scheduled_notifications
+      SET delivery_status = 'cancelled', updated_at = NOW()
+      WHERE id = ${id}
+    `;
+    return result.count > 0;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const result = await this.db`
+      DELETE FROM scheduled_notifications WHERE id = ${id}
+    `;
+    return result.count > 0;
+  }
+
+  private rowToDb(row: ScheduledNotificationRow): DbScheduledNotification {
+    return {
+      id: row.id,
+      familyId: row.family_id,
+      parentId: row.parent_id,
+      notificationType: row.notification_type,
+      scheduledAt: row.scheduled_at,
+      sentAt: row.sent_at || undefined,
+      deliveryStatus: row.delivery_status,
+      deliveryMethod: row.delivery_method,
+      messageId: row.message_id || undefined,
+      errorMessage: row.error_message || undefined,
+      transitionAt: row.transition_at,
+      fromParentId: row.from_parent_id,
+      toParentId: row.to_parent_id,
+      location: row.location || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+}

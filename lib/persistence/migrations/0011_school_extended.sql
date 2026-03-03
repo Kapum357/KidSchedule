@@ -1,17 +1,9 @@
 -- Migration: 0011_school_extended
 -- Adds school contacts, vault documents, and lunch accounts
 
-CREATE TABLE school_contacts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  role TEXT NOT NULL, -- 'teacher', 'principal', 'nurse', 'counselor'
-  email TEXT,
-  phone TEXT,
-  office_location TEXT,
-  notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- Extend existing school_contacts table with additional fields
+ALTER TABLE school_contacts ADD COLUMN office_location TEXT;
+ALTER TABLE school_contacts ADD COLUMN notes TEXT;
 
 CREATE TABLE vault_documents (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

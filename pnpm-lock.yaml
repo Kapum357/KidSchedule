@@ -50,6 +50,9 @@ importers:
       stripe:
         specifier: ^20.4.0
         version: 20.4.0(@types/node@20.19.33)
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@playwright/test':
         specifier: ^1.58.2
