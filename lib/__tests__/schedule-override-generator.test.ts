@@ -39,6 +39,9 @@ describe("generateAndPersistHolidayOverrides", () => {
       families: {
         findById: jest.fn(),
       },
+      parents: {
+        findByFamilyId: jest.fn(),
+      },
       scheduleOverrides: {
         create: jest.fn(),
       },
@@ -85,20 +88,27 @@ describe("generateAndPersistHolidayOverrides", () => {
       scheduleId: "schedule-123",
     };
 
+    // Mock parents
+    const mockParents = [
+      { id: "parent-a", name: "Parent A", email: "parent-a@example.com", familyId: "family-123", userId: "user-a" },
+      { id: "parent-b", name: "Parent B", email: "parent-b@example.com", familyId: "family-123", userId: "user-b" },
+    ];
+
     // Mock override from engine - this is what ScheduleOverrideEngine.createHolidayOverrides returns
     const engineOverride = {
+      id: "holiday-holiday-july4-family-123",
       familyId: "family-123",
-      type: "holiday",
+      type: "holiday" as const,
       title: "Independence Day Exception",
-      description: "Holiday override",
-      effectiveStart: "2026-07-04T00:00:00Z",
-      effectiveEnd: "2026-07-04T23:59:59Z",
+      description: "Holiday exception for Independence Day",
+      effectiveStart: "2026-07-04T00:00:00.000Z",
+      effectiveEnd: "2026-07-04T23:59:59.999Z",
       custodianParentId: "parent-a",
-      sourceEventId: undefined,
+      sourceEventId: "holiday-july4",
       priority: 20,
-      status: "active",
+      status: "active" as const,
       createdBy: "parent-a",
-      notes: undefined,
+      createdAt: expect.any(String),
     };
 
     // Mock persisted override - what comes back from database
@@ -108,15 +118,15 @@ describe("generateAndPersistHolidayOverrides", () => {
       type: "holiday",
       overrideType: "holiday",
       title: "Independence Day Exception",
-      description: "Holiday override",
-      effectiveStart: "2026-07-04T00:00:00Z",
-      effectiveEnd: "2026-07-04T23:59:59Z",
+      description: "Holiday exception for Independence Day",
+      effectiveStart: "2026-07-04T00:00:00.000Z",
+      effectiveEnd: "2026-07-04T23:59:59.999Z",
       custodianParentId: "parent-a",
+      sourceEventId: "holiday-july4",
       priority: 20,
       status: "active",
       createdAt: "2026-01-01T00:00:00Z",
       createdBy: "parent-a",
-      notes: undefined,
     };
 
     const mockDb = {
@@ -129,8 +139,11 @@ describe("generateAndPersistHolidayOverrides", () => {
       families: {
         findById: jest.fn().mockResolvedValue(family),
       },
+      parents: {
+        findByFamilyId: jest.fn().mockResolvedValue(mockParents),
+      },
       scheduleOverrides: {
-        create: jest.fn().mockResolvedValue([persistedOverride]),
+        create: jest.fn().mockResolvedValue(persistedOverride),
       },
     };
 
@@ -139,34 +152,56 @@ describe("generateAndPersistHolidayOverrides", () => {
 
     const result = await generateAndPersistHolidayOverrides("family-123", "2026-07-01", "2026-07-31");
 
-    expect(result).toEqual([persistedOverride]);
-    // Verify engine was called with positional parameters
+    // Expect transformed ScheduleOverride (from DbScheduleOverride)
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: "override-1",
+        familyId: "family-123",
+        type: "holiday",
+        title: "Independence Day Exception",
+        effectiveStart: "2026-07-04T00:00:00.000Z",
+        effectiveEnd: "2026-07-04T23:59:59.999Z",
+        custodianParentId: "parent-a",
+        priority: 20,
+        status: "active",
+        createdBy: "parent-a",
+      }),
+    ]);
+
+    // Verify engine was called with proper Family object
     expect(ScheduleOverrideEngine.createHolidayOverrides).toHaveBeenCalledWith(
       [holiday],
       expect.arrayContaining([expect.objectContaining({
         familyId: "family-123",
         holidayId: "holiday-july4",
         custodianParentId: "parent-a",
+        isEnabled: true,
       })]),
       "2026-07-01",
       "2026-07-31",
-      family
+      expect.objectContaining({
+        id: "family-123",
+        parents: expect.arrayContaining([
+          expect.objectContaining({ id: "parent-a" }),
+          expect.objectContaining({ id: "parent-b" }),
+        ]),
+      })
     );
-    // Verify data was transformed and persisted correctly
+
+    // Verify create() was called once per override
+    expect(mockDb.scheduleOverrides.create).toHaveBeenCalledTimes(1);
     expect(mockDb.scheduleOverrides.create).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          familyId: "family-123",
-          overrideType: "holiday",
-          title: "Independence Day Exception",
-          effectiveStart: "2026-07-04T00:00:00Z",
-          effectiveEnd: "2026-07-04T23:59:59Z",
-          custodianParentId: "parent-a",
-          priority: 20,
-          status: "active",
-          createdBy: "parent-a",
-        })
-      ])
+      expect.objectContaining({
+        familyId: "family-123",
+        overrideType: "holiday",
+        title: "Independence Day Exception",
+        effectiveStart: "2026-07-04T00:00:00.000Z",
+        effectiveEnd: "2026-07-04T23:59:59.999Z",
+        custodianParentId: "parent-a",
+        priority: 20,
+        status: "active",
+        createdBy: "parent-a",
+      })
     );
   });
 
@@ -214,6 +249,11 @@ describe("generateAndPersistHolidayOverrides", () => {
       scheduleId: "schedule-123",
     };
 
+    const mockParents = [
+      { id: "parent-a", name: "Parent A", email: "parent-a@example.com", familyId: "family-123", userId: "user-a" },
+      { id: "parent-b", name: "Parent B", email: "parent-b@example.com", familyId: "family-123", userId: "user-b" },
+    ];
+
     const mockDb = {
       holidayExceptionRules: {
         findByFamilyId: jest.fn().mockResolvedValue([approvedRule, disabledRule, pendingRule]),
@@ -224,8 +264,11 @@ describe("generateAndPersistHolidayOverrides", () => {
       families: {
         findById: jest.fn().mockResolvedValue(family),
       },
+      parents: {
+        findByFamilyId: jest.fn().mockResolvedValue(mockParents),
+      },
       scheduleOverrides: {
-        create: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue(undefined),
       },
     };
 
@@ -234,7 +277,8 @@ describe("generateAndPersistHolidayOverrides", () => {
 
     await generateAndPersistHolidayOverrides("family-123", "2026-07-01", "2026-07-31");
 
-    // Should only process the approved+enabled rule (positional parameters)
+    // Should only process the approved+enabled rule
+    // Verify disabled rule (rule-2) is NOT included
     expect(ScheduleOverrideEngine.createHolidayOverrides).toHaveBeenCalledWith(
       [],
       expect.arrayContaining([
@@ -247,8 +291,20 @@ describe("generateAndPersistHolidayOverrides", () => {
       ]),
       "2026-07-01",
       "2026-07-31",
-      family,
+      expect.objectContaining({
+        id: "family-123",
+        parents: expect.arrayContaining([
+          expect.objectContaining({ id: "parent-a" }),
+          expect.objectContaining({ id: "parent-b" }),
+        ]),
+      })
     );
+
+    // Verify that disabled and pending rules were NOT passed to engine
+    const callArgs = (ScheduleOverrideEngine.createHolidayOverrides as jest.Mock).mock.calls[0];
+    const passedRules = callArgs[1];
+    expect(passedRules).toHaveLength(1);
+    expect(passedRules[0].holidayId).toBe("holiday-1");
   });
 
   test("logs error and returns in-memory overrides if persistence fails", async () => {
@@ -295,6 +351,11 @@ describe("generateAndPersistHolidayOverrides", () => {
       notes: undefined,
     };
 
+    const mockParents = [
+      { id: "parent-a", name: "Parent A", email: "parent-a@example.com", familyId: "family-123", userId: "user-a" },
+      { id: "parent-b", name: "Parent B", email: "parent-b@example.com", familyId: "family-123", userId: "user-b" },
+    ];
+
     const dbError = new Error("DB error");
     const mockDb = {
       holidayExceptionRules: {
@@ -305,6 +366,9 @@ describe("generateAndPersistHolidayOverrides", () => {
       },
       families: {
         findById: jest.fn().mockResolvedValue(family),
+      },
+      parents: {
+        findByFamilyId: jest.fn().mockResolvedValue(mockParents),
       },
       scheduleOverrides: {
         create: jest.fn().mockRejectedValue(dbError),

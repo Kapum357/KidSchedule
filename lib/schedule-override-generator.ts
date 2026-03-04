@@ -20,7 +20,7 @@
 
 import { getDb } from "@/lib/persistence";
 import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
-import type { ScheduleOverride } from "@/types";
+import type { ScheduleOverride, Family } from "@/types";
 import type { DbScheduleOverride } from "@/lib/persistence";
 
 /**
@@ -66,29 +66,49 @@ export async function generateAndPersistHolidayOverrides(
     return [];
   }
 
-  // ─── Get family's jurisdiction and fetch holiday definitions ─────────────
-  let family;
+  // ─── Fetch family, parents, and holiday definitions ──────────────────────
+  let dbFamily;
+  let parents;
   let holidays;
   try {
-    family = await db.families.findById(familyId);
-    if (!family) {
+    dbFamily = await db.families.findById(familyId);
+    if (!dbFamily) {
       console.warn(`Family not found: ${familyId}`);
       return [];
     }
 
-    // Extract jurisdiction from family metadata (if available) or default to "US"
-    // In a real implementation, this would come from family settings
-    const jurisdiction = (family as any).jurisdiction || "US";
+    // Fetch parents to compose full Family domain object
+    parents = await db.parents.findByFamilyId(familyId);
+    if (!parents || parents.length < 2) {
+      console.warn(`Family ${familyId} does not have both parents configured`);
+      return [];
+    }
 
-    // Fetch holiday definitions for the family's jurisdiction
+    // Fetch holiday definitions for jurisdiction (default to "US")
+    const jurisdiction = "US";
     holidays = await db.holidays.findByDateRange(jurisdiction, startDate, endDate);
   } catch (error) {
     console.warn(
-      "Failed to fetch holiday definitions, continuing without:",
+      "Failed to fetch family data or holiday definitions:",
       error instanceof Error ? error.message : String(error)
     );
     return [];
   }
+
+  // ─── Compose domain Family object from database entities ────────────────
+  const family: Family = {
+    id: dbFamily.id,
+    parents: [parents[0] as any, parents[1] as any],
+    children: [],
+    custodyAnchorDate: dbFamily.custodyAnchorDate,
+    schedule: {
+      id: "",
+      name: "Schedule",
+      blocks: [],
+      transitionHour: 17,
+      isActive: true,
+    },
+  };
 
   // ─── Generate overrides using engine ────────────────────────────────────
   // Note: This is synchronous, no error handling needed
@@ -103,7 +123,7 @@ export async function generateAndPersistHolidayOverrides(
     })),
     startDate,
     endDate,
-    family as any
+    family
   );
 
   if (overrides.length === 0) {
@@ -112,8 +132,10 @@ export async function generateAndPersistHolidayOverrides(
 
   // ─── Persist overrides to database ──────────────────────────────────────
   try {
-    const persistedOverrides = await db.scheduleOverrides.create(
-      overrides.map((override) => ({
+    const persistedOverrides: DbScheduleOverride[] = [];
+
+    for (const override of overrides) {
+      const persisted = await db.scheduleOverrides.create({
         familyId: override.familyId,
         overrideType: override.type,
         title: override.title,
@@ -126,10 +148,26 @@ export async function generateAndPersistHolidayOverrides(
         status: override.status,
         createdBy: override.createdBy,
         notes: override.notes,
-      }))
-    );
+      });
+      persistedOverrides.push(persisted);
+    }
 
-    return persistedOverrides;
+    // Transform DbScheduleOverride to ScheduleOverride for return
+    return persistedOverrides.map((override) => ({
+      id: override.id,
+      familyId: override.familyId,
+      type: override.overrideType,
+      title: override.title,
+      description: override.description,
+      effectiveStart: override.effectiveStart,
+      effectiveEnd: override.effectiveEnd,
+      custodianParentId: override.custodianParentId,
+      sourceEventId: override.sourceEventId,
+      priority: override.priority,
+      status: override.status,
+      createdBy: override.createdBy,
+      notes: override.notes,
+    }));
   } catch (error) {
     console.error(
       "Failed to persist holiday overrides, using in-memory overrides:",
