@@ -135,9 +135,7 @@ export async function createHoliday(
     const message = error instanceof Error ? error.message : 'Unknown error'
     return {
       success: false,
-      error: message.includes('Unauthorized')
-        ? `Unauthorized: ${message}`
-        : message,
+      error: message,
     }
   }
 }
@@ -206,9 +204,7 @@ export async function updateHoliday(
     const message = error instanceof Error ? error.message : 'Unknown error'
     return {
       success: false,
-      error: message.includes('Unauthorized')
-        ? `Unauthorized: ${message}`
-        : message,
+      error: message,
     }
   }
 }
@@ -265,9 +261,7 @@ export async function deleteHoliday(
     const message = error instanceof Error ? error.message : 'Unknown error'
     return {
       success: false,
-      error: message.includes('Unauthorized')
-        ? `Unauthorized: ${message}`
-        : message,
+      error: message,
     }
   }
 }
@@ -280,24 +274,20 @@ export async function deleteHoliday(
  * - User must be a parent in the specified family
  *
  * @param familyId - Family ID
- * @returns Array of holidays or empty array if user is not authorized
+ * @returns Array of holidays
+ * @throws Error if user is not authenticated or is not a parent in the family
  */
 export async function listHolidaysForFamily(
   familyId: string
 ): Promise<DbScheduleOverride[]> {
-  try {
-    // Get current user
-    const user = await requireAuth()
+  // Get current user
+  const user = await requireAuth()
 
-    // Validate user is a parent in the family
-    await validateParentAccess(user.userId, familyId)
+  // Validate user is a parent in the family
+  await validateParentAccess(user.userId, familyId)
 
-    // Get holidays for the family
-    const holidays = await db.scheduleOverrides.findByFamilyId(familyId)
+  // Get holidays for the family
+  const holidays = await db.scheduleOverrides.findByFamilyId(familyId)
 
-    return holidays
-  } catch {
-    // Return empty array if user is not authorized
-    return []
-  }
+  return holidays
 }

@@ -1,6 +1,7 @@
 import { createHoliday, updateHoliday, deleteHoliday, listHolidaysForFamily } from '@/app/actions/holidays'
 import { requireAuth } from '@/lib'
 import { db } from '@/lib/persistence'
+import { revalidatePath } from 'next/cache'
 import type { DbScheduleOverride } from '@/lib/persistence/types'
 import type { SessionUser } from '@/lib'
 
@@ -56,6 +57,8 @@ describe('Holiday Server Actions', () => {
     const result = await createHoliday(holidayData)
 
     expect(result).toEqual({ success: true, data: expect.objectContaining({ id: 'holiday-1' }) })
+    expect(revalidatePath).toHaveBeenCalledWith('/holidays')
+    expect(revalidatePath).toHaveBeenCalledWith('/calendar')
   })
 
   it('should list holidays for a family', async () => {
@@ -97,6 +100,8 @@ describe('Holiday Server Actions', () => {
     const result = await deleteHoliday('family-1', 'holiday-1')
 
     expect(result).toEqual({ success: true })
+    expect(revalidatePath).toHaveBeenCalledWith('/holidays')
+    expect(revalidatePath).toHaveBeenCalledWith('/calendar')
   })
 
   it('should prevent non-parent users from creating holidays', async () => {
@@ -193,5 +198,61 @@ describe('Holiday Server Actions', () => {
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('Unauthorized')
+  })
+
+  it('should validate that end date is on or after start date', async () => {
+    const mockSession: SessionUser = { userId: 'user-1', email: 'user@example.com', sessionId: 'session-1' }
+    const mockFamily = { id: 'family-1', parentIds: ['user-1'] }
+    const holidayData = {
+      title: 'Christmas',
+      description: 'Christmas Holiday',
+      effectiveStart: '2024-12-26T00:00:00Z',
+      effectiveEnd: '2024-12-25T00:00:00Z', // End date is before start date
+      type: 'holiday' as const,
+      familyId: 'family-1',
+      custodianParentId: 'user-1',
+      priority: 10,
+      status: 'active' as const,
+    }
+
+    ;(requireAuth as jest.Mock).mockResolvedValueOnce(mockSession)
+    ;(db.families.findById as jest.Mock).mockResolvedValueOnce(mockFamily)
+
+    const result = await createHoliday(holidayData)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('End date must be after start date')
+  })
+
+  it('should allow end date equal to start date (same day holidays)', async () => {
+    const mockSession: SessionUser = { userId: 'user-1', email: 'user@example.com', sessionId: 'session-1' }
+    const mockFamily = { id: 'family-1', parentIds: ['user-1'] }
+    const holidayData = {
+      title: 'Single Day Holiday',
+      description: 'A holiday that lasts one day',
+      effectiveStart: '2024-12-25T00:00:00Z',
+      effectiveEnd: '2024-12-25T23:59:59Z', // End is later same day
+      type: 'holiday' as const,
+      familyId: 'family-1',
+      custodianParentId: 'user-1',
+      priority: 10,
+      status: 'active' as const,
+    }
+
+    ;(requireAuth as jest.Mock).mockResolvedValueOnce(mockSession)
+    ;(db.families.findById as jest.Mock).mockResolvedValueOnce(mockFamily)
+    ;(db.scheduleOverrides.create as jest.Mock).mockResolvedValueOnce({
+      id: 'holiday-1',
+      ...holidayData,
+      createdBy: 'user-1',
+      createdAt: '2024-01-01T00:00:00Z',
+    })
+
+    const result = await createHoliday(holidayData)
+
+    expect(result.success).toBe(true)
+    expect(result.data).toEqual(expect.objectContaining({ id: 'holiday-1' }))
+    expect(revalidatePath).toHaveBeenCalledWith('/holidays')
+    expect(revalidatePath).toHaveBeenCalledWith('/calendar')
   })
 })

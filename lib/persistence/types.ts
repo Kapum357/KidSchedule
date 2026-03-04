@@ -386,7 +386,16 @@ export interface DbMomentReaction {
 export interface DbScheduleOverride {
   id: string;
   familyId: string;
+  /**
+   * Type of schedule override (primary field).
+   * Corresponds to the "type" column in the database.
+   */
   type: "holiday" | "swap" | "mediation" | "manual";
+  /**
+   * Type of schedule override (legacy field, alias for 'type').
+   * Kept for backward compatibility with existing code.
+   * Prefer using 'type' for new code.
+   */
   overrideType: "holiday" | "swap" | "mediation" | "manual";
   title: string;
   description?: string;
