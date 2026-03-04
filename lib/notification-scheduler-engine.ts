@@ -118,6 +118,7 @@ export class NotificationSchedulerEngine {
   /**
    * Create 24-hour advance notification for a transition.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private createAdvanceNotification(
     transition: TransitionInfo,
     now: Date,
@@ -149,6 +150,7 @@ export class NotificationSchedulerEngine {
   /**
    * Create same-day notification for a transition (2 hours before).
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private createSameDayNotification(
     transition: TransitionInfo,
     now: Date,
@@ -179,6 +181,7 @@ export class NotificationSchedulerEngine {
   /**
    * Create reminder notification for a transition (15 minutes before).
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private createReminderNotification(
     transition: TransitionInfo,
     now: Date,

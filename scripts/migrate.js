@@ -82,8 +82,6 @@ async function runMigrations() {
 
     // Run each migration
     for (const file of files) {
-      const migrationNumber = file.split('_')[0];
-
       // Check if migration already applied
       if (await isMigrationApplied(file)) {
         console.log(`⏭️  Migration ${file} already applied, skipping\n`);
@@ -117,4 +115,5 @@ async function runMigrations() {
   }
 }
 
-runMigrations();
+// The lint config prefers top-level await over an async function call
+await runMigrations();

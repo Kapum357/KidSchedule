@@ -8,6 +8,7 @@ import { db } from "./persistence";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getRequestContext } from "./security/csrf";
+import { isFeatureEnabled, getFeatureConfig, getAllFeatureFlags, type FeatureFlagConfig } from "./feature-flags";
 
 // ─── Audit Event Types ────────────────────────────────────────────────────────
 
@@ -532,3 +533,8 @@ export async function revokeAllSessions(userId: string, reason: string): Promise
   const ctx = await getRequestContext();
   await audit.sessionRevokeAll({ userId, ip: ctx.ip, userAgent: ctx.userAgent }, reason);
 }
+
+// ─── Feature Flags ───────────────────────────────────────────────────────────
+
+export { isFeatureEnabled, getFeatureConfig, getAllFeatureFlags };
+export type { FeatureFlagConfig };

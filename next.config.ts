@@ -1,36 +1,8 @@
 import type { NextConfig } from "next";
-const cloudinaryCloudName =
-  process.env.CLOUDINARY_CLOUD_NAME ??
-  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ??
-  (() => {
-    const cloudinaryUrl = process.env.CLOUDINARY_URL;
-    if (!cloudinaryUrl) return undefined;
-    try {
-      return new URL(cloudinaryUrl).host;
-    } catch {
-      return undefined;
-    }
-  })();
-const imgixDomain = process.env.IMGIX_DOMAIN ?? process.env.NEXT_PUBLIC_IMGIX_DOMAIN;
-let imageLoaderConfig: { loader: "cloudinary" | "imgix" | "default"; path?: string } = {
-  loader: "default",
-};
-
-if (cloudinaryCloudName) {
-  imageLoaderConfig = {
-    loader: "cloudinary",
-    path: `https://res.cloudinary.com/${cloudinaryCloudName}/image/upload/`,
-  };
-} else if (imgixDomain) {
-  imageLoaderConfig = {
-    loader: "imgix",
-    path: `https://${imgixDomain}`,
-  };
-}
 
 const nextConfig: NextConfig = {
   images: {
-    ...imageLoaderConfig,
+    loader: "default",
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 31_536_000,
     remotePatterns: [
@@ -42,23 +14,6 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "*.googleusercontent.com",
       },
-      ...(cloudinaryCloudName
-        ? [
-            {
-              protocol: "https" as const,
-              hostname: "res.cloudinary.com",
-              pathname: `/${cloudinaryCloudName}/**`,
-            },
-          ]
-        : []),
-      ...(imgixDomain
-        ? [
-            {
-              protocol: "https" as const,
-              hostname: imgixDomain,
-            },
-          ]
-        : []),
     ],
   },
 

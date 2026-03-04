@@ -294,6 +294,7 @@ export class CustodyComplianceEngine {
    * Apply schedule overrides to the scheduled transitions.
    */
   /* eslint-disable @typescript-eslint/no-explicit-any */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private applyOverridesToTransitions(
     transitions: any[],
     _overrides: ScheduleOverride[],

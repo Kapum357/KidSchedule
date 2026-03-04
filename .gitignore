@@ -1,5 +1,5 @@
 /.github
-/scripts
+/scripts/
 
 # dependencies
 /node_modules
