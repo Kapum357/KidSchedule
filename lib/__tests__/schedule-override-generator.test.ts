@@ -251,7 +251,7 @@ describe("generateAndPersistHolidayOverrides", () => {
     );
   });
 
-  test("logs error and returns empty array if persistence fails", async () => {
+  test("logs error and returns in-memory overrides if persistence fails", async () => {
     const approvedRule: Omit<DbHolidayExceptionRule, "id" | "createdAt" | "updatedAt"> & { id: string } = {
       id: "rule-1",
       familyId: "family-123",
@@ -279,7 +279,8 @@ describe("generateAndPersistHolidayOverrides", () => {
       scheduleId: "schedule-123",
     };
 
-    const engineOverride = {
+    // This is the in-memory override that will be returned on persistence failure
+    const mockOverride = {
       familyId: "family-123",
       type: "holiday",
       title: "Test Holiday Exception",
@@ -311,17 +312,18 @@ describe("generateAndPersistHolidayOverrides", () => {
     };
 
     (getDb as jest.Mock).mockReturnValue(mockDb);
-    (ScheduleOverrideEngine.createHolidayOverrides as jest.Mock).mockReturnValue([engineOverride]);
+    (ScheduleOverrideEngine.createHolidayOverrides as jest.Mock).mockReturnValue([mockOverride]);
 
     // Mock console.error to suppress error output in tests
     const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
 
     const result = await generateAndPersistHolidayOverrides("family-123", "2026-07-01", "2026-07-31");
 
-    expect(result).toEqual([]);
-    // Error message is called with message and error message parts
+    // Key assertion: Should return the in-memory override even though persistence failed
+    expect(result).toEqual([mockOverride]);
+    // Verify error was logged
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Failed to generate or persist holiday overrides"),
+      expect.stringContaining("Failed to persist holiday overrides"),
       expect.stringContaining("DB error"),
     );
 

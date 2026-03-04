@@ -20,6 +20,7 @@
 
 import { getDb } from "@/lib/persistence";
 import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
+import type { ScheduleOverride } from "@/types";
 import type { DbScheduleOverride } from "@/lib/persistence";
 
 /**
@@ -43,22 +44,33 @@ export async function generateAndPersistHolidayOverrides(
   familyId: string,
   startDate: string,
   endDate: string,
-): Promise<DbScheduleOverride[]> {
-  try {
-    const db = getDb();
+): Promise<ScheduleOverride[]> {
+  const db = getDb();
 
-    // ─── Fetch approved and enabled rules ────────────────────────────────────
+  // ─── Fetch approved and enabled rules ────────────────────────────────────
+  let approvedRules;
+  try {
     const allRules = await db.holidayExceptionRules.findByFamilyId(familyId);
-    const approvedRules = allRules.filter(
+    approvedRules = allRules.filter(
       (r) => r.approvalStatus === "approved" && r.isEnabled === true
     );
 
     if (approvedRules.length === 0) {
       return [];
     }
+  } catch (error) {
+    console.warn(
+      "Failed to fetch approved rules, continuing without:",
+      error instanceof Error ? error.message : String(error)
+    );
+    return [];
+  }
 
-    // ─── Get family's jurisdiction to fetch relevant holidays ────────────────
-    const family = await db.families.findById(familyId);
+  // ─── Get family's jurisdiction and fetch holiday definitions ─────────────
+  let family;
+  let holidays;
+  try {
+    family = await db.families.findById(familyId);
     if (!family) {
       console.warn(`Family not found: ${familyId}`);
       return [];
@@ -68,29 +80,38 @@ export async function generateAndPersistHolidayOverrides(
     // In a real implementation, this would come from family settings
     const jurisdiction = (family as any).jurisdiction || "US";
 
-    // ─── Fetch holiday definitions for the family's jurisdiction ─────────────
-    const holidays = await db.holidays.findByDateRange(jurisdiction, startDate, endDate);
-
-    // ─── Generate overrides using engine ────────────────────────────────────
-    const overrides = ScheduleOverrideEngine.createHolidayOverrides(
-      holidays,
-      approvedRules.map((rule) => ({
-        familyId: rule.familyId,
-        holidayId: rule.holidayId,
-        custodianParentId: rule.custodianParentId,
-        isEnabled: rule.isEnabled,
-        notes: rule.notes,
-      })),
-      startDate,
-      endDate,
-      family as any
+    // Fetch holiday definitions for the family's jurisdiction
+    holidays = await db.holidays.findByDateRange(jurisdiction, startDate, endDate);
+  } catch (error) {
+    console.warn(
+      "Failed to fetch holiday definitions, continuing without:",
+      error instanceof Error ? error.message : String(error)
     );
+    return [];
+  }
 
-    if (overrides.length === 0) {
-      return [];
-    }
+  // ─── Generate overrides using engine ────────────────────────────────────
+  // Note: This is synchronous, no error handling needed
+  const overrides = ScheduleOverrideEngine.createHolidayOverrides(
+    holidays,
+    approvedRules.map((rule) => ({
+      familyId: rule.familyId,
+      holidayId: rule.holidayId,
+      custodianParentId: rule.custodianParentId,
+      isEnabled: rule.isEnabled,
+      notes: rule.notes,
+    })),
+    startDate,
+    endDate,
+    family as any
+  );
 
-    // ─── Persist overrides to database ──────────────────────────────────────
+  if (overrides.length === 0) {
+    return [];
+  }
+
+  // ─── Persist overrides to database ──────────────────────────────────────
+  try {
     const persistedOverrides = await db.scheduleOverrides.create(
       overrides.map((override) => ({
         familyId: override.familyId,
@@ -111,9 +132,11 @@ export async function generateAndPersistHolidayOverrides(
     return persistedOverrides;
   } catch (error) {
     console.error(
-      "Failed to generate or persist holiday overrides:",
+      "Failed to persist holiday overrides, using in-memory overrides:",
       error instanceof Error ? error.message : String(error)
     );
-    return [];
+    // Return in-memory overrides despite persistence failure
+    // This allows the schedule to still apply them for the current request
+    return overrides;
   }
 }
