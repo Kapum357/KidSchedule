@@ -9,7 +9,7 @@
 
 import { CalendarMonthEngine } from "@/lib/calendar-engine";
 import { SchedulePresets } from "@/lib/custody-engine";
-import { generateCustodySchedule } from "@/lib/custody-schedule-generator";
+import { generateCompleteSchedule } from "@/lib/schedule-generator";
 import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
 import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
@@ -607,7 +607,7 @@ export default async function CalendarPage({
     },
   };
 
-  const custodyResult = generateCustodySchedule(scheduleInput);
+  const custodyResult = await generateCompleteSchedule(scheduleInput);
   let custodyEvents = custodyResult.events;
 
   const family: Family = {
