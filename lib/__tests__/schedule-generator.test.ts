@@ -391,4 +391,29 @@ describe("generateCompleteSchedule", () => {
     expect(result.diagnostics.total_events).toEqual(0);
     expect(result.diagnostics.warnings).toContain("No events generated for date range");
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Performance Benchmark: Month-long date range latency
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it("completes with acceptable latency for month-long date range", async () => {
+    const mockInput = createMockInput();
+    const mockBaseSchedule = createMockBaseSchedule(15); // 15 events in a month
+
+    (generateCustodySchedule as jest.Mock).mockReturnValue(mockBaseSchedule);
+    (generateAndPersistHolidayOverrides as jest.Mock).mockResolvedValue([]);
+    (ScheduleOverrideEngine.applyOverrides as jest.Mock).mockReturnValue(
+      mockBaseSchedule.events,
+    );
+
+    const startTime = performance.now();
+    const result = await generateCompleteSchedule(mockInput);
+    const endTime = performance.now();
+
+    const executionTimeMs = endTime - startTime;
+
+    // Should complete in less than 100ms additional latency
+    expect(executionTimeMs).toBeLessThan(100);
+    expect(result.events).toEqual(mockBaseSchedule.events);
+  });
 });
