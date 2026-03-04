@@ -270,3 +270,34 @@ export function getQueryParam(url: URL, param: string): string | null {
   const value = url.searchParams.get(param);
   return value ? String(value).trim() : null;
 }
+
+// ─── Rate Limiting Helper (generic) ───────────────────────────────────────────
+
+/**
+ * Basic rate limit implementation backed by persistence. Accepts a key string that
+ * uniquely identifies the entity being rate limited (e.g. `holidays:${userId}:read`)
+ * and the maximum number of requests allowed within a sliding window (in seconds).
+ *
+ * Returns whether further requests are allowed and the current count. This mirrors
+ * the logic originally lived in `lib/auth/index.ts` but is pulled into a shared
+ * API helper so that multiple endpoints can use it without importing the entire
+ * auth service.
+ */
+export async function checkRateLimit(
+  key: string,
+  maxRequests: number,
+  windowSeconds: number
+): Promise<{ allowed: boolean; count: number; lockedUntil?: string }> {
+  // the database repository uses milliseconds internally
+  const existing = await db.rateLimits.get(key);
+  if (existing?.lockedUntil) {
+    if (new Date(existing.lockedUntil) > new Date()) {
+      return { allowed: false, count: existing.count, lockedUntil: existing.lockedUntil };
+    }
+    // lockout expired, clear it
+    await db.rateLimits.clear(key);
+  }
+
+  const current = await db.rateLimits.increment(key, windowSeconds * 1000);
+  return { allowed: current.count <= maxRequests, count: current.count };
+}

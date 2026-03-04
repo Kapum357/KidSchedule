@@ -30,21 +30,19 @@ import type { DbHolidayExceptionRule } from "@/lib/persistence/types";
 import {
   getAuthenticatedUser,
   userBelongsToFamily,
-} from "@/lib/auth";
-import { getDb } from "@/lib/persistence";
-import {
   badRequest,
   unauthorized,
   forbidden,
   internalError,
   tooManyRequests,
-} from "@/lib/api/errors";
-import { checkRateLimit } from "@/lib/api/rate-limiting";
-import { logEvent } from "@/lib/logging";
-import { observeApiRequest } from "@/lib/observability";
-import { generateRequestId } from "@/lib/api/request-id";
-import { parseJson } from "@/lib/api/parse-json";
-import { getQueryParam } from "@/lib/api/query-params";
+  parseJson,
+  generateRequestId,
+  getQueryParam,
+  checkRateLimit,
+} from "../calendar/utils";
+import { getDb } from "@/lib/persistence";
+import { logEvent } from "@/lib/observability/logger";
+import { observeApiRequest } from "@/lib/observability/api-observability";
 
 interface ProposeRuleBody {
   familyId: string;
@@ -78,7 +76,7 @@ async function handleGet(request: NextRequest): Promise<NextResponse> {
 
     // 2. Rate limit
     const rateLimitKey = `exception-rules:${user.userId}:read`;
-    const rateLimit = checkRateLimit(rateLimitKey, 100, 3600); // 100 per hour
+    const rateLimit = await checkRateLimit(rateLimitKey, 100, 3600); // 100 per hour
     if (!rateLimit.allowed) {
       logEvent("warn", "Exception Rules GET: rate limit exceeded", {
         requestId,
@@ -191,7 +189,7 @@ async function handlePost(request: NextRequest): Promise<NextResponse> {
 
     // 2. Rate limit
     const rateLimitKey = `exception-rules:${user.userId}:write`;
-    const rateLimit = checkRateLimit(rateLimitKey, 20, 3600); // 20 per hour
+    const rateLimit = await checkRateLimit(rateLimitKey, 20, 3600); // 20 per hour
     if (!rateLimit.allowed) {
       logEvent("warn", "Exception Rules POST: rate limit exceeded", {
         requestId,
@@ -306,7 +304,7 @@ async function handlePut(request: NextRequest): Promise<NextResponse> {
 
     // 2. Rate limit
     const rateLimitKey = `exception-rules:${user.userId}:write`;
-    const rateLimit = checkRateLimit(rateLimitKey, 20, 3600); // 20 per hour
+    const rateLimit = await checkRateLimit(rateLimitKey, 20, 3600); // 20 per hour
     if (!rateLimit.allowed) {
       logEvent("warn", "Exception Rules PUT: rate limit exceeded", {
         requestId,
@@ -425,7 +423,7 @@ async function handleDelete(request: NextRequest): Promise<NextResponse> {
 
     // 2. Rate limit
     const rateLimitKey = `exception-rules:${user.userId}:write`;
-    const rateLimit = checkRateLimit(rateLimitKey, 20, 3600); // 20 per hour
+    const rateLimit = await checkRateLimit(rateLimitKey, 20, 3600); // 20 per hour
     if (!rateLimit.allowed) {
       logEvent("warn", "Exception Rules DELETE: rate limit exceeded", {
         requestId,

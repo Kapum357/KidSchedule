@@ -18,7 +18,7 @@ jest.mock('@/lib/persistence', () => ({
     scheduleOverrides: {
       create: jest.fn(),
       update: jest.fn(),
-      cancel: jest.fn(),
+      delete: jest.fn(),
       findByFamilyId: jest.fn(),
     },
   },
@@ -92,7 +92,7 @@ describe('Holiday Server Actions', () => {
 
     ;(requireAuth as jest.Mock).mockResolvedValueOnce(mockSession)
     ;(db.families.findById as jest.Mock).mockResolvedValueOnce(mockFamily)
-    ;(db.scheduleOverrides.cancel as jest.Mock).mockResolvedValueOnce(true)
+    ;(db.scheduleOverrides.delete as jest.Mock).mockResolvedValueOnce(true)
 
     const result = await deleteHoliday('family-1', 'holiday-1')
 
@@ -139,6 +139,57 @@ describe('Holiday Server Actions', () => {
     ;(requireAuth as jest.Mock).mockRejectedValueOnce(new Error('Not authenticated'))
 
     const result = await createHoliday(holidayData)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('Unauthorized')
+  })
+
+  it('should prevent non-parent users from updating holidays', async () => {
+    const mockSession: SessionUser = { userId: 'user-1', email: 'user@example.com', sessionId: 'session-1' }
+    const mockFamily = { id: 'family-1', parentIds: ['user-2'] } // Different parent
+    const updateData = {
+      title: 'Updated Christmas',
+    }
+
+    ;(requireAuth as jest.Mock).mockResolvedValueOnce(mockSession)
+    ;(db.families.findById as jest.Mock).mockResolvedValueOnce(mockFamily)
+
+    const result = await updateHoliday('family-1', 'holiday-1', updateData)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('Unauthorized')
+  })
+
+  it('should prevent unauthenticated users from updating holidays', async () => {
+    const updateData = {
+      title: 'Updated Christmas',
+    }
+
+    ;(requireAuth as jest.Mock).mockRejectedValueOnce(new Error('Not authenticated'))
+
+    const result = await updateHoliday('family-1', 'holiday-1', updateData)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('Unauthorized')
+  })
+
+  it('should prevent non-parent users from deleting holidays', async () => {
+    const mockSession: SessionUser = { userId: 'user-1', email: 'user@example.com', sessionId: 'session-1' }
+    const mockFamily = { id: 'family-1', parentIds: ['user-2'] } // Different parent
+
+    ;(requireAuth as jest.Mock).mockResolvedValueOnce(mockSession)
+    ;(db.families.findById as jest.Mock).mockResolvedValueOnce(mockFamily)
+
+    const result = await deleteHoliday('family-1', 'holiday-1')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('Unauthorized')
+  })
+
+  it('should prevent unauthenticated users from deleting holidays', async () => {
+    ;(requireAuth as jest.Mock).mockRejectedValueOnce(new Error('Not authenticated'))
+
+    const result = await deleteHoliday('family-1', 'holiday-1')
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('Unauthorized')

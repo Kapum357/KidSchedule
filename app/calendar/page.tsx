@@ -636,7 +636,16 @@ export default async function CalendarPage({
 
   // ── Compute calendar ───────────────────────────────────────────────────────
   const engine = new CalendarMonthEngine(family);
-  const data = engine.getMonthDataFromEvents(year, month, custodyEvents, events, changeRequests, now);
+  const mappedOverrides = dbOverrides.map(mapScheduleOverride);
+  const data = engine.getMonthDataFromEvents(
+    year,
+    month,
+    custodyEvents,
+    events,
+    changeRequests,
+    mappedOverrides,
+    now,
+  );
 
   const monthName = new Date(year, month - 1).toLocaleDateString([], {
     month: "long",

@@ -10,6 +10,7 @@ import type {
   ScheduleChangeRequest,
   ScheduleTransition,
   ScheduleEvent,
+  ScheduleOverride,
 } from "@/types";
 
 // ─── Public Types ────────────────────────────────────────────────────────────
@@ -38,6 +39,8 @@ export interface CalendarDayState {
   pendingRequest?: ScheduleChangeRequest;
   /** Transition details if custodyColor="split" */
   transition?: ScheduleTransition;
+  /** Holiday overrides affecting this day (e.g., holiday, swap, mediation) */
+  affectingOverrides?: ScheduleOverride[];
 }
 
 export interface CalendarDayEvent {
@@ -385,6 +388,7 @@ export class CalendarMonthEngine {
     custodyEvents: ScheduleEvent[],
     calendarEvents: CalendarEvent[],
     requests: ScheduleChangeRequest[],
+    overrides: ScheduleOverride[] = [],
     now: Date = new Date()
   ): CalendarMonthData {
     const daysInMonthNum = daysInMonth(year, month);
@@ -408,7 +412,8 @@ export class CalendarMonthEngine {
         custodyByDate,
         transitionsByDate,
         calendarEvents,
-        requestsByDate
+        requestsByDate,
+        overrides
       ),
     ];
 
@@ -645,6 +650,44 @@ export class CalendarMonthEngine {
     return { custodyByDate, transitionsByDate };
   }
 
+  /**
+   * Build a lookup map of overrides by date range.
+   * Maps each calendar date string to the overrides affecting that date.
+   */
+  private buildOverrideLookupByDate(
+    year: number,
+    month: number,
+    daysInMonthNum: number,
+    overrides: ScheduleOverride[]
+  ): Map<string, ScheduleOverride[]> {
+    const overridesByDate = new Map<string, ScheduleOverride[]>();
+    const monthStr = String(month).padStart(2, "0");
+
+    for (let dayOfMonth = 1; dayOfMonth <= daysInMonthNum; dayOfMonth++) {
+      const dayStr = String(dayOfMonth).padStart(2, "0");
+      const dateStr = `${year}-${monthStr}-${dayStr}`;
+      const affectingOverrides: ScheduleOverride[] = [];
+
+      for (const override of overrides) {
+        const startDate = new Date(override.effectiveStart);
+        startDate.setUTCHours(0, 0, 0, 0);
+        const endDate = new Date(override.effectiveEnd);
+        endDate.setUTCHours(0, 0, 0, 0);
+
+        const currentDate = new Date(`${dateStr}T00:00:00Z`);
+        if (currentDate >= startDate && currentDate <= endDate) {
+          affectingOverrides.push(override);
+        }
+      }
+
+      if (affectingOverrides.length > 0) {
+        overridesByDate.set(dateStr, affectingOverrides);
+      }
+    }
+
+    return overridesByDate;
+  }
+
   private buildCurrentMonthDaysFromEvents(
     year: number,
     month: number,
@@ -652,10 +695,17 @@ export class CalendarMonthEngine {
     custodyByDate: Map<string, Parent>,
     transitionsByDate: Map<string, ScheduleTransition>,
     calendarEvents: CalendarEvent[],
-    requestsByDate: Map<string, ScheduleChangeRequest>
+    requestsByDate: Map<string, ScheduleChangeRequest>,
+    overrides: ScheduleOverride[] = [],
   ): CalendarDayState[] {
     const days: CalendarDayState[] = [];
     const monthStr = String(month).padStart(2, "0");
+    const overridesByDate = this.buildOverrideLookupByDate(
+      year,
+      month,
+      daysInMonthNum,
+      overrides,
+    );
 
     for (let dayOfMonth = 1; dayOfMonth <= daysInMonthNum; dayOfMonth++) {
       const dayStr = String(dayOfMonth).padStart(2, "0");
@@ -676,7 +726,7 @@ export class CalendarMonthEngine {
       const mergedEvents = mergeEventsForDay(
         dateStr,
         transition,
-        calendarEvents
+        calendarEvents,
       );
 
       days.push({
@@ -689,6 +739,7 @@ export class CalendarMonthEngine {
         hasPendingRequest: requestsByDate.has(dateStr),
         pendingRequest: requestsByDate.get(dateStr),
         transition,
+        affectingOverrides: overridesByDate.get(dateStr),
       });
     }
 

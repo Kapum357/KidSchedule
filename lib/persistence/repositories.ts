@@ -217,7 +217,7 @@ export interface HolidayExceptionRuleRepository {
   ): Promise<DbHolidayExceptionRule | null>;
   findPendingByFamilyId(familyId: string): Promise<DbHolidayExceptionRule[]>;
   propose(
-    rule: Omit<DbHolidayExceptionRule, "id" | "approvalStatus" | "confirmedBy" | "confirmedAt" | "changeLog" | "createdAt" | "updatedAt">,
+    rule: Omit<DbHolidayExceptionRule, "id" | "approvalStatus" | "confirmedBy" | "confirmedAt" | "changeLog" | "createdAt" | "updatedAt" | "proposedBy" | "proposedAt">,
     proposedBy: string
   ): Promise<DbHolidayExceptionRule>;
   confirm(

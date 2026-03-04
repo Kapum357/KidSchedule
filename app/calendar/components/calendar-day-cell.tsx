@@ -1,6 +1,20 @@
 "use client";
 
 import type { CalendarDayState } from "@/lib/calendar-engine";
+import type { ScheduleOverride } from "@/types";
+
+function getOverrideColorClasses(override: ScheduleOverride): string {
+  switch (override.type) {
+    case "holiday":
+      return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800";
+    case "swap":
+      return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800";
+    case "mediation":
+      return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800";
+    default:
+      return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800";
+  }
+}
 
 export function CalendarDayCell({
   day,
@@ -111,6 +125,20 @@ export function CalendarDayCell({
             </div>
           );
         })}
+
+        {day.affectingOverrides && day.affectingOverrides.length > 0 && (
+          <div className="flex flex-col gap-1">
+            {day.affectingOverrides.map((override) => (
+              <div
+                key={override.id}
+                className={`text-[10px] font-bold px-1.5 py-1 rounded w-max shadow-sm truncate ${getOverrideColorClasses(override)}`}
+                title={override.description || override.title}
+              >
+                {override.title}
+              </div>
+            ))}
+          </div>
+        )}
 
         {hasPending && day.pendingRequest && (
           <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-900/20 p-1 rounded">

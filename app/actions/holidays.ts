@@ -17,7 +17,7 @@ const CreateHolidaySchema = z.object({
   description: z.string().optional(),
   effectiveStart: z.string().datetime('Invalid start date format'),
   effectiveEnd: z.string().datetime('Invalid end date format'),
-  type: z.literal('holiday'),
+  type: z.enum(['holiday', 'swap', 'mediation']),
   familyId: z.string().min(1, 'Family ID is required'),
   custodianParentId: z.string().min(1, 'Custodian parent ID is required'),
   priority: z.number().int().min(0).max(100).default(10),
@@ -124,7 +124,8 @@ export async function createHoliday(
     })
 
     // Revalidate cache
-    revalidatePath(`/families/${validatedInput.familyId}/holidays`)
+    revalidatePath('/holidays')
+    revalidatePath('/calendar')
 
     return {
       success: true,
@@ -194,7 +195,8 @@ export async function updateHoliday(
     }
 
     // Revalidate cache
-    revalidatePath(`/families/${familyId}/holidays`)
+    revalidatePath('/holidays')
+    revalidatePath('/calendar')
 
     return {
       success: true,
@@ -242,10 +244,10 @@ export async function deleteHoliday(
     // Validate user is a parent in the family
     await validateParentAccess(user.userId, familyId)
 
-    // Cancel the holiday
-    const cancelled = await db.scheduleOverrides.cancel(holidayId)
+    // Delete the holiday
+    const deleted = await db.scheduleOverrides.delete(holidayId)
 
-    if (!cancelled) {
+    if (!deleted) {
       return {
         success: false,
         error: `Holiday not found: ${holidayId}`,
@@ -253,7 +255,8 @@ export async function deleteHoliday(
     }
 
     // Revalidate cache
-    revalidatePath(`/families/${familyId}/holidays`)
+    revalidatePath('/holidays')
+    revalidatePath('/calendar')
 
     return {
       success: true,
