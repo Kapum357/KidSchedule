@@ -77,6 +77,10 @@ if (!process.env.DATABASE_URL) {
         ON CONFLICT (id) DO NOTHING;
       `;
 
+      // add timezone column if missing and assign value so ICS feed can experiment with it
+      await sql`ALTER TABLE families ADD COLUMN IF NOT EXISTS timezone TEXT;`;
+      await sql`UPDATE families SET timezone = 'America/New_York' WHERE id = ${TEST_FAMILY_ID};`;
+
       // Create primary user
       await sql`
         INSERT INTO users (id, email, password_hash, full_name)
@@ -204,6 +208,8 @@ if (!process.env.DATABASE_URL) {
       expect(content).toContain("CALSCALE:GREGORIAN");
       expect(content).toContain("METHOD:PUBLISH");
       expect(content).toContain("END:VCALENDAR");
+      // since we added timezone column in setup, feed should include it
+      expect(content).toContain("X-WR-TIMEZONE:America/New_York");
     });
 
     test("GET /api/families/[familyId]/calendar.ics - returns valid empty iCalendar when no events", async ({

@@ -64,6 +64,8 @@ export async function GET(
     const icalContent = generateICalFeed(icalEvents, {
       id: family.id,
       name: family.name,
+      // timezone may be undefined if the column hasn't been added yet
+      timezone: (family as any).timezone,
     });
 
     // Step 7: Return response with correct headers

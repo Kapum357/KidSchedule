@@ -14,6 +14,7 @@ import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
 import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { CalendarFeedSubscription } from "@/app/calendar/calendar-feed-subscription";
+import { CalendarDayCell } from "@/app/calendar/components/calendar-day-cell";
 import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -486,127 +487,6 @@ function CalendarSidebar({
   );
 }
 
-// ─── Calendar Day Cell ────────────────────────────────────────────────────────
-
-function CalendarDayCell({
-  day,
-  isToday,
-  isPrevMonth,
-}: Readonly<{
-  day: CalendarDayState;
-  isToday: boolean;
-  isPrevMonth: boolean;
-}>) {
-  if (isPrevMonth) {
-    return (
-      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 opacity-40 min-h-[120px] border border-transparent">
-        <span className="text-slate-400 font-medium">{day.dayOfMonth}</span>
-      </div>
-    );
-  }
-
-  const hasPending = day.hasPendingRequest;
-
-  return (
-    <div
-      className={`bg-white dark:bg-slate-900 rounded-xl p-3 min-h-[120px] relative group transition-shadow ${
-        isToday
-          ? "border-2 border-primary ring-4 ring-primary/10 shadow-md hover:shadow-lg"
-          : hasPending
-          ? "shadow-sm border border-slate-100 dark:border-slate-800 ring-2 ring-amber-300 dark:ring-amber-700/50 hover:shadow-md"
-          : "shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-md"
-      }`}
-    >
-      {/* Custody background */}
-      {day.custodyColor === "split" ? (
-        <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none flex">
-          <div className="w-1/2 h-full bg-secondary/10" />
-          <div className="w-1/2 h-full bg-primary/10" />
-        </div>
-      ) : (
-        <div
-          className={`absolute inset-0 rounded-xl pointer-events-none ${
-            day.custodyColor === "primary" ? "bg-primary/10" : "bg-secondary/10"
-          }`}
-        />
-      )}
-
-      {/* Day number + event icons */}
-      <div className="flex justify-between items-start mb-2 relative z-10">
-        {isToday ? (
-          <span className="flex items-center justify-center w-7 h-7 bg-primary text-white rounded-full font-bold text-sm shadow-sm">
-            {day.dayOfMonth}
-          </span>
-        ) : (
-          <span className="text-slate-700 dark:text-slate-300 font-bold">
-            {day.dayOfMonth}
-          </span>
-        )}
-
-        <div className="flex gap-1">
-          {day.events.slice(0, 2).map((evt) => (
-            <span
-              key={evt.id}
-              aria-hidden="true"
-              className={`material-symbols-outlined text-[16px] ${evt.iconColor ?? "text-slate-500"}`}
-              title={evt.title}
-            >
-              {evt.icon ?? "event"}
-            </span>
-          ))}
-          {hasPending && (
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-[16px] text-amber-500"
-              title="Pending request"
-            >
-              pending
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Event pills */}
-      <div className="relative z-10 flex flex-col gap-1">
-        {day.events.map((evt) => {
-          if (evt.type === "transition") {
-            return (
-              <div
-                key={evt.id}
-                className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold px-1.5 py-1 rounded w-max shadow-sm"
-              >
-                {evt.title}
-              </div>
-            );
-          }
-          if (evt.type === "note") {
-            return (
-              <div key={evt.id} className="mt-1 space-y-1">
-                <div className="w-full h-1 bg-blue-200 dark:bg-blue-800 rounded-full" />
-                <div className="w-2/3 h-1 bg-blue-200 dark:bg-blue-800 rounded-full" />
-              </div>
-            );
-          }
-          return (
-            <div
-              key={evt.id}
-              className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 font-medium bg-white/60 dark:bg-slate-800/60 rounded px-1 truncate"
-              title={evt.title}
-            >
-              {evt.title}
-            </div>
-          );
-        })}
-
-        {hasPending && day.pendingRequest && (
-          <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-900/20 p-1 rounded">
-            Swap Request
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── Calendar Grid ────────────────────────────────────────────────────────────
 

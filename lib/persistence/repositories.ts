@@ -201,6 +201,7 @@ export interface HolidayRepository {
     startDate: string,
     endDate: string
   ): Promise<DbHolidayDefinition[]>;
+  findByFamily(familyId: string): Promise<DbHolidayDefinition[]>;
   create(
     holiday: Omit<DbHolidayDefinition, "id" | "createdAt">
   ): Promise<DbHolidayDefinition>;
@@ -214,9 +215,17 @@ export interface HolidayExceptionRuleRepository {
     familyId: string,
     holidayId: string
   ): Promise<DbHolidayExceptionRule | null>;
-  upsert(
-    rule: Omit<DbHolidayExceptionRule, "createdAt" | "updatedAt">
+  findPendingByFamilyId(familyId: string): Promise<DbHolidayExceptionRule[]>;
+  propose(
+    rule: Omit<DbHolidayExceptionRule, "id" | "approvalStatus" | "confirmedBy" | "confirmedAt" | "changeLog" | "createdAt" | "updatedAt">,
+    proposedBy: string
   ): Promise<DbHolidayExceptionRule>;
+  confirm(
+    familyId: string,
+    holidayId: string,
+    confirmedBy: string,
+    approved: boolean
+  ): Promise<DbHolidayExceptionRule | null>;
   delete(familyId: string, holidayId: string): Promise<boolean>;
 }
 

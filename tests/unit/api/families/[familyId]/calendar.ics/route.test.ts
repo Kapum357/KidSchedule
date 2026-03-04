@@ -96,6 +96,7 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
     const mockFamily = {
       id: 'family-1',
       name: 'Smith Family',
+      timezone: 'America/New_York',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -153,7 +154,11 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
     expect(response.headers.get('Content-Disposition')).toContain('attachment; filename="calendar.ics"');
 
     // Verify that generateICalFeed was called with the right arguments
-    expect(mockGenerateICalFeed).toHaveBeenCalled();
+    expect(mockGenerateICalFeed).toHaveBeenCalledWith(icalEvents, {
+      id: mockFamily.id,
+      name: mockFamily.name,
+      timezone: mockFamily.timezone,
+    });
   });
 
   it('should fetch family events from database', async () => {

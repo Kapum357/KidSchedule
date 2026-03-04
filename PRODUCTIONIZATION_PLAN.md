@@ -3150,7 +3150,7 @@ function hashUserId(userId: string): string {
 - [ ] Refactor calendar page → DB queries
 - [ ] Refactor blog pages → DB queries
 - [ ] Refactor school page → DB queries
-- [ ] Add feature flags for gradual rollout
+- [x] Add feature flags for gradual rollout (implemented in lib/feature-flags.ts with percentage-based rollout using user ID hash)
 - [ ] Implement message hash chain
 - [ ] Write hash chain unit tests (100% coverage)
 - [ ] Security audit: PII protection, webhook signatures, TLS enforcement

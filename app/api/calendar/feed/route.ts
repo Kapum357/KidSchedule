@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/persistence";
+import { generateICalFeed } from "@/lib/ical-generator";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -24,8 +25,25 @@ export async function GET(request: NextRequest) {
     // Fetch calendar events for the family
     const events = await db.calendarEvents.findByFamilyId(familyId);
 
-    // Generate iCalendar content with VTIMEZONE
-    const icalContent = generateICalendar(events, familyId);
+    // Map to library's DbCalendarEvent shape
+    const icalEvents = events.map(e => ({
+      id: e.id,
+      familyId,
+      title: e.title,
+      description: e.description,
+      location: e.location,
+      startDate: new Date(e.startAt),
+      endDate: new Date(e.endAt),
+      isAllDay: e.allDay,
+      category: e.category,
+    }));
+
+    // Generate iCalendar content with timezone awareness (hardcoded for now)
+    const icalContent = generateICalFeed(icalEvents, {
+      id: familyId,
+      name: `Family ${familyId}`,
+      timezone: 'America/New_York',
+    });
 
     return new NextResponse(icalContent, {
       headers: {

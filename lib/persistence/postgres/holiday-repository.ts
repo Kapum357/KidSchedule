@@ -13,6 +13,7 @@ type HolidayRow = {
   type: string;
   jurisdiction: string;
   description: string | null;
+  family_id: string | null;
   created_at: Date;
 };
 
@@ -24,6 +25,7 @@ function rowToDb(row: HolidayRow): DbHolidayDefinition {
     type: row.type as DbHolidayDefinition["type"],
     jurisdiction: row.jurisdiction,
     description: row.description ?? undefined,
+    familyId: row.family_id ?? undefined,
     createdAt: row.created_at.toISOString(),
   };
 }
@@ -53,10 +55,19 @@ export function createHolidayRepository(tx?: SqlClient): HolidayRepository {
       return rows.map(rowToDb);
     },
 
+    async findByFamily(familyId: string): Promise<DbHolidayDefinition[]> {
+      const rows = await query<HolidayRow[]>`
+        SELECT * FROM holiday_definitions
+        WHERE family_id = ${familyId}
+        ORDER BY date
+      `;
+      return rows.map(rowToDb);
+    },
+
     async create(holiday: Omit<DbHolidayDefinition, "id" | "createdAt">): Promise<DbHolidayDefinition> {
       const rows = await query<HolidayRow[]>`
-        INSERT INTO holiday_definitions (name, date, type, jurisdiction, description)
-        VALUES (${holiday.name}, ${holiday.date}, ${holiday.type}, ${holiday.jurisdiction}, ${holiday.description ?? null})
+        INSERT INTO holiday_definitions (name, date, type, jurisdiction, description, family_id)
+        VALUES (${holiday.name}, ${holiday.date}, ${holiday.type}, ${holiday.jurisdiction}, ${holiday.description ?? null}, ${holiday.familyId ?? null})
         RETURNING *
       `;
       return rowToDb(rows[0]);

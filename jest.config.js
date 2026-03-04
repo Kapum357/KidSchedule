@@ -8,14 +8,14 @@
 module.exports = {
   // Use ts-jest for TypeScript support
   preset: 'ts-jest',
-  testEnvironment: 'node',
+  testEnvironment: 'jsdom',
 
   // Test file patterns
   testMatch: [
-    '<rootDir>/tests/unit/**/*.test.ts',
-    '<rootDir>/tests/unit/**/*.spec.ts',
-    '<rootDir>/lib/**/*.test.ts',
-    '<rootDir>/lib/**/*.spec.ts',
+    '<rootDir>/tests/unit/**/*.test.{ts,tsx}',
+    '<rootDir>/tests/unit/**/*.spec.{ts,tsx}',
+    '<rootDir>/lib/**/*.test.{ts,tsx}',
+    '<rootDir>/lib/**/*.spec.{ts,tsx}',
   ],
 
   // Module path aliases (match tsconfig paths)

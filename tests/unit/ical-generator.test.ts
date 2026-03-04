@@ -15,6 +15,8 @@ describe('ICS Generator', () => {
       expect(result).toContain('METHOD:PUBLISH');
       expect(result).toContain('END:VCALENDAR');
       expect(result).not.toContain('BEGIN:VEVENT');
+      // timezone should only appear when provided
+      expect(result).not.toContain('X-WR-TIMEZONE');
     });
 
     it('should throw error when family metadata is null', () => {
@@ -186,6 +188,35 @@ describe('ICS Generator', () => {
 
       // Verify DTSTAMP exists (with current UTC time)
       expect(result).toMatch(/DTSTAMP:\d{8}T\d{6}Z/);
+    });
+
+    it('includes timezone metadata and TZID when family timezone is provided', () => {
+      const events = [
+        {
+          id: 'event-3',
+          familyId: 'family-123',
+          title: 'Soccer Practice',
+          startDate: new Date('2024-03-15T14:30:00Z'),
+          endDate: new Date('2024-03-15T15:30:00Z'),
+          isAllDay: false,
+          category: 'Sports',
+        },
+      ];
+
+      const result = generateICalFeed(events, {
+        id: 'family-123',
+        name: 'Smith Family',
+        timezone: 'America/New_York',
+      });
+
+      // Should declare timezone at calendar level
+      expect(result).toContain('X-WR-TIMEZONE:America/New_York');
+      expect(result).toContain('BEGIN:VTIMEZONE');
+      expect(result).toContain('TZID:America/New_York');
+
+      // Events should use TZID parameter even though timestamps remain UTC-formatted
+      expect(result).toContain('DTSTART;TZID=America/New_York:20240315T143000Z');
+      expect(result).toContain('DTEND;TZID=America/New_York:20240315T153000Z');
     });
 
     it('handles multiple special characters in all fields', () => {

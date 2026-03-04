@@ -89,7 +89,11 @@ export type AuditAction =
   | "security.suspicious_activity"
   | "calendar.event.create"
   | "calendar.event.update"
-  | "calendar.event.delete";
+  | "calendar.event.delete"
+  | "holiday.rule.propose"
+  | "holiday.rule.confirm"
+  | "holiday.rule.reject"
+  | "holiday.definition.create";
 
 export interface DbAuditLog {
   id: string;
@@ -403,18 +407,31 @@ export interface DbHolidayDefinition {
   id: string;
   name: string;
   date: string; // YYYY-MM-DD
-  type: "federal" | "state" | "religious" | "cultural";
+  type: "federal" | "state" | "religious" | "cultural" | "custom";
   jurisdiction: string;
   description?: string;
+  familyId?: string; // For custom family-specific holidays
   createdAt: string;
 }
 
 export interface DbHolidayExceptionRule {
+  id: string;
   familyId: string;
   holidayId: string;
-  custodianParentId: string;
+  custodianParentId: string; // The parent who receives the holiday custody override
   isEnabled: boolean;
   notes?: string;
+  approvalStatus: "pending" | "approved" | "rejected";
+  proposedBy: string; // parentId who proposed this rule
+  proposedAt: string; // ISO timestamp
+  confirmedBy?: string; // parentId who approved/rejected, null if pending
+  confirmedAt?: string; // ISO timestamp, null if pending
+  changeLog: Array<{
+    action: "propose" | "confirm" | "reject";
+    actor: string; // parentId
+    timestamp: string; // ISO timestamp
+    details?: Record<string, unknown>;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
