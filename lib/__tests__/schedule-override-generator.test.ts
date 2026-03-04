@@ -6,8 +6,9 @@
  */
 
 import { generateAndPersistHolidayOverrides } from "../schedule-override-generator";
-import { getDb, _test_resetDbInstance } from "@/lib/persistence";
+import { getDb } from "@/lib/persistence";
 import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
+import { logEvent } from "@/lib/observability/logger";
 import type { DbHolidayExceptionRule, DbHolidayDefinition, DbScheduleOverride, DbFamily } from "@/lib/persistence";
 
 // Mock the repository methods
@@ -22,10 +23,13 @@ jest.mock("@/lib/schedule-override-engine", () => ({
   },
 }));
 
+jest.mock("@/lib/observability/logger", () => ({
+  logEvent: jest.fn(),
+}));
+
 describe("generateAndPersistHolidayOverrides", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    _test_resetDbInstance();
   });
 
   test("returns empty array when no approved rules exist", async () => {
@@ -378,19 +382,19 @@ describe("generateAndPersistHolidayOverrides", () => {
     (getDb as jest.Mock).mockReturnValue(mockDb);
     (ScheduleOverrideEngine.createHolidayOverrides as jest.Mock).mockReturnValue([mockOverride]);
 
-    // Mock console.error to suppress error output in tests
-    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
-
     const result = await generateAndPersistHolidayOverrides("family-123", "2026-07-01", "2026-07-31");
 
     // Key assertion: Should return the in-memory override even though persistence failed
     expect(result).toEqual([mockOverride]);
-    // Verify error was logged
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Failed to persist holiday overrides"),
-      expect.stringContaining("DB error"),
+    // Verify error was logged with structured logging
+    expect(logEvent).toHaveBeenCalledWith(
+      "error",
+      "Failed to persist holiday overrides, using in-memory overrides",
+      expect.objectContaining({
+        familyId: "family-123",
+        overrideCount: 1,
+        error: "DB error",
+      }),
     );
-
-    consoleErrorSpy.mockRestore();
   });
 });

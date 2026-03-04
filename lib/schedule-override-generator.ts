@@ -20,7 +20,8 @@
 
 import { getDb } from "@/lib/persistence";
 import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
-import type { ScheduleOverride, Family } from "@/types";
+import { logEvent } from "@/lib/observability/logger";
+import type { ScheduleOverride, Family, HolidayDefinition } from "@/types";
 import type { DbScheduleOverride } from "@/lib/persistence";
 
 /**
@@ -52,17 +53,17 @@ export async function generateAndPersistHolidayOverrides(
   try {
     const allRules = await db.holidayExceptionRules.findByFamilyId(familyId);
     approvedRules = allRules.filter(
-      (r) => r.approvalStatus === "approved" && r.isEnabled === true
+      (r) => r.approvalStatus === "approved" && r.isEnabled === true,
     );
 
     if (approvedRules.length === 0) {
       return [];
     }
   } catch (error) {
-    console.warn(
-      "Failed to fetch approved rules, continuing without:",
-      error instanceof Error ? error.message : String(error)
-    );
+    logEvent("warn", "Failed to fetch approved rules, continuing without", {
+      familyId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return [];
   }
 
@@ -73,14 +74,14 @@ export async function generateAndPersistHolidayOverrides(
   try {
     dbFamily = await db.families.findById(familyId);
     if (!dbFamily) {
-      console.warn(`Family not found: ${familyId}`);
+      logEvent("warn", "Family not found", { familyId });
       return [];
     }
 
     // Fetch parents to compose full Family domain object
     parents = await db.parents.findByFamilyId(familyId);
     if (!parents || parents.length < 2) {
-      console.warn(`Family ${familyId} does not have both parents configured`);
+      logEvent("warn", "Family does not have both parents configured", { familyId });
       return [];
     }
 
@@ -88,10 +89,10 @@ export async function generateAndPersistHolidayOverrides(
     const jurisdiction = "US";
     holidays = await db.holidays.findByDateRange(jurisdiction, startDate, endDate);
   } catch (error) {
-    console.warn(
-      "Failed to fetch family data or holiday definitions:",
-      error instanceof Error ? error.message : String(error)
-    );
+    logEvent("warn", "Failed to fetch family data or holiday definitions", {
+      familyId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return [];
   }
 
@@ -106,14 +107,16 @@ export async function generateAndPersistHolidayOverrides(
       name: "Schedule",
       blocks: [],
       transitionHour: 17,
-      isActive: true,
     },
   };
 
   // ─── Generate overrides using engine ────────────────────────────────────
   // Note: This is synchronous, no error handling needed
+  // Filter to only standard holiday types (exclude "custom" which is storage-only)
+  const standardHolidays = holidays.filter((h) => h.type !== "custom") as HolidayDefinition[];
+
   const overrides = ScheduleOverrideEngine.createHolidayOverrides(
-    holidays,
+    standardHolidays,
     approvedRules.map((rule) => ({
       familyId: rule.familyId,
       holidayId: rule.holidayId,
@@ -137,6 +140,7 @@ export async function generateAndPersistHolidayOverrides(
     for (const override of overrides) {
       const persisted = await db.scheduleOverrides.create({
         familyId: override.familyId,
+        type: override.type,
         overrideType: override.type,
         title: override.title,
         description: override.description,
@@ -165,14 +169,16 @@ export async function generateAndPersistHolidayOverrides(
       sourceEventId: override.sourceEventId,
       priority: override.priority,
       status: override.status,
+      createdAt: override.createdAt,
       createdBy: override.createdBy,
       notes: override.notes,
     }));
   } catch (error) {
-    console.error(
-      "Failed to persist holiday overrides, using in-memory overrides:",
-      error instanceof Error ? error.message : String(error)
-    );
+    logEvent("error", "Failed to persist holiday overrides, using in-memory overrides", {
+      familyId,
+      overrideCount: overrides.length,
+      error: error instanceof Error ? error.message : String(error),
+    });
     // Return in-memory overrides despite persistence failure
     // This allows the schedule to still apply them for the current request
     return overrides;
