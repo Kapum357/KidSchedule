@@ -1,5 +1,6 @@
 /.github
 /scripts/
+.claude
 
 # dependencies
 /node_modules

@@ -11,6 +11,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@headlessui/react": "^2.1.0",
     "@types/bcrypt": "^6.0.0",
     "apple-signin-auth": "^2.0.0",
     "bcrypt": "^6.0.0",

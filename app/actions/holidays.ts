@@ -43,18 +43,22 @@ type ServerActionResponse<T = void> =
 async function validateParentAccess(
   userId: string,
   familyId: string
-): Promise<{ id: string; parentIds: string[] }> {
+): Promise<{ id: string }> {
   const family = await db.families.findById(familyId)
 
   if (!family) {
     throw new Error(`Family not found: ${familyId}`)
   }
 
-  if (!family.parentIds.includes(userId)) {
+  // Check if user is a parent in this family by querying parents table
+  const parents = await db.parents.findByFamilyId(familyId)
+  const parent = parents.find(p => p.userId === userId)
+
+  if (!parent) {
     throw new Error(`Unauthorized: User is not a parent in this family`)
   }
 
-  return family
+  return { id: family.id }
 }
 
 /**
@@ -115,7 +119,9 @@ export async function createHoliday(
       description: validatedInput.description,
       effectiveStart: validatedInput.effectiveStart,
       effectiveEnd: validatedInput.effectiveEnd,
+      // both fields are required by the DbScheduleOverride type
       type: validatedInput.type,
+      overrideType: validatedInput.type,
       familyId: validatedInput.familyId,
       custodianParentId: validatedInput.custodianParentId,
       priority: validatedInput.priority,
@@ -241,7 +247,7 @@ export async function deleteHoliday(
     await validateParentAccess(user.userId, familyId)
 
     // Delete the holiday
-    const deleted = await db.scheduleOverrides.delete(holidayId)
+    const deleted = await db.scheduleOverrides.cancel(holidayId)
 
     if (!deleted) {
       return {
