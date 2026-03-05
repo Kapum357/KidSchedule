@@ -356,7 +356,6 @@ const ID_SLICE_LENGTH = 9;
 /**
  * Validate request input for consistency and required fields.
  */
-// eslint-disable-next-line complexity, @sonarjs/cognitive-complexity
 function validateRequest(body: ScheduleWizardRequest): string | null {
   if (!body.familyId) {
     return "missing_family_id";
@@ -432,7 +431,6 @@ async function performAuthAndValidation(
 }
 
 
-// eslint-disable-next-line complexity, @sonarjs/cognitive-complexity
 async function handlePost(request: Request): Promise<NextResponse> {
   const startedAt = Date.now();
   const requestId = generateRequestId();

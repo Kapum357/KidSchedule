@@ -161,7 +161,20 @@ function applySecurityHeaders(
 
   for (const [key, value] of Object.entries(headersToApply)) {
     if (key === "Content-Security-Policy") continue; // handled specially below
-    response.headers.set(key, value as string);
+    let headerValue = value as string;
+
+    if (key === "Permissions-Policy") {
+      // Some runtime environments sneak a deprecated feature name into
+      // this header; explicitly strip it out so the browser stops
+      // complaining with "Unrecognized feature: 'interest-cohort'."
+      headerValue = headerValue
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => !s.startsWith("interest-cohort"))
+        .join(", ");
+    }
+
+    response.headers.set(key, headerValue);
   }
 
   // CSP with per-request nonce (required for Next.js inline hydration/runtime scripts)

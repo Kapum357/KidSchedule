@@ -19,6 +19,9 @@ jest.mock('@/lib/persistence', () => ({
     scheduleOverrides: {
       create: jest.fn(),
       update: jest.fn(),
+      // repository uses `cancel` when removing an override;
+      // the old tests referenced `.delete` which no longer exists.
+      cancel: jest.fn(),
       delete: jest.fn(),
       findByFamilyId: jest.fn(),
     },
@@ -95,7 +98,7 @@ describe('Holiday Server Actions', () => {
 
     ;(requireAuth as jest.Mock).mockResolvedValueOnce(mockSession)
     ;(db.families.findById as jest.Mock).mockResolvedValueOnce(mockFamily)
-    ;(db.scheduleOverrides.delete as jest.Mock).mockResolvedValueOnce(true)
+    ;(db.scheduleOverrides.cancel as jest.Mock).mockResolvedValueOnce(true)
 
     const result = await deleteHoliday('family-1', 'holiday-1')
 

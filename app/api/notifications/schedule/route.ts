@@ -35,7 +35,6 @@ const deliveryService = new NotificationDeliveryService();
  * Schedule notifications for a family.
  * POST /api/notifications/schedule
  */
-/* eslint-disable complexity */
 export async function POST(request: NextRequest) {
   try {
     // Authenticate user

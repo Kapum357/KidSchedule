@@ -192,8 +192,7 @@ export class CustodyComplianceEngine {
       custodyEngine,
       startDate,
       endDate,
-      calendarEvents,
-      overrides
+      calendarEvents
     );
 
     // Calculate summary metrics
@@ -219,7 +218,6 @@ export class CustodyComplianceEngine {
     startDate: string,
     endDate: string,
     calendarEvents: CalendarEvent[],
-    overrides: ScheduleOverride[]
   ): Promise<CustodyPeriod[]> {
     const periods: CustodyPeriod[] = [];
     const start = new Date(startDate);
@@ -242,8 +240,6 @@ export class CustodyComplianceEngine {
       // Apply overrides
       const effectiveTransitions = this.applyOverridesToTransitions(
         scheduledTransitions,
-        overrides,
-        current.toISOString().split('T')[0],
       );
 
       // Create periods for each transition
@@ -294,11 +290,8 @@ export class CustodyComplianceEngine {
    * Apply schedule overrides to the scheduled transitions.
    */
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private applyOverridesToTransitions(
     transitions: any[],
-    _overrides: ScheduleOverride[],
-    _date: string,
   ): any[] {
     // For now, return transitions as-is. Full override logic would be complex.
     // This is a simplified implementation.

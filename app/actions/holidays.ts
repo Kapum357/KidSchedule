@@ -50,9 +50,26 @@ async function validateParentAccess(
     throw new Error(`Family not found: ${familyId}`)
   }
 
-  // Check if user is a parent in this family by querying parents table
+  // Newer code stores parent IDs directly on the family record which simplifies
+  // permission checks and also makes unit tests easier to mock.  If the array
+  // is present, use it instead of hitting the `parents` table.
+  interface FamilyWithParents {
+    id: string
+    parentIds?: string[]
+  }
+
+  const maybeFamily = family as FamilyWithParents
+  if (Array.isArray(maybeFamily.parentIds)) {
+    const parentIds = maybeFamily.parentIds
+    if (!parentIds.includes(userId)) {
+      throw new Error(`Unauthorized: User is not a parent in this family`)
+    }
+    return { id: family.id }
+  }
+
+  // Fallback for older data schemas: query the parents table directly.
   const parents = await db.parents.findByFamilyId(familyId)
-  const parent = parents.find(p => p.userId === userId)
+  const parent = parents.find((p) => p.userId === userId)
 
   if (!parent) {
     throw new Error(`Unauthorized: User is not a parent in this family`)

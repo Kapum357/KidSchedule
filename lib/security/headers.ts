@@ -121,6 +121,11 @@ export const SECURITY_HEADERS = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
 
   // Permissions policy (restrict browser features)
+  // Permissions policy (restrict browser features)
+  // Note: some versions of Next.js or the underlying Edge runtime may
+  // automatically append `interest-cohort=()` which is now a deprecated
+  // feature name that newer browsers reject.  We deliberately *don't*
+  // include it here; the middleware will sanitize at runtime as well.
   "Permissions-Policy": [
     "camera=()",
     "microphone=()",
@@ -140,11 +145,30 @@ export const SECURITY_HEADERS = {
 /**
  * Returns security headers as an array for Next.js headers() config.
  */
+
+/**
+ * Return headers as an array suitable for Next.js config.  We also
+ * sanitize the Permissions-Policy header here in case the build output
+ * (or Next.js itself) injected an unwanted feature name such as
+ * "interest-cohort".
+ */
 export function getSecurityHeadersArray(): Array<{ key: string; value: string }> {
-  return Object.entries(SECURITY_HEADERS).map(([key, value]) => ({
+  const arr = Object.entries(SECURITY_HEADERS).map(([key, value]) => ({
     key,
     value,
   }));
+
+  return arr.map(({ key, value }) => {
+    if (key === "Permissions-Policy") {
+      const cleaned = value
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => !s.startsWith("interest-cohort"))
+        .join(", ");
+      return { key, value: cleaned };
+    }
+    return { key, value };
+  });
 }
 
 // ─── Auth Page Specific Headers ───────────────────────────────────────────────

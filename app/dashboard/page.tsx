@@ -14,6 +14,7 @@ import { requireAuth } from "@/lib";
 import { db } from "@/lib/persistence";
 import { SchedulePresets } from "@/lib/custody-engine";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
 import type {
   ActivityItem,
@@ -389,7 +390,7 @@ function CustodyScheduleCard({
           {/* Monthly Ownership */}
           <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-white/5">
             <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-              This Month's Ownership
+              This Month&apos;s Ownership
             </h4>
             <div className="space-y-2">
               {Object.entries(monthlyOwnership).map(([parentId, percentage]) => {
@@ -648,12 +649,12 @@ function PendingActionsCard({
                 <p className="text-xs text-slate-500 truncate">{pendingRequest.title}</p>
               </div>
             </div>
-            <a
+            <Link
               href="/calendar/change-request"
               className="shrink-0 ml-2 px-3 py-1 bg-white dark:bg-[#1e2928] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold shadow-sm hover:border-[#6BCABD] hover:text-[#6BCABD] transition-colors"
             >
               View
-            </a>
+            </Link>
           </div>
         )}
 

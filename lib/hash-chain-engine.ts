@@ -62,11 +62,19 @@ const GENESIS_HASH = "0".repeat(64); // Genesis block previous hash
  * Uses Web Crypto API for consistency across environments.
  */
 export async function sha256(input: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(input);
-  const hashBuffer = await crypto.subtle.digest(HASH_ALGORITHM, data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  // Use Web Crypto API when available (browsers, Edge runtime).
+  if (typeof crypto !== "undefined" && crypto.subtle && typeof crypto.subtle.digest === "function") {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(input);
+    const hashBuffer = await crypto.subtle.digest(HASH_ALGORITHM, data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // Fallback for Node.js environment where crypto.subtle may be undefined.
+  // Dynamically import to avoid bundling the entire crypto module in browser builds.
+  const { createHash } = await import("crypto");
+  return createHash("sha256").update(input).digest("hex");
 }
 
 /**

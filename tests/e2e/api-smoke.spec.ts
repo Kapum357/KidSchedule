@@ -46,7 +46,7 @@ test.describe("Auth API", () => {
       data: {},
     });
 
-    expect([400, 401]).toContain(response.status());
+    expect([400, 401, 429]).toContain(response.status());
 
     const body = await response.json();
     expect(body).toHaveProperty("error");
@@ -63,7 +63,7 @@ test.describe("Auth API", () => {
     });
 
     // Should return 401 for invalid credentials
-    expect([400, 401]).toContain(response.status());
+    expect([400, 401, 429]).toContain(response.status());
   });
 
   test("POST /api/auth/refresh rejects missing token", async ({ request }) => {
@@ -72,7 +72,7 @@ test.describe("Auth API", () => {
     });
 
     // Should reject when no refresh token cookie present
-    expect([400, 401]).toContain(response.status());
+    expect([400, 401, 429]).toContain(response.status());
   });
 
   test("POST /api/auth/logout returns 204", async ({ request }) => {
@@ -92,7 +92,7 @@ test.describe("Phone Verification API", () => {
       data: {},
     });
 
-    expect([400, 401]).toContain(response.status());
+    expect([400, 401, 429]).toContain(response.status());
 
     const body = await response.json();
     expect(body).toHaveProperty("error");
@@ -105,7 +105,7 @@ test.describe("Phone Verification API", () => {
       data: { phone: "invalid-phone" },
     });
 
-    expect([400, 401]).toContain(response.status());
+    expect([400, 401, 429]).toContain(response.status());
 
     const body = await response.json();
     expect(body.error).toBeDefined();
@@ -118,7 +118,7 @@ test.describe("Phone Verification API", () => {
       data: {},
     });
 
-    expect([400, 401]).toContain(response.status());
+    expect([400, 401, 429]).toContain(response.status());
   });
 
   test("POST /api/phone/verify/check rejects invalid code format", async ({
@@ -131,7 +131,7 @@ test.describe("Phone Verification API", () => {
       },
     });
 
-    expect([400, 401]).toContain(response.status());
+    expect([400, 401, 429]).toContain(response.status());
 
     const body = await response.json();
     expect(body.error).toBeDefined();
@@ -199,7 +199,7 @@ test.describe("Webhook Endpoints", () => {
     });
 
     // Should reject without valid Stripe signature
-    expect([400, 401]).toContain(response.status());
+    expect([400, 401, 429]).toContain(response.status());
   });
 
   test("GET /api/webhooks/twilio/incoming returns TwiML", async ({

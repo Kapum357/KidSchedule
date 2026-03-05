@@ -21,7 +21,7 @@
 import { getDb } from "@/lib/persistence";
 import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
 import { logEvent } from "@/lib/observability/logger";
-import type { ScheduleOverride, Family, HolidayDefinition } from "@/types";
+import type { ScheduleOverride, Family, HolidayDefinition, Parent } from "@/types";
 import type { DbScheduleOverride } from "@/lib/persistence";
 
 /**
@@ -99,7 +99,13 @@ export async function generateAndPersistHolidayOverrides(
   // ─── Compose domain Family object from database entities ────────────────
   const family: Family = {
     id: dbFamily.id,
-    parents: [parents[0] as any, parents[1] as any],
+    parents: parents.map(p => ({
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      avatarUrl: p.avatarUrl ?? undefined,
+      phone: p.phone ?? undefined,
+    })) as [Parent, Parent],
     children: [],
     custodyAnchorDate: dbFamily.custodyAnchorDate,
     schedule: {

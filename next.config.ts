@@ -36,7 +36,17 @@ const nextConfig: NextConfig = {
         { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         {
           key: "Permissions-Policy",
-          value: "camera=(), microphone=(), geolocation=()",
+          value: [
+            "camera=()",
+            "microphone=()",
+            "geolocation=()",
+          ]
+            .join(", ")
+            // ensure deprecated features aren't sneaked in by Next itself
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => !s.startsWith("interest-cohort"))
+            .join(", "),
         },
         ...(process.env.NODE_ENV === "production"
           ? [

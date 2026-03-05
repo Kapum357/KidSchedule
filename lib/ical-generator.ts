@@ -101,7 +101,6 @@ function buildVEvent(
   return vevent;
 }
 
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export function generateICalFeed(
   events: DbCalendarEvent[],
   family: FamilyMetadata,

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Message Repositories – PostgreSQL Implementation
  *
@@ -17,7 +16,7 @@ import type {
   DbHashChainVerification,
 } from "../types";
 import { sql } from "./client";
-import { computeMessageHash, getLastMessageHash } from "../../hash-chain-engine";
+import { computeMessageHash } from "../../hash-chain-engine";
 
 export function createMessageThreadRepository(): MessageThreadRepository {
   return {
@@ -198,7 +197,7 @@ export function createMessageRepository(): MessageRepository {
       return result[0] || null;
     },
 
-    async update(_id: string, _data: Partial<DbMessage>): Promise<DbMessage | null> {
+    async update(): Promise<DbMessage | null> {
       // Note: Updating messages after creation is not allowed for hash chain integrity
       // Messages should be immutable once sent
       throw new Error("Messages cannot be updated after creation for hash chain integrity");
@@ -240,13 +239,13 @@ export function createHashChainVerificationRepository(): HashChainVerificationRe
           thread_id, verified_at, verified_by, is_valid,
           tamper_detected_at_index, verification_report
         ) VALUES (
-          ${data.threadId}, ${data.verifiedAt}, ${data.verifiedBy},
-          ${data.isValid}, ${data.tamperDetectedAtIndex},
+          ${data.threadId}, ${data.verifiedAt}, ${data.verifiedBy ?? null},
+          ${data.isValid}, ${data.tamperDetectedAtIndex ?? null},
           ${verificationReportJson}
         )
         RETURNING id, thread_id, verified_at, verified_by, is_valid,
                   tamper_detected_at_index, verification_report
-      `) as DbHashChainVerification[];
+      `) as unknown as DbHashChainVerification[];
       return result[0];
     },
 

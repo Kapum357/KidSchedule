@@ -48,7 +48,7 @@ export class NotificationSchedulerEngine {
    * Creates 24h advance alerts and same-day notifications.
    */
   scheduleNotifications(input: NotificationScheduleInput): NotificationScheduleResult {
-    const { familyId, calendarEvents, now, timeZone = "UTC" } = input;
+    const { familyId, calendarEvents, now } = input;
 
     // Find upcoming transitions from calendar events
     const upcomingTransitions = this.findTransitionsFromCalendarEvents(calendarEvents, now, familyId);
@@ -58,19 +58,19 @@ export class NotificationSchedulerEngine {
 
     for (const transition of upcomingTransitions) {
       // Create 24-hour advance notification
-      const advanceNotification = this.createAdvanceNotification(transition, now, timeZone);
+      const advanceNotification = this.createAdvanceNotification(transition, now);
       if (advanceNotification) {
         notifications.push(advanceNotification);
       }
 
       // Create same-day notification (2 hours before transition)
-      const sameDayNotification = this.createSameDayNotification(transition, now, timeZone);
+      const sameDayNotification = this.createSameDayNotification(transition, now);
       if (sameDayNotification) {
         notifications.push(sameDayNotification);
       }
 
       // Create reminder notification (15 minutes before transition)
-      const reminderNotification = this.createReminderNotification(transition, now, timeZone);
+      const reminderNotification = this.createReminderNotification(transition, now);
       if (reminderNotification) {
         notifications.push(reminderNotification);
       }
@@ -118,12 +118,9 @@ export class NotificationSchedulerEngine {
   /**
    * Create 24-hour advance notification for a transition.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private createAdvanceNotification(
     transition: TransitionInfo,
     now: Date,
-    // timezone presently unused but kept for future localization
-    _timeZone?: string,
   ): ScheduledNotification | null {
     const transitionTime = new Date(transition.startTime);
     const advanceTime = new Date(transitionTime.getTime() - 24 * 60 * 60 * 1000); // 24 hours before
@@ -150,11 +147,9 @@ export class NotificationSchedulerEngine {
   /**
    * Create same-day notification for a transition (2 hours before).
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private createSameDayNotification(
     transition: TransitionInfo,
     now: Date,
-    _timeZone?: string,
   ): ScheduledNotification | null {
     const transitionTime = new Date(transition.startTime);
     const sameDayTime = new Date(transitionTime.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
@@ -181,11 +176,9 @@ export class NotificationSchedulerEngine {
   /**
    * Create reminder notification for a transition (15 minutes before).
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private createReminderNotification(
     transition: TransitionInfo,
     now: Date,
-    _timeZone?: string,
   ): ScheduledNotification | null {
     const transitionTime = new Date(transition.startTime);
     const REMINDER_MINUTES_BEFORE = 15;

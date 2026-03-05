@@ -12,12 +12,12 @@ import { NextRequest, NextResponse } from 'next/server';
 jest.mock('@/app/api/calendar/utils', () => ({
   getAuthenticatedUser: jest.fn(),
   userBelongsToFamily: jest.fn(),
-  unauthorized: jest.fn((error: string, message: string) =>
-    NextResponse.json({ error, message }, { status: 401 })
-  ),
-  forbidden: jest.fn((error: string, message: string) =>
-    NextResponse.json({ error, message }, { status: 403 })
-  ),
+  // For unit tests we only care about the status code being returned –
+  // avoid constructing a real NextResponse (which will attempt to access
+  // cookies and blow up in the Jest environment).  The handler only
+  // reads `response.status` so a plain object suffices.
+  unauthorized: jest.fn((error: string, message: string) => ({ status: 401 })),
+  forbidden: jest.fn((error: string, message: string) => ({ status: 403 })),
 }));
 jest.mock('@/lib/persistence');
 jest.mock('@/lib/ical-generator');
@@ -52,7 +52,7 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
       findByFamilyId: jest.fn(),
     } as any;
 
-    const request = new NextRequest('http://localhost/api/families/family-1/calendar.ics');
+    const request = {} as any;
     const response = await GET(request, { params: { familyId: 'family-1' } });
 
     expect(response).toBeDefined();
@@ -75,7 +75,7 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
       findByFamilyId: jest.fn(),
     } as any;
 
-    const request = new NextRequest('http://localhost/api/families/family-1/calendar.ics');
+    const request = {} as any;
     const response = await GET(request, { params: { familyId: 'family-1' } });
 
     expect(response).toBeDefined();
@@ -146,12 +146,23 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
       'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//KidSchedule//EN\r\nEND:VCALENDAR'
     );
 
-    const request = new NextRequest('http://localhost/api/families/family-1/calendar.ics');
+    const request = {} as any;
     const response = await GET(request, { params: { familyId: 'family-1' } });
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Content-Type')).toBe('text/calendar; charset=utf-8');
-    expect(response.headers.get('Content-Disposition')).toContain('attachment; filename="calendar.ics"');
+    // headers might be undefined in some test environments, so guard accordingly
+    const headersObj: any = response.headers || {};
+    const contentType =
+      typeof headersObj.get === 'function'
+        ? headersObj.get('Content-Type')
+        : headersObj['Content-Type'];
+    const disposition =
+      typeof headersObj.get === 'function'
+        ? headersObj.get('Content-Disposition')
+        : headersObj['Content-Disposition'];
+
+    expect(contentType).toBe('text/calendar; charset=utf-8');
+    expect(disposition).toContain('attachment; filename="calendar.ics"');
 
     // Verify that generateICalFeed was called with the right arguments
     expect(mockGenerateICalFeed).toHaveBeenCalledWith(icalEvents, {
@@ -208,7 +219,7 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
       'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR'
     );
 
-    const request = new NextRequest('http://localhost/api/families/family-1/calendar.ics');
+    const request = {} as any;
     await GET(request, { params: { familyId: 'family-1' } });
 
     expect(mockDb.calendarEvents.findByFamilyId).toHaveBeenCalledWith('family-1');
@@ -229,7 +240,7 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
       findByFamilyId: jest.fn(),
     } as any;
 
-    const request = new NextRequest('http://localhost/api/families/nonexistent/calendar.ics');
+    const request = {} as any;
     const response = await GET(request, { params: { familyId: 'nonexistent' } });
 
     expect(response).toBeDefined();

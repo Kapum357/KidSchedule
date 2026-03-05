@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import type { ScheduleOverride, ScheduleChangeRequest } from '@/types';
 
 type CustodyPeriod = {
   startTime: string;
@@ -50,8 +51,8 @@ type CustodyComplianceReport = {
     totalOverrides: number;
   };
   periods: CustodyPeriod[];
-  overrides: any[];
-  changeRequests: any[];
+  overrides: ScheduleOverride[];
+  changeRequests: ScheduleChangeRequest[];
   generatedAt: string;
 };
 
@@ -69,18 +70,7 @@ export default function CustodyCompliancePage() {
   const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
 
   // Generate report when parameters change
-  // wrap generateReport in useCallback to satisfy lint check
-  const memoizedGenerate = useCallback(() => {
-    generateReport();
-  }, [familyId, startDate, endDate]);
-
-  useEffect(() => {
-    if (familyId && startDate && endDate) {
-      memoizedGenerate();
-    }
-  }, [familyId, startDate, endDate, memoizedGenerate]);
-
-  const generateReport = async () => {
+  const generateReport = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -111,14 +101,20 @@ export default function CustodyCompliancePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [familyId, startDate, endDate, router, setLoading, setError, setReport, setParentMetrics]);
 
-  const calculateParentMetrics = (report: CustodyComplianceReport): ComplianceMetrics[] => {
-    const parentMetrics = new Map<string, ComplianceMetrics>();
+  useEffect(() => {
+    if (familyId && startDate && endDate) {
+      generateReport();
+    }
+  }, [familyId, startDate, endDate, generateReport]);
+
+  const calculateParentMetrics = (reportData: CustodyComplianceReport): ComplianceMetrics[] => {
+    const metricsMap = new Map<string, ComplianceMetrics>();
 
     // Initialize metrics for each parent
-    for (const parent of report.parents) {
-      parentMetrics.set(parent.id, {
+    for (const parent of reportData.parents) {
+      metricsMap.set(parent.id, {
         parentId: parent.id,
         scheduledHours: 0,
         actualHours: 0,
@@ -129,16 +125,16 @@ export default function CustodyCompliancePage() {
     }
 
     // Calculate metrics from periods
-    for (const period of report.periods) {
+    for (const period of reportData.periods) {
       const duration = (new Date(period.endTime).getTime() - new Date(period.startTime).getTime()) / (1000 * 60 * 60);
 
-      const scheduledMetrics = parentMetrics.get(period.scheduledParentId);
+      const scheduledMetrics = metricsMap.get(period.scheduledParentId);
       if (scheduledMetrics) {
         scheduledMetrics.scheduledHours += duration;
       }
 
       if (period.actualParentId) {
-        const actualMetrics = parentMetrics.get(period.actualParentId);
+        const actualMetrics = metricsMap.get(period.actualParentId);
         if (actualMetrics) {
           actualMetrics.actualHours += duration;
         }
@@ -146,14 +142,14 @@ export default function CustodyCompliancePage() {
     }
 
     // Calculate percentages and deviations
-    for (const metrics of parentMetrics.values()) {
+    for (const metrics of metricsMap.values()) {
       if (metrics.scheduledHours > 0) {
         metrics.compliancePercentage = (metrics.actualHours / metrics.scheduledHours) * 100;
         metrics.deviationHours = metrics.scheduledHours - metrics.actualHours;
       }
     }
 
-    return Array.from(parentMetrics.values());
+    return Array.from(metricsMap.values());
   };
 
   const exportReport = async (format: 'json' | 'pdf') => {

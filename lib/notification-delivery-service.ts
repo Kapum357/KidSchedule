@@ -60,7 +60,7 @@ export class NotificationDeliveryService {
           result = await this.deliverEmail(parent, content);
           break;
         case "push":
-          result = await this.deliverPush(parent, content);
+          result = await this.deliverPush();
           break;
         default:
           return {
@@ -228,11 +228,7 @@ export class NotificationDeliveryService {
    * Deliver push notification.
    * Note: Push notifications require additional setup with FCM/APNs.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private async deliverPush(
-    _parent: Parent,
-    _content: { subject?: string; body: string },
-  ): Promise<NotificationDeliveryResult> {
+  private async deliverPush(): Promise<NotificationDeliveryResult> {
     // Push notification delivery not yet implemented
     // This would require FCM token storage and Firebase/APNs integration
     return {

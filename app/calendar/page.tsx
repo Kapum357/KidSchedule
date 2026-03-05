@@ -20,7 +20,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type {
   CalendarMonthData,
-  CalendarDayState,
   TransitionListItem,
 } from "@/lib/calendar-engine";
 import type {
@@ -322,18 +321,18 @@ function PendingRequestCard({
         </p>
       )}
       <div className="flex gap-2">
-        <a
+        <Link
           href="/calendar/change-request"
           className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold py-2 rounded-lg hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-colors text-center"
         >
           Decline
-        </a>
-        <a
+        </Link>
+        <Link
           href="/calendar/change-request"
           className="flex-1 bg-primary text-white text-xs font-bold py-2 rounded-lg hover:opacity-90 transition-colors shadow-sm text-center"
         >
           Approve
-        </a>
+        </Link>
       </div>
     </div>
   );
