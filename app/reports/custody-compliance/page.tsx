@@ -65,9 +65,9 @@ export default function CustodyCompliancePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [familyId, setFamilyId] = useState(searchParams.get('familyId') || '');
-  const [startDate, setStartDate] = useState(searchParams.get('startDate') || '');
-  const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
+  const [familyId, setFamilyId] = useState(searchParams?.get('familyId') || '');
+  const [startDate, setStartDate] = useState(searchParams?.get('startDate') || '');
+  const [endDate, setEndDate] = useState(searchParams?.get('endDate') || '');
 
   // Generate report when parameters change
   const generateReport = useCallback(async () => {

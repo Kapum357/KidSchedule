@@ -16,7 +16,7 @@ export function PaginationControls({ pageNumber, totalPages }: Readonly<Paginati
 
   const goToPage = (page: number) => {
     if (page < 1 || page > totalPages) return;
-    const nextParams = new URLSearchParams(searchParams.toString());
+    const nextParams = new URLSearchParams(searchParams?.toString() || "");
     nextParams.set("page", page.toString());
     router.push(`${pathname}?${nextParams.toString()}`);
   };
