@@ -10,6 +10,7 @@
 
 import { NextApiRequest, NextApiResponse } from "next";
 import { Server, Socket } from "socket.io";
+import { setSocketServer } from "@/lib/socket-server";
 // getDb is not needed in this module
 
 /** Interface for socket.io server stored on res.socket */
@@ -47,6 +48,9 @@ function getSocketServer(
 
   // Store the server instance for reuse
   res.socket.server.io = io;
+
+  // Register globally for server actions and other backend operations
+  setSocketServer(io);
 
   // Middleware to verify session/auth on connection
   io.use((socket, next) => {
