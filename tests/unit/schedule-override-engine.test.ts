@@ -20,7 +20,6 @@ describe("ScheduleOverrideEngine", () => {
 
   const baseEvents: ScheduleEvent[] = [
     {
-      id: "event-1",
       family_id: "family-1",
       child_id: "child-1",
       parent_id: "parent-1",
@@ -28,9 +27,9 @@ describe("ScheduleOverrideEngine", () => {
       end_at: "2024-03-02T00:00:00.000Z",
       source_pattern: "SEVEN_SEVEN",
       cycle_id: "cycle-1",
+      custody_type: "base" as const,
     },
     {
-      id: "event-2",
       family_id: "family-1",
       child_id: "child-1",
       parent_id: "parent-2",
@@ -38,12 +37,13 @@ describe("ScheduleOverrideEngine", () => {
       end_at: "2024-03-03T00:00:00.000Z",
       source_pattern: "SEVEN_SEVEN",
       cycle_id: "cycle-1",
+      custody_type: "base" as const,
     },
   ];
 
   describe("applyOverrides", () => {
     it("should return base events when no overrides exist", () => {
-      const result = ScheduleOverrideEngine.applyOverrides(baseEvents, [], mockFamily);
+      const result = ScheduleOverrideEngine.applyOverrides(baseEvents, []);
       expect(result).toEqual(baseEvents);
     });
 
@@ -64,7 +64,7 @@ describe("ScheduleOverrideEngine", () => {
         },
       ];
 
-      const result = ScheduleOverrideEngine.applyOverrides(baseEvents, overrides, mockFamily);
+      const result = ScheduleOverrideEngine.applyOverrides(baseEvents, overrides);
 
       // First event should be overridden to parent-2
       expect(result[0].parent_id).toBe("parent-2");
@@ -93,7 +93,7 @@ describe("ScheduleOverrideEngine", () => {
         },
       ];
 
-      const result = ScheduleOverrideEngine.applyOverrides(baseEvents, overrides, mockFamily);
+      const result = ScheduleOverrideEngine.applyOverrides(baseEvents, overrides);
 
       // First event should be overridden
       expect(result[0].parent_id).toBe("parent-2");
@@ -130,7 +130,7 @@ describe("ScheduleOverrideEngine", () => {
         },
       ];
 
-      const result = ScheduleOverrideEngine.applyOverrides(baseEvents, overrides, mockFamily);
+      const result = ScheduleOverrideEngine.applyOverrides(baseEvents, overrides);
 
       // High priority override should win
       expect(result[0].parent_id).toBe("parent-1");
@@ -154,7 +154,7 @@ describe("ScheduleOverrideEngine", () => {
         },
       ];
 
-      const result = ScheduleOverrideEngine.applyOverrides(baseEvents, overrides, mockFamily);
+      const result = ScheduleOverrideEngine.applyOverrides(baseEvents, overrides);
 
       // Should remain unchanged since override is not active
       expect(result[0].parent_id).toBe("parent-1");
@@ -180,7 +180,7 @@ describe("ScheduleOverrideEngine", () => {
         },
       ];
 
-      const analysis = ScheduleOverrideEngine.detectConflicts(baseEvents, overrides, mockFamily);
+      const analysis = ScheduleOverrideEngine.detectConflicts(baseEvents, overrides);
       expect(analysis.hasBlockingConflicts).toBe(false);
       expect(analysis.conflicts).toHaveLength(0);
     });
@@ -215,7 +215,7 @@ describe("ScheduleOverrideEngine", () => {
         },
       ];
 
-      const analysis = ScheduleOverrideEngine.detectConflicts(baseEvents, overrides, mockFamily);
+      const analysis = ScheduleOverrideEngine.detectConflicts(baseEvents, overrides);
       expect(analysis.hasBlockingConflicts).toBe(true);
       expect(analysis.conflicts).toHaveLength(1);
       expect(analysis.conflicts[0].severity).toBe("error");

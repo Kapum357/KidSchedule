@@ -285,7 +285,7 @@ describe('ICS Generator', () => {
     });
 
     it('should include multiple events and omit optional fields when missing', () => {
-      const events: DbCalendarEvent[] = [
+      const events = [
         {
           id: 'event-1',
           familyId: 'family-1',

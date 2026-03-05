@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib";
 import { db } from "@/lib/persistence";
-import { analyzeMessageTone, getMediationAssistantTips } from "@/lib/providers/ai";
+import { getMediationAssistantTips } from "@/lib/providers/ai";
+import { sendMessage } from "./actions";
 import type { Message } from "@/types";
 
 type MessageSearchParams = {
@@ -22,7 +23,7 @@ type MessagePageState = {
   draft: string;
 };
 
-function resolveMessageState(searchParams?: MessageSearchParams): MessagePageState {
+export function resolveMessageState(searchParams?: MessageSearchParams): MessagePageState {
   const blockedIndicators =
     typeof searchParams?.indicators === "string" && searchParams.indicators.length > 0
       ? searchParams.indicators
@@ -59,108 +60,6 @@ function mapDbMessageToDomainMessage(dbMessage: Awaited<ReturnType<typeof db.mes
   };
 }
 
-async function sha256Hex(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Buffer.from(digest).toString("hex");
-}
-
-async function sendMessage(formData: FormData): Promise<void> {
-  "use server";
-
-  const user = await requireAuth();
-  const parent = await db.parents.findByUserId(user.userId);
-
-  if (!parent) {
-    redirect("/calendar/wizard?onboarding=1");
-  }
-  const activeParent = parent as NonNullable<typeof parent>;
-
-  const messageText = ((formData.get("message") as string | null) ?? "").trim();
-
-  if (messageText.length === 0) {
-    const params = new URLSearchParams();
-    params.set("error", "Please enter a message before sending.");
-    redirect(`/messages?${params.toString()}`);
-  }
-
-  if (messageText.length > 2000) {
-    const params = new URLSearchParams();
-    params.set("error", "Please keep your message under 2,000 characters.");
-    params.set("draft", messageText);
-    redirect(`/messages?${params.toString()}`);
-  }
-
-  const toneAnalysis = await analyzeMessageTone(user.userId, messageText);
-
-  if (toneAnalysis.isHostile) {
-    const params = new URLSearchParams();
-    params.set("blocked", "1");
-    params.set("draft", messageText);
-
-    if (toneAnalysis.indicators.length > 0) {
-      params.set("indicators", toneAnalysis.indicators.join("||"));
-    }
-    if (toneAnalysis.neutralRewrite.length > 0) {
-      params.set("suggestion", toneAnalysis.neutralRewrite);
-    }
-
-    redirect(`/messages?${params.toString()}`);
-  }
-
-  const threads = await db.messageThreads.findByFamilyId(activeParent.familyId);
-  let threadId = threads[0]?.id;
-
-  if (!threadId) {
-    const createdThread = await db.messageThreads.create({
-      familyId: activeParent.familyId,
-      subject: "Family Messages",
-    });
-    threadId = createdThread.id ?? `thread_${crypto.randomUUID()}`;
-  }
-
-  const existingThreadMessages = await db.messages.findByThreadId(threadId);
-  const sortedThreadMessages = existingThreadMessages
-    .slice()
-    .sort((a, b) => a.chainIndex - b.chainIndex);
-  const previousMessage = sortedThreadMessages.at(-1);
-  const nextChainIndex = previousMessage ? previousMessage.chainIndex + 1 : 0;
-  const previousHash = previousMessage?.messageHash;
-  const sentAt = new Date().toISOString();
-
-  const messageHashInput = JSON.stringify({
-    threadId,
-    familyId: activeParent.familyId,
-    senderId: activeParent.id,
-    body: messageText,
-    sentAt,
-    chainIndex: nextChainIndex,
-    previousHash: previousHash ?? "",
-  });
-
-  const messageHash = await sha256Hex(messageHashInput);
-
-  await db.messages.create({
-    threadId,
-    familyId: activeParent.familyId,
-    senderId: activeParent.id,
-    body: messageText,
-    sentAt,
-    readAt: undefined,
-    attachmentIds: [],
-    toneAnalysis: {
-      isHostile: false,
-      indicators: toneAnalysis.indicators,
-    },
-    messageHash,
-    previousHash,
-    chainIndex: nextChainIndex,
-  });
-
-  const params = new URLSearchParams();
-  params.set("success", "1");
-  redirect(`/messages?${params.toString()}`);
-}
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString([], {

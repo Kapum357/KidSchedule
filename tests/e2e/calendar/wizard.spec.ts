@@ -357,8 +357,8 @@ if (!process.env.DATABASE_URL) {
     // Look for percentage display
     const percentageText = page.locator("body").textContent();
     const hasPercentages =
-      (await percentageText).includes("%") ||
-      (await percentageText).includes("percent");
+      ((await percentageText) ?? '').includes("%") ||
+      ((await percentageText) ?? '').includes("percent");
 
     // Parent percentages should be visible or calculable
     expect(hasPercentages || (await page.locator("[data-testid*='percent']").count()) > 0).toBeTruthy();

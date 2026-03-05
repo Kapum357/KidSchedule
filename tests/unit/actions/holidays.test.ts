@@ -128,7 +128,9 @@ describe('Holiday Server Actions', () => {
     const result = await createHoliday(holidayData)
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Unauthorized')
+    if (!result.success) {
+      expect(result.error).toContain('Unauthorized')
+    }
   })
 
   it('should prevent unauthenticated users from creating holidays', async () => {
@@ -149,7 +151,9 @@ describe('Holiday Server Actions', () => {
     const result = await createHoliday(holidayData)
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Unauthorized')
+    if (!result.success) {
+      expect(result.error).toContain('Unauthorized')
+    }
   })
 
   it('should prevent non-parent users from updating holidays', async () => {
@@ -165,7 +169,9 @@ describe('Holiday Server Actions', () => {
     const result = await updateHoliday('family-1', 'holiday-1', updateData)
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Unauthorized')
+    if (!result.success) {
+      expect(result.error).toContain('Unauthorized')
+    }
   })
 
   it('should prevent unauthenticated users from updating holidays', async () => {
@@ -178,7 +184,9 @@ describe('Holiday Server Actions', () => {
     const result = await updateHoliday('family-1', 'holiday-1', updateData)
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Unauthorized')
+    if (!result.success) {
+      expect(result.error).toContain('Unauthorized')
+    }
   })
 
   it('should prevent non-parent users from deleting holidays', async () => {
@@ -191,7 +199,9 @@ describe('Holiday Server Actions', () => {
     const result = await deleteHoliday('family-1', 'holiday-1')
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Unauthorized')
+    if (!result.success) {
+      expect(result.error).toContain('Unauthorized')
+    }
   })
 
   it('should prevent unauthenticated users from deleting holidays', async () => {
@@ -200,7 +210,9 @@ describe('Holiday Server Actions', () => {
     const result = await deleteHoliday('family-1', 'holiday-1')
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Unauthorized')
+    if (!result.success) {
+      expect(result.error).toContain('Unauthorized')
+    }
   })
 
   it('should validate that end date is on or after start date', async () => {
@@ -224,7 +236,9 @@ describe('Holiday Server Actions', () => {
     const result = await createHoliday(holidayData)
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('End date must be after start date')
+    if (!result.success) {
+      expect(result.error).toContain('End date must be after start date')
+    }
   })
 
   it('should allow end date equal to start date (same day holidays)', async () => {
@@ -254,7 +268,9 @@ describe('Holiday Server Actions', () => {
     const result = await createHoliday(holidayData)
 
     expect(result.success).toBe(true)
-    expect(result.data).toEqual(expect.objectContaining({ id: 'holiday-1' }))
+    if (result.success) {
+      expect(result.data).toEqual(expect.objectContaining({ id: 'holiday-1' }))
+    }
     expect(revalidatePath).toHaveBeenCalledWith('/holidays')
     expect(revalidatePath).toHaveBeenCalledWith('/calendar')
   })

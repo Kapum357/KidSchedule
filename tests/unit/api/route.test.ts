@@ -53,7 +53,7 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
     } as any;
 
     const request = {} as any;
-    const response = await GET(request, { params: { familyId: 'family-1' } });
+    const response = await GET(request, { params: { familyId: 'family-1' } } as any);
 
     expect(response).toBeDefined();
     expect(response.status).toBe(401);
@@ -76,7 +76,7 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
     } as any;
 
     const request = {} as any;
-    const response = await GET(request, { params: { familyId: 'family-1' } });
+    const response = await GET(request, { params: { familyId: 'family-1' } } as any);
 
     expect(response).toBeDefined();
     expect(response.status).toBe(403);
@@ -147,7 +147,7 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
     );
 
     const request = {} as any;
-    const response = await GET(request, { params: { familyId: 'family-1' } });
+    const response = await GET(request, { params: { familyId: 'family-1' } } as any);
 
     expect(response.status).toBe(200);
     // headers might be undefined in some test environments, so guard accordingly
@@ -220,7 +220,7 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
     );
 
     const request = {} as any;
-    await GET(request, { params: { familyId: 'family-1' } });
+    await GET(request, { params: { familyId: 'family-1' } } as any);
 
     expect(mockDb.calendarEvents.findByFamilyId).toHaveBeenCalledWith('family-1');
   });
@@ -241,7 +241,7 @@ describe('GET /api/families/[familyId]/calendar.ics', () => {
     } as any;
 
     const request = {} as any;
-    const response = await GET(request, { params: { familyId: 'nonexistent' } });
+    const response = await GET(request, { params: { familyId: 'nonexistent' } } as any);
 
     expect(response).toBeDefined();
     expect(response.status).toBe(403);

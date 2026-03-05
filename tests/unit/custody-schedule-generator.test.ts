@@ -440,7 +440,7 @@ describe("Custody Schedule Generator — Merge Logic", () => {
 
 describe("Custody Schedule Generator — Override Logic", () => {
   it("should not modify events when no overrides provided", () => {
-    const input = makeInput({ overrides: undefined });
+    const input = makeInput();
     const result = generateCustodySchedule(input);
 
     expect(result.events.every((e) => e.custody_type === "base")).toBe(true);

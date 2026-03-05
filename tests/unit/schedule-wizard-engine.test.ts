@@ -18,6 +18,8 @@ import {
   getSegmentWidthPercent,
   generatePatternPreview,
   type TemplateId,
+  type RotationStarter,
+  type PreviewMode,
   type PatternConfigInput,
 } from '@/lib/schedule-wizard-engine';
 
@@ -131,12 +133,12 @@ describe('Schedule Wizard Engine', () => {
     describe('generatePatternPreview', () => {
       it('should generate preview for bi-weekly mode', () => {
         const config = {
-          templateId: '2-2-3',
+          templateId: '2-2-3' as TemplateId,
           scheduleStartDate: '2024-01-08',
-          rotationStarter: 'A',
+          rotationStarter: 'A' as RotationStarter,
           pickupTime: '03:00 PM - After School',
           dropoffTime: 'Same as Pick-up',
-          mode: 'bi-weekly',
+          mode: 'bi-weekly' as PreviewMode,
         };
         const preview = generatePatternPreview(config);
         expect(preview.days.length).toBe(14);
@@ -145,12 +147,12 @@ describe('Schedule Wizard Engine', () => {
 
       it('should generate preview for monthly mode', () => {
         const config = {
-          templateId: '2-2-3',
+          templateId: '2-2-3' as TemplateId,
           scheduleStartDate: '2024-01-08',
-          rotationStarter: 'A',
+          rotationStarter: 'A' as RotationStarter,
           pickupTime: '03:00 PM - After School',
           dropoffTime: 'Same as Pick-up',
-          mode: 'monthly',
+          mode: 'monthly' as PreviewMode,
         };
         const preview = generatePatternPreview(config);
         expect(preview.days.length).toBe(28);
@@ -158,12 +160,12 @@ describe('Schedule Wizard Engine', () => {
 
       it('should swap parents when rotationStarter is B', () => {
         const config = {
-          templateId: '2-2-3',
+          templateId: '2-2-3' as TemplateId,
           scheduleStartDate: '2024-01-08',
-          rotationStarter: 'B',
+          rotationStarter: 'B' as RotationStarter,
           pickupTime: '03:00 PM - After School',
           dropoffTime: 'Same as Pick-up',
-          mode: 'bi-weekly',
+          mode: 'bi-weekly' as PreviewMode,
         };
         const preview = generatePatternPreview(config);
         const firstDay = preview.days[0];
@@ -172,12 +174,12 @@ describe('Schedule Wizard Engine', () => {
 
       it('should use fallback date when ISO date format is invalid', () => {
         const config = {
-          templateId: '2-2-3',
+          templateId: '2-2-3' as TemplateId,
           scheduleStartDate: 'not-a-date',
-          rotationStarter: 'A',
+          rotationStarter: 'A' as RotationStarter,
           pickupTime: '03:00 PM - After School',
           dropoffTime: 'Same as Pick-up',
-          mode: 'bi-weekly',
+          mode: 'bi-weekly' as PreviewMode,
         };
         const preview = generatePatternPreview(config);
         expect(preview.days.length).toBe(14);
