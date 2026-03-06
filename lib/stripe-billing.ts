@@ -406,6 +406,90 @@ export async function createProratedUpgrade(input: {
   };
 }
 
+export async function createProratedDowngrade(input: {
+  userId: string;
+  newPriceId: string;
+  quantity?: number;
+}): Promise<{ subscriptionId: string; status: string; prorationBehavior: "none" }> {
+  const stripe = getStripeClient();
+
+  const rows = await sql<SubscriptionLookupRow[]>`
+    SELECT id, stripe_subscription_id
+    FROM subscriptions
+    WHERE user_id = ${input.userId}
+      AND status IN ('active', 'trialing', 'past_due')
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `;
+
+  const subscription = rows[0];
+  if (!subscription) {
+    throw new Error("No active subscription found for user");
+  }
+
+  const current = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+  const existingItem = current.items.data[0];
+
+  if (!existingItem?.id) {
+    throw new Error("Subscription has no updatable items");
+  }
+
+  const updated = await stripe.subscriptions.update(current.id, {
+    proration_behavior: "none",
+    items: [
+      {
+        id: existingItem.id,
+        price: input.newPriceId,
+        quantity: input.quantity ?? 1,
+      },
+    ],
+  });
+
+  await upsertSubscriptionFromStripe(updated);
+
+  return {
+    subscriptionId: updated.id,
+    status: updated.status,
+    prorationBehavior: "none",
+  };
+}
+
+export async function cancelSubscription(input: {
+  userId: string;
+  atPeriodEnd?: boolean;
+}): Promise<{ subscriptionId: string; status: string; cancelAtPeriodEnd: boolean }> {
+  const stripe = getStripeClient();
+
+  const rows = await sql<SubscriptionLookupRow[]>`
+    SELECT id, stripe_subscription_id
+    FROM subscriptions
+    WHERE user_id = ${input.userId}
+      AND status IN ('active', 'trialing', 'past_due')
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `;
+
+  const subscription = rows[0];
+  if (!subscription) {
+    throw new Error("No active subscription found for user");
+  }
+
+  const current = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+  const atPeriodEnd = input.atPeriodEnd ?? true;
+
+  const updated = atPeriodEnd
+    ? await stripe.subscriptions.update(current.id, { cancel_at_period_end: true })
+    : await stripe.subscriptions.cancel(current.id);
+
+  await upsertSubscriptionFromStripe(updated);
+
+  return {
+    subscriptionId: updated.id,
+    status: updated.status,
+    cancelAtPeriodEnd: atPeriodEnd,
+  };
+}
+
 export function verifyAndConstructStripeEvent(payload: string, signature: string | null): Stripe.Event {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
