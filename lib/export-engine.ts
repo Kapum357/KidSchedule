@@ -10,6 +10,7 @@ import { getDb } from "@/lib/persistence";
 import { generateCustodyCompliancePdf } from "@/lib/pdf-generator";
 import type { HashedMessage, PdfGeneratorConfig } from "@/lib/pdf-generator";
 import { CustodyComplianceEngine } from "@/lib/custody-compliance-engine";
+import { generateCommunicationReport } from "@/lib/communication-report";
 
 /**
  * Generate an export file based on job type
@@ -40,6 +41,8 @@ function selectGenerator(type: ExportType) {
       return generateCustodyCompliancePdfExport;
     case "message-transcript-pdf":
       return generateMessageTranscriptPdfExport;
+    case "communication-report":
+      return generateCommunicationReportExport;
     default:
       throw new Error(`Unknown export type: ${type}`);
   }
@@ -365,6 +368,125 @@ async function generateMessageTranscriptPdfExport(job: ExportJobRecord): Promise
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/message-transcript.pdf`,
+    mimeType: "application/pdf",
+    sizeBytes: pdfResult.sizeBytes,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Generate a communication report PDF for mediation/court use (EXP-003)
+ */
+async function generateCommunicationReportExport(job: ExportJobRecord): Promise<ExportResult> {
+  const db = getDb();
+  const params = job.params as { startDate?: string; endDate?: string };
+
+  if (!params.startDate || !params.endDate) {
+    throw new Error("Communication report export requires startDate and endDate parameters");
+  }
+
+  // Aggregate report from messages + tone + compliance
+  const report = await generateCommunicationReport(
+    job.familyId,
+    params.startDate,
+    params.endDate
+  );
+
+  // Build messages with hashes for PDF embedding
+  const threads = await db.messageThreads.findByFamilyId(job.familyId);
+  const allMessages = threads.length
+    ? (await Promise.all(threads.map((t) => db.messages.findByThreadId(t.id)))).flat()
+    : [];
+
+  const start = new Date(params.startDate).getTime();
+  const end = new Date(params.endDate).getTime();
+
+  const periodMessages = allMessages.filter((m) => {
+    const t = new Date(m.sentAt).getTime();
+    return t >= start && t <= end;
+  });
+
+  const hashedMessages: HashedMessage[] = periodMessages
+    .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime())
+    .map((m, idx) => ({
+      index: idx,
+      messageHash: m.messageHash,
+      previousHash: m.previousHash || "",
+      senderId: m.senderId,
+      senderName: report.participants.find((p) => p.parentId === m.senderId)?.name || "Unknown",
+      body: m.body,
+      sentAt: m.sentAt,
+    }));
+
+  // Build a compliance report shape compatible with the PDF generator
+  const pdfReport = {
+    familyId: job.familyId,
+    reportPeriod: { startDate: params.startDate, endDate: params.endDate },
+    parents: report.participants.map((p) => ({
+      id: p.parentId,
+      name: p.name,
+      email: p.email,
+    })),
+    summary: {
+      totalScheduledTime: 0,
+      totalActualTime: 0,
+      compliancePercentage: report.complianceHighlights.compliancePercentage,
+      totalDeviations: report.complianceHighlights.totalDeviations,
+      totalOverrides: 0,
+    },
+    periods: [],
+    overrides: [],
+    changeRequests: [],
+    generatedAt: report.generatedAt,
+  };
+
+  const config: PdfGeneratorConfig = {
+    title: "Communication Report",
+    author: "KidSchedule",
+    createdAt: report.generatedAt,
+    familyId: job.familyId,
+    documentType: "custody-compliance",
+  };
+
+  const pdfResult = await generateCustodyCompliancePdf(
+    pdfReport as Parameters<typeof generateCustodyCompliancePdf>[0],
+    hashedMessages,
+    config
+  );
+
+  // Store metadata
+  const exportMetadata = await db.exportMetadata.create({
+    exportId: job.id,
+    familyId: job.familyId,
+    reportType: "communication-report",
+    includedMessageIds: periodMessages.map((m) => m.id),
+    custodyPeriodStart: params.startDate,
+    custodyPeriodEnd: params.endDate,
+    pdfHash: pdfResult.hash,
+    pdfSizeBytes: pdfResult.sizeBytes,
+  });
+
+  await db.exportMessageHashes.createBatch(
+    hashedMessages.map((m, idx) => ({
+      exportMetadataId: exportMetadata.id,
+      messageId: periodMessages[idx]?.id || "",
+      chainIndex: m.index,
+      messageHash: m.messageHash,
+      previousHash: m.previousHash,
+      sentAt: m.sentAt,
+      senderId: m.senderId,
+      messagePreview: m.body.substring(0, 100),
+    }))
+  );
+
+  console.log(
+    `[ExportEngine] Communication report PDF generated: ${pdfResult.sizeBytes} bytes, ` +
+    `health score: ${report.toneSummary.overallHealthScore}, ` +
+    `chain valid: ${report.hashChainValid}`
+  );
+
+  return {
+    resultUrl: `https://storage.example.com/exports/${job.id}/communication-report.pdf`,
     mimeType: "application/pdf",
     sizeBytes: pdfResult.sizeBytes,
     generatedAt: new Date().toISOString(),

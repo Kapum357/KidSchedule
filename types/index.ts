@@ -924,7 +924,8 @@ export type ExportType =
   | "messages-csv"
   | "moments-archive"
   | "custody-compliance-pdf"
-  | "message-transcript-pdf";
+  | "message-transcript-pdf"
+  | "communication-report";
 
 /**
  * Parameters for export requests (varies by export type)
@@ -968,3 +969,7 @@ export interface ExportJobRecord {
   updatedAt: string;
   completedAt?: string;
 }
+
+// ─── Communication Report (EXP-003) ───────────────────────────────────────────
+
+export type { CommunicationReport } from "@/lib/communication-report";
