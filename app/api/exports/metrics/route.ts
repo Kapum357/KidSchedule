@@ -7,7 +7,7 @@
 
 import { getDb } from "@/lib/persistence";
 import { getQueueLength } from "@/lib/export-queue";
-import { getWorkerMetrics } from "@/lib/export-worker";
+import { getWorkerState as getWorkerMetrics } from "@/lib/export-worker-state";
 
 /**
  * Queue Metrics Response

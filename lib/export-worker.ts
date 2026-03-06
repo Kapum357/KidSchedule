@@ -7,17 +7,18 @@
 
 import { getDb } from "@/lib/persistence";
 import { dequeueExport, getQueueLength } from "./export-queue";
+import {
+  getWorkerState,
+  setWorkerRunning,
+  incrementProcessed,
+  incrementFailed,
+} from "./export-worker-state";
 import type { ExportJobStatus, ExportJobRecord } from "@/types";
 
 // Worker configuration
 const WORKER_POLL_INTERVAL_MS = 1000; // Check queue every 1 second
 const MAX_RETRIES = 3; // Retry failed jobs up to 3 times
 const RETRY_BACKOFF_MS = 5000; // Wait 5 seconds before retrying
-
-// Worker state
-let isRunning = false;
-let processedCount = 0;
-let failedCount = 0;
 
 /**
  * Start the worker process
@@ -27,7 +28,7 @@ let failedCount = 0;
  */
 export async function startWorker(): Promise<void> {
   console.log("[Worker] Starting export queue worker...");
-  isRunning = true;
+  setWorkerRunning(true);
 
   // Handle graceful shutdown
   process.on("SIGTERM", async () => {
@@ -43,7 +44,7 @@ export async function startWorker(): Promise<void> {
   });
 
   // Main worker loop
-  while (isRunning) {
+  while (getWorkerState().isRunning) {
     try {
       const jobId = await dequeueExport();
 
@@ -62,6 +63,7 @@ export async function startWorker(): Promise<void> {
     }
 
     // Log metrics periodically
+    const { processedCount, failedCount } = getWorkerState();
     const queueLength = await getQueueLength();
     console.log(
       `[Worker] Stats - Processed: ${processedCount}, Failed: ${failedCount}, Queue: ${queueLength}`
@@ -75,7 +77,7 @@ export async function startWorker(): Promise<void> {
  * Stop the worker process
  */
 export async function stopWorker(): Promise<void> {
-  isRunning = false;
+  setWorkerRunning(false);
   console.log("[Worker] Stopping worker gracefully...");
 }
 
@@ -112,7 +114,7 @@ async function processExportJob(jobId: string): Promise<void> {
     });
 
     console.log(`[Worker] Job completed: ${jobId}`);
-    processedCount++;
+    incrementProcessed();
   } catch (error) {
     await handleJobFailure(jobId, error);
   }
@@ -155,7 +157,7 @@ async function handleJobFailure(jobId: string, error: unknown): Promise<void> {
       // No more retries: mark as failed
       await updateJobStatus(jobId, "failed", errorMessage);
       console.log(`[Worker] Job failed permanently: ${jobId}`);
-      failedCount++;
+      incrementFailed();
     }
   } catch (updateError) {
     console.error(`[Worker] Failed to handle job failure for ${jobId}:`, updateError);
@@ -190,13 +192,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Get worker metrics
- */
-export function getWorkerMetrics() {
-  return {
-    isRunning,
-    processedCount,
-    failedCount,
-  };
-}
+// Re-export metrics from the lightweight state module
+// This allows the metrics API route to import only this module
+// without pulling in pdfkit transitively
+export { getWorkerState as getWorkerMetrics } from "./export-worker-state";
