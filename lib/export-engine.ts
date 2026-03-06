@@ -1,3 +1,5 @@
+"use server";
+
 /**
  * Export Engine
  *
@@ -7,6 +9,9 @@
 
 import type { ExportJobRecord, ExportResult, ExportType } from "@/types";
 import { getDb } from "@/lib/persistence";
+import { generateCustodyCompliancePdf } from "@/lib/pdf-generator";
+import type { HashedMessage, PdfGeneratorConfig } from "@/lib/pdf-generator";
+import { CustodyComplianceEngine } from "@/lib/custody-compliance-engine";
 
 /**
  * Generate an export file based on job type
@@ -33,6 +38,10 @@ function selectGenerator(type: ExportType) {
       return generateMessagesCsv;
     case "moments-archive":
       return generateMomentsArchive;
+    case "custody-compliance-pdf":
+      return generateCustodyCompliancePdfExport;
+    case "message-transcript-pdf":
+      return generateMessageTranscriptPdfExport;
     default:
       throw new Error(`Unknown export type: ${type}`);
   }
@@ -142,6 +151,224 @@ async function generateMomentsArchive(job: ExportJobRecord): Promise<ExportResul
     resultUrl: `https://storage.example.com/exports/${job.id}/moments.zip`,
     mimeType: "application/zip",
     sizeBytes: 1024 * 500, // 500KB placeholder
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Generate a court-ready custody compliance PDF with hash chain verification
+ */
+async function generateCustodyCompliancePdfExport(job: ExportJobRecord): Promise<ExportResult> {
+  const db = getDb();
+  const params = job.params as { startDate?: string; endDate?: string };
+
+  if (!params.startDate || !params.endDate) {
+    throw new Error("Custody compliance PDF export requires startDate and endDate parameters");
+  }
+
+  // Generate compliance report
+  const engine = new CustodyComplianceEngine();
+  const report = await engine.generateComplianceReport(
+    job.familyId,
+    params.startDate,
+    params.endDate
+  );
+
+  // Fetch message hash chain data for the period
+  const threads = await db.messageThreads.findByFamilyId(job.familyId);
+  const allMessages = threads.length > 0
+    ? (await Promise.all(threads.map((t) => db.messages.findByThreadId(t.id)))).flat()
+    : [];
+
+  // Filter messages within the custody period and convert to HashedMessage format
+  const hashedMessages: HashedMessage[] = allMessages
+    .filter((m) => {
+      const msgTime = new Date(m.sentAt).getTime();
+      const startTime = new Date(params.startDate!).getTime();
+      const endTime = new Date(params.endDate!).getTime();
+      return msgTime >= startTime && msgTime <= endTime;
+    })
+    .map((m, idx) => ({
+      index: idx,
+      messageHash: m.messageHash,
+      previousHash: m.previousHash || "",
+      senderId: m.senderId,
+      senderName: report.parents.find((p) => p.id === m.senderId)?.name || "Unknown",
+      body: m.body,
+      sentAt: m.sentAt,
+    }));
+
+  // Generate PDF with embedded hash chain
+  const config: PdfGeneratorConfig = {
+    title: "Custody Compliance Report",
+    author: "KidSchedule",
+    createdAt: new Date().toISOString(),
+    familyId: job.familyId,
+    documentType: "custody-compliance",
+  };
+
+  const pdfResult = await generateCustodyCompliancePdf(report, hashedMessages, config);
+
+  // Store export metadata and message hashes
+  const exportMetadata = await db.exportMetadata.create({
+    exportId: job.id,
+    familyId: job.familyId,
+    reportType: "custody-compliance",
+    includedMessageIds: hashedMessages.map((m, idx) =>
+      allMessages[idx]?.id || ""
+    ).filter(Boolean),
+    custodyPeriodStart: params.startDate,
+    custodyPeriodEnd: params.endDate,
+    pdfHash: pdfResult.hash,
+    pdfSizeBytes: pdfResult.sizeBytes,
+  });
+
+  // Store individual message hashes for verification
+  const messageHashes = await db.exportMessageHashes.createBatch(
+    hashedMessages.map((m, idx) => ({
+      exportMetadataId: exportMetadata.id,
+      messageId: allMessages[idx]?.id || "",
+      chainIndex: m.index,
+      messageHash: m.messageHash,
+      previousHash: m.previousHash,
+      sentAt: m.sentAt,
+      senderId: m.senderId,
+      messagePreview: m.body.substring(0, 100),
+    }))
+  );
+
+  console.log(
+    "[ExportEngine] Custody compliance PDF generated:",
+    pdfResult.sizeBytes,
+    "bytes,",
+    messageHashes.length,
+    "messages verified"
+  );
+
+  return {
+    resultUrl: `https://storage.example.com/exports/${job.id}/custody-compliance.pdf`,
+    mimeType: "application/pdf",
+    sizeBytes: pdfResult.sizeBytes,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Generate a message transcript PDF with hash chain verification
+ */
+async function generateMessageTranscriptPdfExport(job: ExportJobRecord): Promise<ExportResult> {
+  const db = getDb();
+  const params = job.params as { startDate?: string; endDate?: string };
+
+  if (!params.startDate || !params.endDate) {
+    throw new Error("Message transcript PDF export requires startDate and endDate parameters");
+  }
+
+  // Fetch messages for the period
+  const threads = await db.messageThreads.findByFamilyId(job.familyId);
+  const allMessages = threads.length > 0
+    ? (await Promise.all(threads.map((t) => db.messages.findByThreadId(t.id)))).flat()
+    : [];
+
+  // Filter by date range
+  const messages = allMessages.filter((m) => {
+    const msgTime = new Date(m.sentAt).getTime();
+    const startTime = new Date(params.startDate!).getTime();
+    const endTime = new Date(params.endDate!).getTime();
+    return msgTime >= startTime && msgTime <= endTime;
+  });
+
+  // Get parent names for the family
+  const parents = await db.parents.findByFamilyId(job.familyId);
+  const parentMap = new Map(parents.map((p) => [p.id, p.name]));
+
+  // Convert messages to HashedMessage format
+  const hashedMessages: HashedMessage[] = messages.map((m, idx) => ({
+    index: idx,
+    messageHash: m.messageHash,
+    previousHash: m.previousHash || "",
+    senderId: m.senderId,
+    senderName: parentMap.get(m.senderId) || "Unknown",
+    body: m.body,
+    sentAt: m.sentAt,
+  }));
+
+  // Generate a mock compliance report for the PDF template
+  const mockReport = {
+    familyId: job.familyId,
+    reportPeriod: {
+      startDate: params.startDate,
+      endDate: params.endDate,
+    },
+    parents: parents.map((p) => ({
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      phone: p.phone,
+      avatarUrl: p.avatarUrl,
+    })),
+    summary: {
+      totalScheduledTime: 0,
+      totalActualTime: 0,
+      compliancePercentage: 100,
+      totalDeviations: 0,
+      totalOverrides: 0,
+    },
+    periods: [],
+    overrides: [],
+    changeRequests: [],
+    generatedAt: new Date().toISOString(),
+  };
+
+  // Generate PDF
+  const config: PdfGeneratorConfig = {
+    title: "Message Transcript",
+    author: "KidSchedule",
+    createdAt: new Date().toISOString(),
+    familyId: job.familyId,
+    documentType: "message-transcript",
+  };
+
+  const pdfResult = await generateCustodyCompliancePdf(mockReport, hashedMessages, config);
+
+  // Store export metadata
+  const exportMetadata = await db.exportMetadata.create({
+    exportId: job.id,
+    familyId: job.familyId,
+    reportType: "message-transcript",
+    includedMessageIds: messages.map((m) => m.id),
+    custodyPeriodStart: params.startDate,
+    custodyPeriodEnd: params.endDate,
+    pdfHash: pdfResult.hash,
+    pdfSizeBytes: pdfResult.sizeBytes,
+  });
+
+  // Store message hashes
+  await db.exportMessageHashes.createBatch(
+    hashedMessages.map((m, idx) => ({
+      exportMetadataId: exportMetadata.id,
+      messageId: messages[idx].id,
+      chainIndex: m.index,
+      messageHash: m.messageHash,
+      previousHash: m.previousHash,
+      sentAt: m.sentAt,
+      senderId: m.senderId,
+      messagePreview: m.body.substring(0, 100),
+    }))
+  );
+
+  console.log(
+    "[ExportEngine] Message transcript PDF generated:",
+    pdfResult.sizeBytes,
+    "bytes,",
+    hashedMessages.length,
+    "messages"
+  );
+
+  return {
+    resultUrl: `https://storage.example.com/exports/${job.id}/message-transcript.pdf`,
+    mimeType: "application/pdf",
+    sizeBytes: pdfResult.sizeBytes,
     generatedAt: new Date().toISOString(),
   };
 }

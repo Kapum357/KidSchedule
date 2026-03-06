@@ -1,3 +1,5 @@
+"use server";
+
 /**
  * PDF Generator
  *

@@ -918,7 +918,13 @@ export type ExportJobStatus = "queued" | "processing" | "complete" | "failed";
 /**
  * Supported export types
  */
-export type ExportType = "schedule-pdf" | "invoices-pdf" | "messages-csv" | "moments-archive";
+export type ExportType =
+  | "schedule-pdf"
+  | "invoices-pdf"
+  | "messages-csv"
+  | "moments-archive"
+  | "custody-compliance-pdf"
+  | "message-transcript-pdf";
 
 /**
  * Parameters for export requests (varies by export type)

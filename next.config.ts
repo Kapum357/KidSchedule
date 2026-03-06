@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Exclude pdfkit and its dependencies from being bundled
+  // These are server-only modules that must not be included in the client bundle
+  experimental: {
+    serverComponentsExternalPackages: ["pdfkit", "fontkit", "pdf-lib"],
+  },
+
   images: {
     loader: "default",
     formats: ["image/avif", "image/webp"],
