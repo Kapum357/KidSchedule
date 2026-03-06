@@ -358,6 +358,16 @@ export interface DbHashChainVerification {
   verificationReport?: Record<string, unknown>;
 }
 
+export interface DbSmsRelayParticipant {
+  id: string;
+  familyId: string;
+  parentId: string;
+  phone: string; // E.164 format (e.g., +14155552671)
+  proxyNumber: string; // From pool (e.g., +14155552671)
+  isActive: boolean;
+  enrolledAt: string;
+}
+
 // ─── Moment Entities ──────────────────────────────────────────────────────────
 
 export interface DbMoment {

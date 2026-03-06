@@ -36,6 +36,7 @@ import type {
   DbMessageThread,
   DbMessage,
   DbHashChainVerification,
+  DbSmsRelayParticipant,
   DbMoment,
   DbMomentReaction,
   DbScheduledNotification,
@@ -335,6 +336,22 @@ export interface HashChainVerificationRepository {
   findLatestByThreadId(threadId: string): Promise<DbHashChainVerification | null>;
 }
 
+// ─── SMS Relay Participant Repository ──────────────────────────────────────────
+
+export interface SmsRelayParticipantRepository {
+  findByParentId(parentId: string): Promise<DbSmsRelayParticipant | null>;
+  findByFamilyId(familyId: string): Promise<DbSmsRelayParticipant[]>;
+  findByProxyNumber(proxyNumber: string): Promise<DbSmsRelayParticipant | null>;
+  findByPhoneAndFamily(phone: string, familyId: string): Promise<DbSmsRelayParticipant | null>;
+  create(data: {
+    familyId: string;
+    parentId: string;
+    phone: string;
+    proxyNumber: string;
+  }): Promise<DbSmsRelayParticipant>;
+  deactivate(parentId: string): Promise<void>;
+}
+
 // ─── Moment Repository ────────────────────────────────────────────────────────
 
 export interface MomentRepository {
@@ -408,6 +425,7 @@ export interface UnitOfWork {
   messageThreads: MessageThreadRepository;
   messages: MessageRepository;
   hashChainVerifications: HashChainVerificationRepository;
+  smsRelayParticipants: SmsRelayParticipantRepository;
   moments: MomentRepository;
   momentReactions: MomentReactionRepository;
   scheduledNotifications: ScheduledNotificationRepository;

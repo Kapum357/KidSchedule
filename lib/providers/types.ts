@@ -129,15 +129,22 @@ export const SMS_TEMPLATES = {
   PHONE_VERIFICATION_SUCCESS: "phone-verification-success",
   CUSTODY_TRANSITION_ALERT: "custody-transition-alert",
   URGENT_MESSAGE: "urgent-message",
+  RELAY_MESSAGE: "relay-message",
 } as const;
 
 export type SmsTemplateId = (typeof SMS_TEMPLATES)[keyof typeof SMS_TEMPLATES];
+
+export interface RelayMessageVariables {
+  senderName: string;
+  messageText: string;
+}
 
 export interface SmsVariablesMap {
   [SMS_TEMPLATES.OTP_VERIFICATION]: OtpSmsVariables;
   [SMS_TEMPLATES.PHONE_VERIFICATION_SUCCESS]: PhoneVerificationSuccessVariables;
   [SMS_TEMPLATES.CUSTODY_TRANSITION_ALERT]: Record<string, string>;
   [SMS_TEMPLATES.URGENT_MESSAGE]: Record<string, string>;
+  [SMS_TEMPLATES.RELAY_MESSAGE]: RelayMessageVariables;
 }
 
 // ─── Template Variable Schemas ───────────────────────────────────────────────

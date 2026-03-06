@@ -10,6 +10,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyTwilioWebhookSignature } from "@/lib/providers/sms/twilio-webhook";
 import { logEvent } from "@/lib/observability/logger";
+import { getDb } from "@/lib/persistence";
+import { emitNewMessage } from "@/lib/socket-server";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -146,6 +148,123 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       fromMasked: maskPhone(payload.From),
       bodyLength: payload.Body.length,
     });
+
+    // ─── SMS Relay Message Handling ───────────────────────────────────────────
+
+    // 1. Find family by proxy number (To: field is the proxy number SMS was sent to)
+    const db = getDb();
+    const relayParticipant = await db.smsRelayParticipants.findByProxyNumber(payload.To);
+
+    if (!relayParticipant) {
+      // SMS sent to proxy number but no relay participant found
+      logEvent("warn", "SMS to unknown proxy number", {
+        proxyNumber: payload.To,
+      });
+      return new NextResponse(
+        generateTwiMLResponse("This number is not enrolled in KidSchedule SMS relay."),
+        { status: 200, headers: { "Content-Type": "text/xml" } }
+      );
+    }
+
+    // 2. Find sender by phone number and family
+    const senderParticipant = await db.smsRelayParticipants.findByPhoneAndFamily(
+      payload.From,
+      relayParticipant.familyId
+    );
+
+    if (!senderParticipant) {
+      // SMS from phone not enrolled in this family
+      logEvent("warn", "SMS from non-enrolled phone", {
+        phone: maskPhone(payload.From),
+        familyId: relayParticipant.familyId,
+      });
+      return new NextResponse(
+        generateTwiMLResponse("Your phone number is not enrolled in this family's relay."),
+        { status: 200, headers: { "Content-Type": "text/xml" } }
+      );
+    }
+
+    // 3. Handle opt-out/help for relay messages (check before processing)
+    if (isOptOutRequest(payload.Body)) {
+      // Deactivate SMS relay for this participant
+      await db.smsRelayParticipants.deactivate(senderParticipant.parentId);
+      logEvent("info", "SMS relay opt-out", {
+        parentId: senderParticipant.parentId,
+        familyId: relayParticipant.familyId,
+      });
+      return new NextResponse(generateTwiMLResponse(getOptOutResponse()), {
+        status: 200,
+        headers: { "Content-Type": "text/xml" },
+      });
+    }
+
+    if (isHelpRequest(payload.Body)) {
+      return new NextResponse(generateTwiMLResponse(getHelpResponse()), {
+        status: 200,
+        headers: { "Content-Type": "text/xml" },
+      });
+    }
+
+    // 4. Get or create message thread for family
+    const threads = await db.messageThreads.findByFamilyId(relayParticipant.familyId);
+    let threadId = threads[0]?.id;
+
+    if (!threadId) {
+      const createdThread = await db.messageThreads.create({
+        familyId: relayParticipant.familyId,
+        subject: "Family Messages",
+      });
+      threadId = createdThread.id ?? `thread_${crypto.randomUUID()}`;
+    }
+
+    // 5. Get parent record for sender
+    const senderParent = await db.parents.findById(senderParticipant.parentId);
+    if (!senderParent) {
+      logEvent("error", "Parent record not found for SMS relay message", {
+        parentId: senderParticipant.parentId,
+      });
+      return new NextResponse(generateTwiMLResponse(), {
+        status: 200,
+        headers: { "Content-Type": "text/xml" },
+      });
+    }
+
+    // 6. Create message from SMS content
+    const sentAt = new Date().toISOString();
+    const createdMessage = await db.messages.create({
+      threadId,
+      familyId: relayParticipant.familyId,
+      senderId: senderParent.id,
+      body: payload.Body,
+      sentAt,
+      readAt: undefined,
+      attachmentIds: [],
+      toneAnalysis: {
+        isHostile: false,
+        indicators: [],
+      },
+      messageHash: "",
+      chainIndex: 0,
+    });
+
+    // 7. Emit real-time socket event to connected family members
+    emitNewMessage(relayParticipant.familyId, {
+      id: createdMessage.id,
+      familyId: createdMessage.familyId,
+      senderId: createdMessage.senderId,
+      body: createdMessage.body,
+      sentAt: createdMessage.sentAt,
+      readAt: createdMessage.readAt,
+      attachmentIds: createdMessage.attachmentIds,
+    });
+
+    logEvent("info", "SMS relay message created", {
+      messageId: createdMessage.id,
+      familyId: relayParticipant.familyId,
+      senderParentId: senderParent.id,
+    });
+
+    // ─── End SMS Relay Handling ──────────────────────────────────────────────
 
     // Handle opt-out requests
     if (isOptOutRequest(payload.Body)) {

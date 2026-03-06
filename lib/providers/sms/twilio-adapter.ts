@@ -25,6 +25,7 @@ const SMS_TEMPLATES: Record<string, string> = {
   "phone-verification-success": "Your phone number ({{phone}}) has been verified for KidSchedule.",
   "custody-transition-alert": "Reminder: Custody transition to {{toParent}} at {{time}} today.",
   "urgent-message": "KidSchedule: You have an urgent message from {{fromParent}}. Open the app to view.",
+  "relay-message": "[KidSchedule] {{senderName}}: {{messageText}}",
 };
 
 export class TwilioAdapter implements SmsSender {
