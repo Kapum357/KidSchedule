@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib";
 import { db } from "@/lib/persistence";
 import { analyzeMessageTone } from "@/lib/providers/ai";
+import { emitNewMessage } from "@/lib/socket-server";
+import { getSmsSender } from "@/lib/providers/sms";
 
 export async function sendMessage(formData: FormData): Promise<void> {
   const user = await requireAuth();
@@ -61,7 +63,7 @@ export async function sendMessage(formData: FormData): Promise<void> {
 
   // Hash chain fields (messageHash, previousHash, chainIndex) are computed
   // and stored by the repository; placeholder values are passed here.
-  await db.messages.create({
+  const createdMessage = await db.messages.create({
     threadId,
     familyId: activeParent.familyId,
     senderId: activeParent.id,
@@ -76,6 +78,42 @@ export async function sendMessage(formData: FormData): Promise<void> {
     messageHash: "",
     chainIndex: 0,
   });
+
+  // Emit real-time socket event for in-app delivery
+  emitNewMessage(activeParent.familyId, {
+    id: createdMessage.id,
+    familyId: createdMessage.familyId,
+    senderId: createdMessage.senderId,
+    body: createdMessage.body,
+    sentAt: createdMessage.sentAt,
+    readAt: createdMessage.readAt,
+    attachmentIds: createdMessage.attachmentIds,
+  });
+
+  // SMS relay: send SMS to enrolled family members
+  const relayParticipants = await db.smsRelayParticipants.findByFamilyId(activeParent.familyId);
+  if (relayParticipants.length > 0) {
+    const sms = getSmsSender();
+    const recipients = relayParticipants.filter(p => p.parentId !== activeParent.id && p.isActive);
+
+    for (const recipient of recipients) {
+      try {
+        await sms.send({
+          to: recipient.phone,
+          from: recipient.proxyNumber,
+          templateId: "relay-message",
+          variables: {
+            senderName: activeParent.name,
+            messageText,
+          },
+          familyId: activeParent.familyId,
+        });
+      } catch (error) {
+        // Log SMS send failure but don't block message delivery
+        console.error(`Failed to send SMS to ${recipient.phone}:`, error);
+      }
+    }
+  }
 
   const params = new URLSearchParams();
   params.set("success", "1");
