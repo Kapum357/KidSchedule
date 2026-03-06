@@ -567,6 +567,19 @@ export async function processStripeWebhookEvent(event: Stripe.Event): Promise<{
       await upsertInvoiceFromStripe(event.data.object as Stripe.Invoice);
     }
 
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object as Stripe.Invoice;
+      await upsertInvoiceFromStripe(invoice);
+
+      // Mark the subscription as past_due when payment fails
+      const subscriptionId = ((invoice as unknown) as Record<string, unknown>).subscription;
+      if (typeof subscriptionId === "string") {
+        const stripe = getStripeClient();
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        await upsertSubscriptionFromStripe(subscription);
+      }
+    }
+
     await markWebhookProcessed(event.id);
     return { processed: true, duplicate: false };
   } catch (error) {

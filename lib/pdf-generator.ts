@@ -24,7 +24,7 @@ export interface PdfGeneratorConfig {
   author: string;
   createdAt: string;
   familyId: string;
-  documentType: "custody-compliance" | "message-transcript";
+  documentType: "custody-compliance" | "message-transcript" | "schedule";
 }
 
 export interface PdfGenerationResult {
@@ -103,7 +103,8 @@ function addTitlePage(doc: InstanceType<typeof PDFDocument>, config: PdfGenerato
 
   doc.moveDown();
 
-  doc.fontSize(12).font("Helvetica").text(`Document Type: ${config.documentType}`, {
+  const label = getDocumentLabel(config.documentType);
+  doc.fontSize(12).font("Helvetica").text(`Document Type: ${label}`, {
     align: "center",
   });
 
@@ -135,7 +136,10 @@ function addSummaryPage(
   report: CustodyComplianceReport,
   config: PdfGeneratorConfig
 ): void {
-  doc.fontSize(16).font("Helvetica-Bold").text("Custody Compliance Summary");
+  doc
+    .fontSize(16)
+    .font("Helvetica-Bold")
+    .text(getSummaryHeading(config.documentType));
 
   doc.moveDown();
 
@@ -258,6 +262,28 @@ function addDocumentFooter(doc: InstanceType<typeof PDFDocument>, config: PdfGen
     doc.text(`Page ${i + 1} of ${pages}`, {
       align: "right",
     });
+  }
+}
+
+function getDocumentLabel(documentType: PdfGeneratorConfig["documentType"]): string {
+  switch (documentType) {
+    case "message-transcript":
+      return "Message Transcript";
+    case "schedule":
+      return "Schedule Overview";
+    default:
+      return "Custody Compliance";
+  }
+}
+
+function getSummaryHeading(documentType: PdfGeneratorConfig["documentType"]): string {
+  switch (documentType) {
+    case "message-transcript":
+      return "Message Transcript Summary";
+    case "schedule":
+      return "Schedule Summary";
+    default:
+      return "Custody Compliance Summary";
   }
 }
 

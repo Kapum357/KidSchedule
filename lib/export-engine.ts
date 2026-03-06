@@ -5,12 +5,16 @@
  * Supports: schedule PDFs, invoices, message CSVs, moments archives.
  */
 
-import type { ExportJobRecord, ExportResult, ExportType } from "@/types";
+import PDFDocument from "pdfkit";
+import type { ExportJobRecord, ExportResult, ExportType, ExpenseCategory } from "@/types";
 import { getDb } from "@/lib/persistence";
+import type { DbMoment } from "@/lib/persistence/types";
 import { generateCustodyCompliancePdf } from "@/lib/pdf-generator";
 import type { HashedMessage, PdfGeneratorConfig } from "@/lib/pdf-generator";
 import { CustodyComplianceEngine } from "@/lib/custody-compliance-engine";
 import { generateCommunicationReport } from "@/lib/communication-report";
+import { formatCurrency } from "@/lib/expense-engine";
+import type { Readable } from "node:stream";
 
 /**
  * Generate an export file based on job type
@@ -52,24 +56,97 @@ function selectGenerator(type: ExportType) {
  * Generate a PDF of the custody schedule
  */
 async function generateSchedulePdf(job: ExportJobRecord): Promise<ExportResult> {
-  const db = getDb();
+  const params = job.params as SchedulePdfParams;
+  const { startDate, endDate } = resolveScheduleDateRange(params);
 
-  // Fetch family and schedule data
-  const family = await db.families.findById(job.familyId);
-  if (!family) {
-    throw new Error(`Family not found: ${job.familyId}`);
-  }
+  const engine = new CustodyComplianceEngine();
+  const report = await engine.generateComplianceReport(
+    job.familyId,
+    startDate,
+    endDate
+  );
 
-  // TODO: Implement PDF generation using existing PDF generator
-  // For MVP, return a placeholder
-  console.log("[ExportEngine] Schedule PDF export requested for family:", job.familyId);
+  const config: PdfGeneratorConfig = {
+    title: "Family Schedule Overview",
+    author: "KidSchedule",
+    createdAt: new Date().toISOString(),
+    familyId: job.familyId,
+    documentType: "schedule",
+  };
+
+  const pdfResult = await generateCustodyCompliancePdf(report, [], config);
+
+  console.info(
+    "[ExportEngine] Schedule PDF generated",
+    `family=${job.familyId}`,
+    `range=${startDate}:${endDate}`,
+    `${pdfResult.sizeBytes} bytes`
+  );
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/schedule.pdf`,
     mimeType: "application/pdf",
-    sizeBytes: 1024 * 50, // 50KB placeholder
+    sizeBytes: pdfResult.sizeBytes,
     generatedAt: new Date().toISOString(),
   };
+}
+
+type SchedulePdfParams = {
+  startDate?: string;
+  endDate?: string;
+};
+
+function resolveScheduleDateRange(params: SchedulePdfParams) {
+  const parsedStart = parseIsoDate(params.startDate);
+  const parsedEnd = parseIsoDate(params.endDate);
+  const now = new Date();
+  let start: Date;
+
+  if (parsedStart) {
+    start = normalizeToDate(parsedStart);
+  } else {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+
+  const monthStart = new Date(start.getFullYear(), start.getMonth(), 1);
+  const defaultEnd = normalizeToDate(
+    new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
+  );
+
+  let endCandidate = defaultEnd;
+  if (parsedEnd) {
+    endCandidate = normalizeToDate(parsedEnd);
+  }
+
+  let end = endCandidate;
+  if (endCandidate < start) {
+    end = defaultEnd;
+  }
+
+  return {
+    startDate: formatIsoDate(start),
+    endDate: formatIsoDate(end),
+  };
+}
+
+function parseIsoDate(value?: string): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
+}
+
+function normalizeToDate(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function formatIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -77,27 +154,503 @@ async function generateSchedulePdf(job: ExportJobRecord): Promise<ExportResult> 
  */
 async function generateInvoicesPdf(job: ExportJobRecord): Promise<ExportResult> {
   const db = getDb();
+  const params = job.params as InvoicePdfParams;
+  const dateRange = resolveInvoiceDateRange(params);
 
-  // Fetch expenses for family within date range (if specified)
-  const params = job.params as { startDate?: string; endDate?: string };
-  const expenses = await db.expenses.findByFamilyId(job.familyId);
-
-  // Filter by date range if provided
-  const filtered = params.startDate
-    ? expenses.filter(
-        (e) => new Date(e.createdAt) >= new Date(params.startDate!)
+  const expenses = dateRange
+    ? await db.expenses.findByFamilyIdAndDateRange(
+        job.familyId,
+        dateRange.startDate,
+        dateRange.endDate
       )
-    : expenses;
+    : await db.expenses.findByFamilyId(job.familyId);
 
-  // TODO: Implement PDF generation for expenses/invoices
-  console.log("[ExportEngine] Invoices PDF export requested:", filtered.length, "expenses");
+  const parents = await db.parents.findByFamilyId(job.familyId);
+  const parentMap = new Map(parents.map((parent) => [parent.id, parent.name]));
+
+  const sortedExpenses = [...expenses].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  const categoryCounts: Record<ExpenseCategory, number> = {
+    medical: 0,
+    education: 0,
+    clothing: 0,
+    activity: 0,
+    childcare: 0,
+    other: 0,
+  };
+
+  const currencyTotals: Record<string, number> = {};
+
+  sortedExpenses.forEach((expense) => {
+    categoryCounts[expense.category] += 1;
+    currencyTotals[expense.currency] =
+      (currencyTotals[expense.currency] ?? 0) + expense.totalAmount;
+  });
+
+  const rangeLabel = dateRange
+    ? `${dateRange.startDate} → ${dateRange.endDate}`
+    : "All time";
+
+  const buffer = await new Promise<Buffer>((resolve, reject) => {
+    const doc = new PDFDocument({ size: "LETTER", margin: 50 });
+    const chunks: Buffer[] = [];
+
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    doc.font("Helvetica-Bold").fontSize(20).text("Invoices & Expenses Report", {
+      align: "center",
+    });
+
+    doc.moveDown(0.5);
+    doc.font("Helvetica").fontSize(10).text(`Family: ${job.familyId}`, {
+      align: "center",
+    });
+    doc.text(`Generated: ${new Date().toLocaleString()}`, {
+      align: "center",
+    });
+
+    doc.moveDown();
+    doc.font("Helvetica-Bold").fontSize(11).text("Report Details");
+    doc.font("Helvetica").fontSize(10).text(`Period: ${rangeLabel}`);
+    doc.text(`Expenses: ${sortedExpenses.length}`);
+    if (sortedExpenses.length > 0) {
+      doc.text(`Currencies: ${Object.keys(currencyTotals).join(", ")}`);
+    }
+
+    doc.moveDown(0.5);
+    doc.font("Helvetica-Bold").fontSize(11).text("Totals by Currency");
+    if (Object.keys(currencyTotals).length === 0) {
+      doc.font("Helvetica").fontSize(10).text("No expenses recorded for this period.");
+    } else {
+      Object.entries(currencyTotals)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([currency, total]) => {
+          doc.font("Helvetica").fontSize(10).text(
+            `${currency}: ${formatCurrency(total, currency)}`
+          );
+        });
+    }
+
+    doc.moveDown(0.5);
+    doc.font("Helvetica-Bold").fontSize(11).text("Category Counts");
+    const categoryEntries = Object.entries(categoryCounts).filter(([, count]) => count > 0);
+    if (categoryEntries.length === 0) {
+      doc.font("Helvetica").fontSize(10).text("No categorized expenses to display.");
+    } else {
+      categoryEntries.forEach(([category, count]) => {
+        doc.font("Helvetica").fontSize(10).text(
+          `${CATEGORY_LABELS[category as ExpenseCategory]}: ${count} ${
+            count === 1 ? "expense" : "expenses"
+          }`
+        );
+      });
+    }
+
+    doc.moveDown();
+    doc.font("Helvetica-Bold").fontSize(11).text("Detailed Expenses");
+    doc.moveDown(0.5);
+
+    if (sortedExpenses.length === 0) {
+      doc.font("Helvetica").fontSize(10).text("No expenses found for the selected period.", {
+        align: "center",
+      });
+    } else {
+      let rowY = renderTableHeader(doc, doc.y + 10);
+      sortedExpenses.forEach((expense) => {
+        rowY = ensureRowSpace(doc, rowY, TABLE_ROW_HEIGHT);
+
+        const paidByName = parentMap.get(expense.paidBy) ?? "Unknown";
+
+        doc.font("Helvetica").fontSize(9).fillColor("#1f2937");
+        doc.text(formatExpenseDate(expense.date), TABLE_COLUMNS[0].x, rowY, {
+          width: TABLE_COLUMNS[0].width,
+        });
+        doc.text(expense.title, TABLE_COLUMNS[1].x, rowY, {
+          width: TABLE_COLUMNS[1].width,
+        });
+        doc.text(CATEGORY_LABELS[expense.category], TABLE_COLUMNS[2].x, rowY, {
+          width: TABLE_COLUMNS[2].width,
+        });
+        doc.text(formatCurrency(expense.totalAmount, expense.currency), TABLE_COLUMNS[3].x, rowY, {
+          width: TABLE_COLUMNS[3].width,
+          align: "right",
+        });
+        doc.text(paidByName, TABLE_COLUMNS[4].x, rowY, {
+          width: TABLE_COLUMNS[4].width,
+        });
+        doc.text(formatPaymentStatus(expense.paymentStatus), TABLE_COLUMNS[5].x, rowY, {
+          width: TABLE_COLUMNS[5].width,
+        });
+
+        rowY += TABLE_ROW_HEIGHT;
+
+        if (expense.description) {
+          rowY = ensureRowSpace(doc, rowY, DESCRIPTION_ROW_HEIGHT);
+          doc.font("Helvetica-Oblique").fontSize(8).fillColor("#374151");
+          doc.text(
+            expense.description,
+            TABLE_COLUMNS[1].x,
+            rowY,
+            {
+              width:
+                TABLE_COLUMNS[1].width +
+                TABLE_COLUMNS[2].width +
+                TABLE_COLUMNS[3].width,
+            }
+          );
+          rowY += DESCRIPTION_ROW_HEIGHT;
+          doc.fillColor("#000000");
+        }
+      });
+    }
+
+    doc.moveDown(0.5);
+    doc.font("Helvetica").fontSize(8).text(
+      "Report generated by KidSchedule. Keep this document for your records.",
+      {
+        align: "center",
+      }
+    );
+
+    doc.end();
+  });
+
+  console.info(
+    "[ExportEngine] Invoices PDF generated:",
+    sortedExpenses.length,
+    "expenses,",
+    buffer.length,
+    "bytes"
+  );
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/invoices.pdf`,
     mimeType: "application/pdf",
-    sizeBytes: 1024 * 100, // 100KB placeholder
+    sizeBytes: buffer.length,
     generatedAt: new Date().toISOString(),
   };
+}
+
+type InvoicePdfParams = {
+  startDate?: string;
+  endDate?: string;
+};
+
+type InvoiceDateRange = {
+  startDate: string;
+  endDate: string;
+};
+
+const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  medical: "Medical & Health",
+  education: "Education & Tuition",
+  clothing: "Clothing & Necessities",
+  activity: "Activities",
+  childcare: "Childcare",
+  other: "Other",
+};
+
+type TableColumn = {
+  title: string;
+  x: number;
+  width: number;
+  align?: "left" | "center" | "right";
+};
+
+const TABLE_COLUMNS: TableColumn[] = [
+  { title: "Date", x: 50, width: 70 },
+  { title: "Title", x: 125, width: 150 },
+  { title: "Category", x: 285, width: 80 },
+  { title: "Amount", x: 370, width: 70, align: "right" },
+  { title: "Paid By", x: 450, width: 90 },
+  { title: "Status", x: 545, width: 60 },
+];
+
+const TABLE_ROW_HEIGHT = 16;
+const DESCRIPTION_ROW_HEIGHT = 12;
+const HEADER_LINE_OFFSET = 14;
+const HEADER_ROW_SPACING = 20;
+const HEADER_LEFT_EDGE = 48;
+const HEADER_RIGHT_PADDING = 2;
+const PAGE_BOTTOM_BUFFER = 40;
+const MESSAGES_CSV_PREVIEW_LENGTH = 150;
+const MOMENTS_ARCHIVE_IMAGE_FETCH_TIMEOUT = 30000;
+
+type PdfKitDocument = InstanceType<typeof PDFDocument>;
+
+type MomentsArchiveParams = {
+  startDate?: string;
+  endDate?: string;
+};
+
+function resolveInvoiceDateRange(params: InvoicePdfParams): InvoiceDateRange | null {
+  if (!params.startDate && !params.endDate) {
+    return null;
+  }
+
+  const rawStart = params.startDate ?? params.endDate;
+  const rawEnd = params.endDate ?? params.startDate;
+
+  if (!rawStart || !rawEnd) {
+    return null;
+  }
+
+  const startTime = new Date(rawStart).getTime();
+  const endTime = new Date(rawEnd).getTime();
+
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) {
+    return null;
+  }
+
+  if (startTime <= endTime) {
+    return { startDate: rawStart, endDate: rawEnd };
+  }
+
+  return { startDate: rawEnd, endDate: rawStart };
+}
+
+function renderTableHeader(doc: PdfKitDocument, y: number): number {
+  doc.save();
+  doc.font("Helvetica-Bold").fontSize(10).fillColor("#111827");
+  TABLE_COLUMNS.forEach((column) => {
+    doc.text(column.title, column.x, y, {
+      width: column.width,
+      align: column.align ?? "left",
+    });
+  });
+
+  const lineY = y + HEADER_LINE_OFFSET;
+  doc.strokeColor("#d1d5db").lineWidth(0.5).moveTo(HEADER_LEFT_EDGE, lineY).lineTo(
+    doc.page.width - doc.page.margins.right + HEADER_RIGHT_PADDING,
+    lineY,
+  ).stroke();
+  doc.restore();
+
+  return y + HEADER_ROW_SPACING;
+}
+
+function ensureRowSpace(doc: PdfKitDocument, currentY: number, requiredHeight: number): number {
+  const bottomLimit = doc.page.height - doc.page.margins.bottom - PAGE_BOTTOM_BUFFER;
+  if (currentY + requiredHeight > bottomLimit) {
+    doc.addPage();
+    return renderTableHeader(doc, doc.y + 10);
+  }
+
+  return currentY;
+}
+
+function formatExpenseDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatPaymentStatus(status: string): string {
+  switch (status) {
+    case "paid":
+      return "Paid";
+    case "unpaid":
+      return "Unpaid";
+    case "disputed":
+      return "Disputed";
+    default:
+      return status;
+  }
+}
+
+function escapeAndQuoteCsv(fields: string[]): string {
+  return fields
+    .map((field) => {
+      const escaped = field.replace(/"/g, '""');
+      return `"${escaped}"`;
+    })
+    .join(",");
+}
+
+function filterMomentsByDateRange<T extends { createdAt: string }>(
+  moments: T[],
+  params: MomentsArchiveParams,
+): T[] {
+  let startTime: number | null = null;
+  let endTime: number | null = null;
+
+  if (params.startDate) {
+    startTime = new Date(params.startDate).getTime();
+  }
+
+  if (params.endDate) {
+    endTime = new Date(params.endDate).getTime();
+  }
+
+  return moments.filter((moment) => {
+    const momentTime = new Date(moment.createdAt).getTime();
+
+    if (startTime && momentTime < startTime) {
+      return false;
+    }
+
+    if (endTime && momentTime > endTime) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+async function buildMomentsArchive(
+  moments: DbMoment[],
+  exportId: string,
+  familyId: string,
+): Promise<Buffer> {
+  const { default: archiver } = await import("archiver");
+
+  const buffer = await new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const archive = archiver("zip", { zlib: { level: 6 } });
+
+    archive.on("data", (chunk) => chunks.push(chunk));
+    archive.on("end", () => resolve(Buffer.concat(chunks)));
+    archive.on("error", reject);
+
+    (async () => {
+      try {
+        const metadataRows: string[] = [
+          escapeAndQuoteCsv(["Moment ID", "Title", "Description", "Created At", "Reaction Count", "Image Filename"]),
+        ];
+
+        let imageCounter = 0;
+
+        for (const moment of moments) {
+          const createdDate = new Date(moment.createdAt);
+          const isoDate = createdDate.toISOString().split("T")[0] ?? "unknown-date";
+          const momentTitle = moment.caption ?? "(Untitled)";
+          const momentDescription = "";
+
+          let imageFilename = "";
+
+          if (moment.mediaUrl && moment.mediaType === "photo") {
+            imageCounter += 1;
+            const ext = getImageExtensionFromUrl(moment.mediaUrl);
+            imageFilename = `${isoDate}-moment-${imageCounter}.${ext}`;
+
+            try {
+              const imageBuffer = await downloadImageWithTimeout(moment.mediaUrl);
+              archive.append(imageBuffer, { name: `images/${imageFilename}` });
+            } catch (error) {
+              console.info(
+                "[ExportEngine] Warning: Failed to download image for moment",
+                moment.id,
+                error instanceof Error ? error.message : String(error),
+              );
+            }
+          }
+
+          metadataRows.push(
+            escapeAndQuoteCsv([
+              moment.id,
+              momentTitle,
+              momentDescription,
+              createdDate.toLocaleString("en-US"),
+              "0",
+              imageFilename,
+            ]),
+          );
+        }
+
+        const metadataCsv = metadataRows.join("\n");
+        archive.append(metadataCsv, { name: "moments.csv" });
+
+        const summaryText = buildMomentsArchiveSummary(moments, imageCounter);
+        archive.append(summaryText, { name: "README.txt" });
+
+        await archive.finalize();
+      } catch (error) {
+        archive.destroy();
+        reject(error);
+      }
+    })();
+  });
+
+  return buffer;
+}
+
+function getImageExtensionFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const match = pathname.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i);
+    return match ? match[1].toLowerCase() : "jpg";
+  } catch {
+    return "jpg";
+  }
+}
+
+async function downloadImageWithTimeout(url: string, timeoutMs: number = MOMENTS_ARCHIVE_IMAGE_FETCH_TIMEOUT): Promise<Buffer> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+function buildMomentsArchiveSummary(moments: DbMoment[], imageCount: number): string {
+  const momentCount = moments.length;
+  let dateRange = "N/A";
+
+  if (momentCount > 0) {
+    const firstDate = new Date(moments[0].createdAt).toLocaleDateString("en-US");
+    const lastDate = new Date(moments[momentCount - 1].createdAt).toLocaleDateString("en-US");
+    dateRange = `${firstDate} to ${lastDate}`;
+  }
+
+  const lines: string[] = [
+    "KidSchedule Moments Archive",
+    "============================",
+    "",
+    `Generated: ${new Date().toLocaleString("en-US")}`,
+    "",
+    "Archive Contents:",
+    "-----------------",
+    `Total Moments: ${momentCount}`,
+    `Images Included: ${imageCount}`,
+    `Date Range: ${dateRange}`,
+    "",
+    "Files:",
+    "------",
+    "- README.txt: This file",
+    "- moments.csv: Metadata for all moments",
+    "- images/: Folder containing all photos",
+    "",
+    "Notes:",
+    "------",
+    "- Photos are organized by creation date",
+    "- Not all moments may have images attached",
+    "- Use moments.csv to link metadata to image filenames",
+  ];
+
+  return lines.join("\n");
 }
 
 /**
@@ -108,25 +661,59 @@ async function generateMessagesCsv(job: ExportJobRecord): Promise<ExportResult> 
 
   // Fetch all messages for family
   const threads = await db.messageThreads.findByFamilyId(job.familyId);
-  const messages = threads.length > 0
-    ? (await Promise.all(
-        threads.map((t) => db.messages.findByThreadId(t.id))
-      )).flat()
-    : [];
+  const parents = await db.parents.findByFamilyId(job.familyId);
+  const parentMap = new Map(parents.map((p) => [p.id, p.name]));
 
-  // TODO: Implement CSV generation from messages
-  console.log("[ExportEngine] Messages CSV export requested:", messages.length, "messages");
+  const csvRows: string[] = [
+    escapeAndQuoteCsv(["Thread", "Date", "Time", "Sender", "Status", "Message Preview", "Attachments", "Read At"]),
+  ];
 
-  // Generate simple CSV header
-  const csvContent = [
-    "Date,Sender,Message",
-    ...messages.map(
-      (m) =>
-        `"${m.sentAt}","Parent","${m.body.replace(/"/g, '""')}"`
-    ),
-  ].join("\n");
+  let totalMessages = 0;
 
+  for (const thread of threads) {
+    const threadMessages = await db.messages.findByThreadId(thread.id);
+    const threadSubject = thread.subject ?? "(No Subject)";
+
+    for (const message of threadMessages) {
+      totalMessages += 1;
+      const senderName = parentMap.get(message.senderId) ?? "Unknown";
+      const sentDate = new Date(message.sentAt);
+      const dateStr = sentDate.toLocaleDateString("en-US");
+      const timeStr = sentDate.toLocaleTimeString("en-US");
+      const readStatus = message.readAt ? "Read" : "Unread";
+      const readAtStr = message.readAt ? new Date(message.readAt).toLocaleString("en-US") : "";
+      const messagePreview = message.body.substring(0, MESSAGES_CSV_PREVIEW_LENGTH).replace(/\n/g, " ");
+      const attachmentCount = message.attachmentIds.length;
+
+      csvRows.push(
+        escapeAndQuoteCsv([
+          threadSubject,
+          dateStr,
+          timeStr,
+          senderName,
+          readStatus,
+          messagePreview,
+          attachmentCount.toString(),
+          readAtStr,
+        ]),
+      );
+    }
+  }
+
+  const csvContent = csvRows.join("\n");
   const csvBuffer = Buffer.from(csvContent, "utf-8");
+
+  const messageLabel = totalMessages === 1 ? "message" : "messages";
+  const threadLabel = threads.length === 1 ? "thread" : "threads";
+
+  console.info(
+    "[ExportEngine] Messages CSV generated:",
+    totalMessages,
+    messageLabel,
+    "from",
+    threads.length,
+    threadLabel,
+  );
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/messages.csv`,
@@ -141,17 +728,29 @@ async function generateMessagesCsv(job: ExportJobRecord): Promise<ExportResult> 
  */
 async function generateMomentsArchive(job: ExportJobRecord): Promise<ExportResult> {
   const db = getDb();
+  const params = job.params as MomentsArchiveParams;
 
-  // Fetch all moments for family
-  const moments = await db.moments.findByFamilyId(job.familyId);
+  // Fetch all moments for family, optionally filtered by date range
+  let moments = await db.moments.findByFamilyId(job.familyId);
 
-  // TODO: Implement archive generation (download photos, create ZIP)
-  console.log("[ExportEngine] Moments archive export requested:", moments.length, "moments");
+  if (params.startDate || params.endDate) {
+    moments = filterMomentsByDateRange(moments, params);
+  }
+
+  const buffer = await buildMomentsArchive(moments, job.id, job.familyId);
+
+  console.info(
+    "[ExportEngine] Moments archive generated:",
+    moments.length,
+    moments.length === 1 ? "moment" : "moments",
+    buffer.length,
+    "bytes",
+  );
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/moments.zip`,
     mimeType: "application/zip",
-    sizeBytes: 1024 * 500, // 500KB placeholder
+    sizeBytes: buffer.length,
     generatedAt: new Date().toISOString(),
   };
 }

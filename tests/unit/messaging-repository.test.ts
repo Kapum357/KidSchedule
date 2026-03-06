@@ -275,25 +275,10 @@ describe("MessageRepository", () => {
   });
 
   describe("immutability guard", () => {
-    // TODO: Implement this test.
-    //
-    // The repository's update() method must throw to preserve hash chain
-    // integrity. Once a message is stored with its hash, any content change
-    // would invalidate every subsequent hash in the chain.
-    //
-    // What to implement (5-10 lines):
-    //   Call repo.update('msg-1', { body: 'tampered content' }) and assert
-    //   that it rejects with an error message containing the word "immutable"
-    //   or "cannot be updated".
-    //
-    // Trade-off to consider: should the error be a TypeError, a custom
-    // domain error, or a plain Error? The current implementation throws a
-    // plain Error. You may also want to assert that sqlMock was NOT called,
-    // proving no DB round-trip happens before the guard fires.
     it("throws when attempting to update a message body", async () => {
       await expect(
-        repo.update("msg-1", { body: "tampered content" })
-      ).rejects.toThrow();
+        repo.update("msg-1", { body: "tampered content" }),
+      ).rejects.toThrow(/immutable|cannot be updated/i);
 
       // No database call should be made — guard fires before any SQL
       expect(sqlMock).not.toHaveBeenCalled();

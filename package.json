@@ -12,9 +12,11 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.1.0",
+    "@types/archiver": "^7.0.0",
     "@types/bcrypt": "^6.0.0",
     "@upstash/redis": "^1.36.3",
     "apple-signin-auth": "^2.0.0",
+    "archiver": "^7.0.1",
     "bcrypt": "^6.0.0",
     "cheerio": "^1.2.0",
     "dotenv": "^17.3.1",
