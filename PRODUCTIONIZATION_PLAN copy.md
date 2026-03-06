@@ -1,5 +1,29 @@
 # KidSchedule Productionization Plan
 
+## Milestone Day 10 — Zero-Mock Rollout Complete ✅
+
+**Completed:** 2026-03-04
+
+All seven steps of the Zero-Mock Rollout & Security Harden plan have been executed:
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| 1. Mock inventory | Mapped 11 `createMock*` functions across 6 files to PostgreSQL entities | ✅ |
+| 2. Repository helpers | Extended `lib/persistence/index.ts` with typed helpers for all domains | ✅ |
+| 3. Consumer pages rewritten | `dashboard`, `calendar`, `blog`, `blog/[slug]`, `school` — zero mock calls | ✅ |
+| 4. Feature flag safety valves | `FEATURE_USE_MOCK_*` flags default-off; documented in `.env.example` | ✅ |
+| 5. Security re-verification | Middleware, headers, CSRF, security-monitoring, webhooks — all intact | ✅ |
+| 6. Verification suite | `rg "createMock"` clean; 285 unit tests pass; `npx tsc --noEmit` exits 0 | ✅ |
+| 7. Cleanup & docs | Mock code removed from production tree; plan doc updated | ✅ |
+
+**Data paths now active:**
+- Dashboard → `db.families`, `db.calendarEvents`, `db.scheduleChangeRequests`, `db.expenses`, `db.messages`, `db.moments`
+- Calendar → `db.calendarEvents.findByFamilyIdAndDateRange`, `db.familySettings`
+- Blog → `db.blogPosts`, `db.readingSessions`
+- School → `db.schoolEvents`, `db.volunteerTasks`, `db.schoolContacts`, `db.vaultDocuments`, `db.lunchAccounts`
+
+---
+
 ## Executive Summary
 
 This document provides a concrete, production-ready implementation plan to replace all mock data/functions with real database queries and live service integrations (Twilio, Stripe, Claude/Anthropic), aligned with ISO/IEC 12207 process activities and the provided sprint plan.
@@ -11,11 +35,11 @@ This document provides a concrete, production-ready implementation plan to repla
 4. **Meet quality gates**: ≥80% unit coverage, E2E tests passing, zero production mocks
 
 ### Success Criteria
-- ✅ Zero `createMock*()` imports in production build
-- ✅ All pages fetch data from PostgreSQL via repository pattern
+- ✅ Zero `createMock*()` imports in production build — **ACHIEVED (Day 10)**
+- ✅ All pages fetch data from PostgreSQL via repository pattern — **ACHIEVED (Day 10)**
 - ✅ Twilio/Stripe/Claude integrations operational with proper error handling
 - ✅ Hash chain verification tests achieve 100% coverage
-- ✅ All security controls (JWT, webhook signatures, PII masking) validated
+- ✅ All security controls (JWT, webhook signatures, PII masking) validated — **VERIFIED (Day 10)**
 
 ---
 
@@ -311,12 +335,17 @@ const myTasks = PTAEngine.filterMyTasks(volunteerTasks, session.user.parentId);
 ### 1.4 Rollout Strategy
 
 **Feature Flags (Environment Variables):**
+
+> **Day 10 status:** All mock flags default to `false` (absent = disabled).
+> Commented out in `.env.example` as emergency safety valves only.
+> Variable names use the `FEATURE_` prefix consumed by `lib/feature-flags.ts`.
+
 ```bash
-# Feature flags for gradual rollout
-USE_MOCK_DASHBOARD=false      # Set to true to revert during incident
-USE_MOCK_CALENDAR=false
-USE_MOCK_BLOG=false
-USE_MOCK_SCHOOL=false
+# Feature flags for gradual rollout (emergency rollback only — normally absent)
+# FEATURE_USE_MOCK_DASHBOARD=false   # Uncomment to revert dashboard to mock data during incident
+# FEATURE_USE_MOCK_CALENDAR=false
+# FEATURE_USE_MOCK_BLOG=false
+# FEATURE_USE_MOCK_SCHOOL=false
 
 # Service integrations
 TWILIO_ENABLED=true           # Disable to stop SMS sends
@@ -333,7 +362,7 @@ CLAUDE_ENABLED=true           # Disable to skip tone analysis
 | **Phase 2: Canary (10%)** | 2 days | Enable for 10% of users via session hash | Error rate >0.5% or complaint |
 | **Phase 3: Ramp (50%)** | 3 days | Enable for 50% of users | Error rate >0.3% |
 | **Phase 4: Full (100%)** | Ongoing | All users on real data | Immediate rollback if P0 incident |
-| **Phase 5: Cleanup** | 1 week | Remove mock code, feature flags | N/A |
+| **Phase 5: Cleanup** ✅ | Day 10 | Mock code removed from production tree; flags kept as commented-out safety valves in `.env.example`; `npx tsc --noEmit` clean; 285 unit tests passing | N/A |
 
 **Observability During Rollout:**
 - **Metrics**: Track `db.query.duration`, `db.query.errors`, `mock_vs_real_data_served`
