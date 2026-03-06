@@ -7,7 +7,6 @@
 
 import { getDb } from "@/lib/persistence";
 import { dequeueExport, getQueueLength } from "./export-queue";
-import { generateExport } from "./export-engine";
 import type { ExportJobStatus, ExportJobRecord } from "@/types";
 
 // Worker configuration
@@ -99,7 +98,8 @@ async function processExportJob(jobId: string): Promise<void> {
     // 2. Update status to processing
     await updateJobStatus(jobId, "processing");
 
-    // 3. Generate export
+    // 3. Generate export (dynamic import to avoid bundling pdfkit in API routes)
+    const { generateExport } = await import("./export-engine");
     const result = await generateExport(job);
 
     // 4. Update job with result
