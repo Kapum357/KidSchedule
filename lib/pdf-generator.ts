@@ -96,7 +96,7 @@ export async function generateCustodyCompliancePdf(
   });
 }
 
-function addTitlePage(doc: PDFDocument, config: PdfGeneratorConfig): void {
+function addTitlePage(doc: InstanceType<typeof PDFDocument>, config: PdfGeneratorConfig): void {
   doc.fontSize(24).font("Helvetica-Bold").text(config.title, {
     align: "center",
   });
@@ -131,7 +131,7 @@ function addTitlePage(doc: PDFDocument, config: PdfGeneratorConfig): void {
 }
 
 function addSummaryPage(
-  doc: PDFDocument,
+  doc: InstanceType<typeof PDFDocument>,
   report: CustodyComplianceReport,
   config: PdfGeneratorConfig
 ): void {
@@ -171,7 +171,7 @@ function addSummaryPage(
   doc.addPage();
 }
 
-function addMessagePage(doc: PDFDocument, message: HashedMessage): void {
+function addMessagePage(doc: InstanceType<typeof PDFDocument>, message: HashedMessage): void {
   doc.fontSize(12).font("Helvetica-Bold").text(`Message #${message.index}`);
 
   doc.fontSize(10).font("Helvetica").text(`Sent At: ${message.sentAt}`);
@@ -197,7 +197,7 @@ function addMessagePage(doc: PDFDocument, message: HashedMessage): void {
   doc.addPage();
 }
 
-function addVerificationPage(doc: PDFDocument, messages: HashedMessage[]): void {
+function addVerificationPage(doc: InstanceType<typeof PDFDocument>, messages: HashedMessage[]): void {
   doc.fontSize(14).font("Helvetica-Bold").text("Hash Chain Verification");
 
   doc.moveDown();
@@ -240,7 +240,7 @@ function addVerificationPage(doc: PDFDocument, messages: HashedMessage[]): void 
   );
 }
 
-function addDocumentFooter(doc: PDFDocument, config: PdfGeneratorConfig): void {
+function addDocumentFooter(doc: InstanceType<typeof PDFDocument>, config: PdfGeneratorConfig): void {
   // Add footer to all pages
   const pages = doc.bufferedPageRange().count;
 
