@@ -4,11 +4,11 @@
  * Full integration tests for the export workflow
  */
 
-import { describe, it, expect } from "vitest";
+import { test, expect } from "@playwright/test";
 
-describe("Export Queue E2E", () => {
-  describe("Export creation and processing", () => {
-    it("should create export job and enqueue for processing", async () => {
+test.describe("Export Queue E2E", () => {
+  test.describe("Export creation and processing", () => {
+    test("should create export job and enqueue for processing", async () => {
       // This is a placeholder for E2E testing
       // In a full E2E setup with Playwright/Cypress, this would:
       // 1. Authenticate as a test user
@@ -19,7 +19,7 @@ describe("Export Queue E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should show processing status while job is running", async () => {
+    test("should show processing status while job is running", async () => {
       // E2E test would:
       // 1. Trigger export
       // 2. Verify status starts as "queued"
@@ -29,7 +29,7 @@ describe("Export Queue E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should show complete status with download button when done", async () => {
+    test("should show complete status with download button when done", async () => {
       // E2E test would:
       // 1. Trigger export
       // 2. Wait for processing to complete
@@ -40,8 +40,8 @@ describe("Export Queue E2E", () => {
     });
   });
 
-  describe("Error handling and retries", () => {
-    it("should show error message for failed export", async () => {
+  test.describe("Error handling and retries", () => {
+    test("should show error message for failed export", async () => {
       // E2E test would:
       // 1. Simulate export failure (e.g., database error)
       // 2. Verify status changes to "failed"
@@ -50,7 +50,7 @@ describe("Export Queue E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should auto-retry failed jobs", async () => {
+    test("should auto-retry failed jobs", async () => {
       // E2E test would:
       // 1. Trigger export that will fail
       // 2. Verify job transitions to "failed"
@@ -60,7 +60,7 @@ describe("Export Queue E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should stop retrying after max attempts", async () => {
+    test("should stop retrying after max attempts", async () => {
       // E2E test would:
       // 1. Trigger export that will fail consistently
       // 2. Verify retries happen (up to 3 times)
@@ -70,8 +70,8 @@ describe("Export Queue E2E", () => {
     });
   });
 
-  describe("Multiple concurrent exports", () => {
-    it("should queue multiple exports and process sequentially", async () => {
+  test.describe("Multiple concurrent exports", () => {
+    test("should queue multiple exports and process sequentially", async () => {
       // E2E test would:
       // 1. Trigger 5 different exports rapidly
       // 2. Verify all 5 appear in the list
@@ -81,7 +81,7 @@ describe("Export Queue E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should distribute load across multiple workers", async () => {
+    test("should distribute load across multiple workers", async () => {
       // E2E test would (with multi-worker setup):
       // 1. Trigger 10 exports
       // 2. Verify multiple are "processing" simultaneously
@@ -91,7 +91,7 @@ describe("Export Queue E2E", () => {
     });
   });
 
-  describe("Export types", () => {
+  test.describe("Export types", () => {
     const exportTypes = [
       { type: "schedule-pdf", label: "Schedule PDF" },
       { type: "invoices-pdf", label: "Invoices PDF" },
@@ -100,7 +100,7 @@ describe("Export Queue E2E", () => {
     ];
 
     for (const { type, label } of exportTypes) {
-      it(`should generate ${label} export`, async () => {
+      test(`should generate ${label} export`, async () => {
         // E2E test would:
         // 1. Click the appropriate export button
         // 2. Verify export appears with correct type label
@@ -112,8 +112,8 @@ describe("Export Queue E2E", () => {
     }
   });
 
-  describe("Metrics and monitoring", () => {
-    it("should display accurate queue metrics", async () => {
+  test.describe("Metrics and monitoring", () => {
+    test("should display accurate queue metrics", async () => {
       // E2E test would:
       // 1. Verify metrics endpoint returns data
       // 2. Trigger exports
@@ -123,7 +123,7 @@ describe("Export Queue E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should show health warnings for degraded state", async () => {
+    test("should show health warnings for degraded state", async () => {
       // E2E test would:
       // 1. Simulate high queue length (>500)
       // 2. Verify health status changes to warning
@@ -133,8 +133,8 @@ describe("Export Queue E2E", () => {
     });
   });
 
-  describe("Export history", () => {
-    it("should display export history organized by status", async () => {
+  test.describe("Export history", () => {
+    test("should display export history organized by status", async () => {
       // E2E test would:
       // 1. Trigger multiple exports of different types
       // 2. Let some complete, keep some processing
@@ -144,7 +144,7 @@ describe("Export Queue E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should allow downloading completed exports", async () => {
+    test("should allow downloading completed exports", async () => {
       // E2E test would:
       // 1. Trigger and wait for export completion
       // 2. Click download button
@@ -155,8 +155,8 @@ describe("Export Queue E2E", () => {
     });
   });
 
-  describe("Performance and scalability", () => {
-    it("should handle high throughput of exports", async () => {
+  test.describe("Performance and scalability", () => {
+    test("should handle high throughput of exports", async () => {
       // E2E test would (load testing):
       // 1. Trigger 100 concurrent export requests
       // 2. Measure response times
@@ -166,7 +166,7 @@ describe("Export Queue E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should manage memory with large exports", async () => {
+    test("should manage memory with large exports", async () => {
       // E2E test would:
       // 1. Trigger export for large dataset
       // 2. Monitor memory usage during processing

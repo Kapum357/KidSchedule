@@ -3,22 +3,6 @@
  *
  * Renders the split-screen registration form. Form submission is handled via
  * Next.js Server Actions which call the production auth service.
- *
- * Validation Flow:
- * 1. Client-side HTML5 validation (required fields, email type, password match)
- * 2. Server-side validation (format, strength, duplication check)
- * 3. On success: issue session and redirect to /dashboard
- * 4. On failure: redirect back to /signup with error search params
- *
- * Layout:
- * - Left panel (desktop): Brand imagery + value proposition
- * - Right panel (all views): Registration form, OAuth buttons, login link
- *
- * Security:
- * - All validation logic runs server-side (never exposes hashes/tokens to client)
- * - Passwords never logged or echoed
- * - Duplicate email check prevents account enumeration
- * - Password strength validated against security requirements
  */
 
 import { redirect } from "next/navigation";
@@ -332,21 +316,7 @@ function SignupForm({
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
-/**
- * Sign up page rendered as a Server Component.
- *
- * The form invokes a Server Action (handleSignup) which:
- *   1. Reads FormData (fullName, email, password, confirmPassword, agreedToTerms)
- *   2. Calls AuthEngine.registerUser()
- *   3. On success: sets httpOnly cookies, redirects to /dashboard
- *   4. On failure: returns AuthResult for error feedback
- *
- * In production:
- *   - Use Next.js middleware to verify access tokens on protected routes
- *   - Add CSRF headers (Next.js 14+ does this automatically for Server Actions)
- *   - Configure CSP headers allowing Google/Apple OAuth scripts
- *   - Add email verification step before account activation
- */
+// Sign up page rendered as a Server Component.
 interface PageProps {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
@@ -389,36 +359,36 @@ export default async function SignupPage({ searchParams }: Readonly<PageProps>) 
         {/* Left branded panel */}
         <BrandPanel />
 
-      {/* Right form panel */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 bg-surface-light dark:bg-surface-dark overflow-y-auto">
-        <div className="w-full max-w-md space-y-8">
-          {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2 mb-4 text-primary">
-            <span className="material-symbols-outlined text-3xl">family_star</span>
-            <span className="text-slate-900 dark:text-white text-xl font-bold">KidSchedule</span>
-          </div>
+        {/* Right form panel */}
+        <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 bg-surface-light dark:bg-surface-dark overflow-y-auto">
+          <div className="w-full max-w-md space-y-8">
+            {/* Mobile logo */}
+            <div className="flex lg:hidden items-center gap-2 mb-4 text-primary">
+              <span className="material-symbols-outlined text-3xl">family_star</span>
+              <span className="text-slate-900 dark:text-white text-xl font-bold">KidSchedule</span>
+            </div>
 
-          {/* Heading */}
-          <div className="text-left">
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight mb-2">Create your account</h2>
-            <p className="text-slate-500 dark:text-slate-400">Start managing your co-parenting schedule today.</p>
-          </div>
+            {/* Heading */}
+            <div className="text-left">
+              <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight mb-2">Create your account</h2>
+              <p className="text-slate-500 dark:text-slate-400">Start managing your co-parenting schedule today.</p>
+            </div>
 
-          {/* Form */}
-          <SignupForm authResult={authResult} recaptchaSiteKey={recaptchaSiteKey} />
+            {/* Form */}
+            <SignupForm authResult={authResult} recaptchaSiteKey={recaptchaSiteKey} />
 
-          {/* OAuth */}
-          <OAuthButtons />
+            {/* OAuth */}
+            <OAuthButtons />
 
-          {/* Login link */}
-          <div className="text-center text-sm text-slate-600 dark:text-slate-400">
-            Already have an account?{" "}
-            <a className="text-primary hover:text-primary-hover font-bold hover:underline transition-colors" href="/login">
-              Log in
-            </a>
+            {/* Login link */}
+            <div className="text-center text-sm text-slate-600 dark:text-slate-400">
+              Already have an account?{" "}
+              <a className="text-primary hover:text-primary-hover font-bold hover:underline transition-colors" href="/login">
+                Log in
+              </a>
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </>
   );

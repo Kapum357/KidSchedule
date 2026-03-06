@@ -1,8 +1,22 @@
 -- 0016_holiday_rule_approval.sql
 -- Adds approval workflow to holiday_exception_rules and support for custom holidays
 
--- Step 1: Extend holiday_definitions type enum to include 'custom'
-ALTER TYPE holiday_type ADD VALUE 'custom' BEFORE 'federal';
+-- Step 1: Create holiday_type enum if it doesn't exist, or alter existing TEXT column
+DO $$
+BEGIN
+  -- Check if the enum type exists
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'holiday_type') THEN
+    -- Drop the existing CHECK constraint
+    ALTER TABLE holiday_definitions DROP CONSTRAINT IF EXISTS holiday_definitions_type_check;
+    -- Create the enum type with existing values
+    CREATE TYPE holiday_type AS ENUM ('federal', 'state', 'religious', 'cultural', 'custom');
+    -- Alter the column to use the enum (values are already valid)
+    ALTER TABLE holiday_definitions ALTER COLUMN type TYPE holiday_type USING type::holiday_type;
+  ELSE
+    -- If enum exists, just add the value
+    ALTER TYPE holiday_type ADD VALUE IF NOT EXISTS 'custom' BEFORE 'federal';
+  END IF;
+END $$;
 
 -- Step 2: Add family_id column to holiday_definitions for custom holiday scoping
 ALTER TABLE holiday_definitions

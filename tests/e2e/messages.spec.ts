@@ -4,15 +4,15 @@
  * Full integration tests for messaging, SMS relay, and read receipts
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { test, expect } from "@playwright/test";
 
-describe("Messages Feature E2E", () => {
-  beforeEach(async () => {
+test.describe("Messages Feature E2E", () => {
+  test.beforeEach(async () => {
     // Reset state between tests
   });
 
-  describe("Message sending and receiving", () => {
-    it("should send message to family thread", async () => {
+  test.describe("Message sending and receiving", () => {
+    test("should send message to family thread", async () => {
       // This is a placeholder for E2E testing
       // In a full E2E setup, this would:
       // 1. Create test users (parent 1 and parent 2)
@@ -22,7 +22,7 @@ describe("Messages Feature E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should emit socket event when new message arrives", async () => {
+    test("should emit socket event when new message arrives", async () => {
       // E2E test would:
       // 1. Connect parent 2 socket to family room
       // 2. Have parent 1 send message
@@ -31,8 +31,8 @@ describe("Messages Feature E2E", () => {
     });
   });
 
-  describe("Read receipts", () => {
-    it("should mark message as read when recipient opens it", async () => {
+  test.describe("Read receipts", () => {
+    test("should mark message as read when recipient opens it", async () => {
       // E2E test would:
       // 1. Parent 1 sends message
       // 2. Parent 2 opens message list
@@ -42,7 +42,7 @@ describe("Messages Feature E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should emit read receipt to sender in real-time", async () => {
+    test("should emit read receipt to sender in real-time", async () => {
       // E2E test would:
       // 1. Parent 1 and Parent 2 both connected via socket
       // 2. Parent 1 sends message
@@ -53,8 +53,8 @@ describe("Messages Feature E2E", () => {
     });
   });
 
-  describe("SMS Relay", () => {
-    it("should enroll parent in SMS relay with valid phone", async () => {
+  test.describe("SMS Relay", () => {
+    test("should enroll parent in SMS relay with valid phone", async () => {
       // E2E test would:
       // 1. Parent goes to Messages page
       // 2. Fills in phone number in SmsRelaySetup component
@@ -64,7 +64,7 @@ describe("Messages Feature E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should send SMS when other parent sends message", async () => {
+    test("should send SMS when other parent sends message", async () => {
       // E2E test would:
       // 1. Parent 1 enrolls in SMS relay
       // 2. Parent 2 sends message
@@ -74,7 +74,7 @@ describe("Messages Feature E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should create message when SMS is received", async () => {
+    test("should create message when SMS is received", async () => {
       // E2E test would:
       // 1. Parent 1 is enrolled in SMS relay
       // 2. Send SMS to proxy number
@@ -84,7 +84,7 @@ describe("Messages Feature E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should prevent SMS relay for unenrolled parents", async () => {
+    test("should prevent SMS relay for unenrolled parents", async () => {
       // E2E test would:
       // 1. Parent sends message
       // 2. Verify SMS is NOT sent to unenrolled family members
@@ -93,8 +93,8 @@ describe("Messages Feature E2E", () => {
     });
   });
 
-  describe("Conflict detection", () => {
-    it("should block hostile messages before sending", async () => {
+  test.describe("Conflict detection", () => {
+    test("should block hostile messages before sending", async () => {
       // E2E test would:
       // 1. Parent tries to send hostile message
       // 2. Verify conflict detection blocks it
@@ -104,8 +104,8 @@ describe("Messages Feature E2E", () => {
     });
   });
 
-  describe("Message history", () => {
-    it("should load and display message history", async () => {
+  test.describe("Message history", () => {
+    test("should load and display message history", async () => {
       // E2E test would:
       // 1. Create 10 test messages in family thread
       // 2. Load messages page
@@ -115,7 +115,7 @@ describe("Messages Feature E2E", () => {
       expect(true).toBe(true);
     });
 
-    it("should handle empty message thread", async () => {
+    test("should handle empty message thread", async () => {
       // E2E test would:
       // 1. Load messages page for family with no messages
       // 2. Verify "No messages yet" message appears

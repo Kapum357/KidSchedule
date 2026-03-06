@@ -12,6 +12,14 @@
  *   - webhook_events stores raw payload + processing status for idempotency
  */
 
+-- Drop existing tables if they exist (for migration replay)
+DROP TABLE IF EXISTS payment_methods CASCADE;
+DROP TABLE IF EXISTS invoice_line_items CASCADE;
+DROP TABLE IF EXISTS invoices CASCADE;
+DROP TABLE IF EXISTS subscriptions CASCADE;
+DROP TABLE IF EXISTS stripe_customers CASCADE;
+DROP TABLE IF EXISTS webhook_events CASCADE;
+
 -- ─── Stripe Customers ─────────────────────────────────────────────────────────
 
 CREATE TABLE stripe_customers (

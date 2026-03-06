@@ -34,6 +34,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Generic update_timestamp function for other tables
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TRIGGER trigger_scheduled_notifications_updated_at
   BEFORE UPDATE ON scheduled_notifications
   FOR EACH ROW

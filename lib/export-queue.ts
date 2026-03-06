@@ -5,7 +5,8 @@
  * Provides enqueue and dequeue operations using Redis LPUSH/BRPOP pattern.
  */
 
-import { Redis } from "@upstash/redis";
+import { Redis as UpstashRedis } from "@upstash/redis";
+import { createClient as createRedisClient } from "redis";
 import type { ExportJobRecord } from "@/types";
 
 const QUEUE_KEY = "export:queue";
@@ -15,23 +16,35 @@ const QUEUE_TIMEOUT_SECONDS = 30; // Block for up to 30 seconds waiting for jobs
  * Initialize Redis connection
  * Reuses connection if already initialized
  */
-let redisClient: Redis | null = null;
+let redisClient: UpstashRedis | ReturnType<typeof createRedisClient> | null = null;
 
 function initializeRedis() {
   if (redisClient) {
     return redisClient;
   }
 
-  if (!process.env.UPSTASH_REDIS_URL || !process.env.UPSTASH_REDIS_TOKEN) {
+  if (!process.env.UPSTASH_REDIS_URL) {
     throw new Error(
-      "Redis configuration missing: UPSTASH_REDIS_URL and UPSTASH_REDIS_TOKEN required"
+      "Redis configuration missing: UPSTASH_REDIS_URL required"
     );
   }
 
-  redisClient = new Redis({
-    url: process.env.UPSTASH_REDIS_URL,
-    token: process.env.UPSTASH_REDIS_TOKEN,
-  });
+  // Use Upstash Redis for cloud deployments (URLs starting with https)
+  if (process.env.UPSTASH_REDIS_URL.startsWith("https://")) {
+    if (!process.env.UPSTASH_REDIS_TOKEN) {
+      throw new Error("UPSTASH_REDIS_TOKEN required for Upstash Redis");
+    }
+    redisClient = new UpstashRedis({
+      url: process.env.UPSTASH_REDIS_URL,
+      token: process.env.UPSTASH_REDIS_TOKEN,
+    });
+  } else {
+    // Use standard Redis client for local development
+    redisClient = createRedisClient({
+      url: process.env.UPSTASH_REDIS_URL,
+    });
+    redisClient.connect();
+  }
 
   return redisClient;
 }
@@ -49,7 +62,11 @@ export async function enqueueExport(jobId: string): Promise<void> {
   try {
     // Push to the left of the list (LPUSH)
     // Worker will pop from the right (BRPOP) for FIFO order
-    await redis.lpush(QUEUE_KEY, jobId);
+    if (redis instanceof UpstashRedis) {
+      await redis.lpush(QUEUE_KEY, jobId);
+    } else {
+      await (redis as ReturnType<typeof createRedisClient>).lPush(QUEUE_KEY, jobId);
+    }
     console.log(`[Queue] Enqueued job: ${jobId}`);
   } catch (error) {
     console.error(`[Queue] Failed to enqueue job ${jobId}:`, error);
@@ -71,7 +88,12 @@ export async function dequeueExport(): Promise<string | null> {
   try {
     // RPop from the right of the list (FIFO)
     // Returns null if queue is empty
-    const jobId = await redis.rpop(QUEUE_KEY);
+    let jobId;
+    if (redis instanceof UpstashRedis) {
+      jobId = await redis.rpop(QUEUE_KEY);
+    } else {
+      jobId = await (redis as ReturnType<typeof createRedisClient>).rPop(QUEUE_KEY);
+    }
 
     if (!jobId) {
       return null; // No jobs available
@@ -94,7 +116,12 @@ export async function getQueueLength(): Promise<number> {
   const redis = initializeRedis();
 
   try {
-    const length = await redis.llen(QUEUE_KEY);
+    let length;
+    if (redis instanceof UpstashRedis) {
+      length = await redis.llen(QUEUE_KEY);
+    } else {
+      length = await (redis as ReturnType<typeof createRedisClient>).lLen(QUEUE_KEY);
+    }
     return length as number;
   } catch (error) {
     console.error("[Queue] Failed to get queue length:", error);
@@ -111,7 +138,11 @@ export async function clearQueue(): Promise<void> {
   const redis = initializeRedis();
 
   try {
-    await redis.del(QUEUE_KEY);
+    if (redis instanceof UpstashRedis) {
+      await redis.del(QUEUE_KEY);
+    } else {
+      await (redis as ReturnType<typeof createRedisClient>).del(QUEUE_KEY);
+    }
     console.log("[Queue] Cleared all jobs");
   } catch (error) {
     console.error("[Queue] Failed to clear queue:", error);
