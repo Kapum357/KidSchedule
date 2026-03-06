@@ -907,3 +907,58 @@ export interface LegalDocument {
   /** Ordered list of sections */
   sections: LegalSection[];
 }
+
+// ─── Export & Job Queue ──────────────────────────────────────────────────────
+
+/**
+ * Export job status
+ */
+export type ExportJobStatus = "queued" | "processing" | "complete" | "failed";
+
+/**
+ * Supported export types
+ */
+export type ExportType = "schedule-pdf" | "invoices-pdf" | "messages-csv" | "moments-archive";
+
+/**
+ * Parameters for export requests (varies by export type)
+ */
+export interface ExportRequest {
+  type: ExportType;
+  /** Type-specific parameters (e.g. date range, filters) */
+  params: Record<string, unknown>;
+}
+
+/**
+ * Result of a completed export job
+ */
+export interface ExportResult {
+  /** URL where the file can be downloaded */
+  resultUrl: string;
+  /** MIME type of the exported file */
+  mimeType: string;
+  /** Size in bytes */
+  sizeBytes: number;
+  /** Timestamp when the export was generated */
+  generatedAt: string;
+}
+
+/**
+ * Database record for an export job
+ */
+export interface ExportJobRecord {
+  id: string;
+  familyId: string;
+  userId: string;
+  type: ExportType;
+  params: Record<string, unknown>;
+  status: ExportJobStatus;
+  resultUrl?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  error?: string;
+  retryCount: number;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
