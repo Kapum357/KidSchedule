@@ -141,28 +141,28 @@ function addSummaryPage(
 
   doc.fontSize(11).font("Helvetica-Bold").text("Period:");
   doc.fontSize(11).font("Helvetica").text(
-    `${report.startDate} to ${report.endDate}`
+    `${report.reportPeriod.startDate} to ${report.reportPeriod.endDate}`
   );
 
   doc.moveDown();
 
   doc.fontSize(11).font("Helvetica-Bold").text("Compliance Status:");
-  const statusColor = report.isCompliant ? "#008000" : "#FF0000";
+  const statusColor = report.summary.compliancePercentage >= 100 ? "#008000" : "#FF0000";
   doc.fillColor(statusColor)
     .fontSize(14)
     .font("Helvetica-Bold")
-    .text(report.isCompliant ? "COMPLIANT" : "NON-COMPLIANT");
+    .text(report.summary.compliancePercentage >= 100 ? "COMPLIANT" : "NON-COMPLIANT");
 
   doc.fillColor("#000000");
   doc.moveDown();
 
   doc.fontSize(11).font("Helvetica-Bold").text("Statistics:");
   doc.fontSize(11).font("Helvetica").text(
-    `Total Schedule Days: ${report.totalDays}`
+    `Total Scheduled Time: ${report.summary.totalScheduledTime} hours`
   );
-  doc.text(`Days Compliant: ${report.compliantDays}`);
+  doc.text(`Actual Time: ${report.summary.totalActualTime} hours`);
   doc.text(
-    `Compliance Rate: ${((report.compliantDays / report.totalDays) * 100).toFixed(1)}%`
+    `Compliance Rate: ${report.summary.compliancePercentage.toFixed(1)}%`
   );
 
   doc.moveDown();

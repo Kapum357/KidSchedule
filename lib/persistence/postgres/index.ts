@@ -37,6 +37,11 @@ import { createSmsRelayParticipantRepository } from "./sms-relay-repository";
 import { createMomentRepository, createMomentReactionRepository } from "./moments-repository";
 import { createScheduledNotificationRepository } from "./scheduled-notification-repository";
 import { createExportJobsRepository } from "./export-jobs-repository";
+import {
+  createExportMetadataRepository,
+  createExportMessageHashRepository,
+  createExportVerificationAttemptRepository,
+} from "./export-metadata-repository";
 
 // ─── Unit of Work Implementation ──────────────────────────────────────────────
 
@@ -85,6 +90,9 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     momentReactions: createMomentReactionRepository(),
     scheduledNotifications: createScheduledNotificationRepository(),
     exportJobs: createExportJobsRepository(tx),
+    exportMetadata: createExportMetadataRepository(tx),
+    exportMessageHashes: createExportMessageHashRepository(tx),
+    exportVerificationAttempts: createExportVerificationAttemptRepository(tx),
 
     // Transaction methods - these are no-ops for direct UoW usage
     // Use withTransaction() for actual transaction support

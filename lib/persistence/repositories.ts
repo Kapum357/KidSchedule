@@ -40,6 +40,9 @@ import type {
   DbMoment,
   DbMomentReaction,
   DbScheduledNotification,
+  DbExportMetadata,
+  DbExportMessageHash,
+  DbExportVerificationAttempt,
   AuditAction,
 } from "./types";
 import type { ExportJobRecord } from "@/types";
@@ -411,6 +414,31 @@ export interface ExportJobsRepository {
   update(id: string, data: Partial<ExportJobRecord>): Promise<ExportJobRecord | null>;
 }
 
+// ─── Export Metadata Repository ────────────────────────────────────────────
+
+export interface ExportMetadataRepository {
+  findById(id: string): Promise<DbExportMetadata | null>;
+  findByExportId(exportId: string): Promise<DbExportMetadata | null>;
+  findByFamilyId(familyId: string): Promise<DbExportMetadata[]>;
+  create(data: Omit<DbExportMetadata, "id" | "createdAt" | "updatedAt">): Promise<DbExportMetadata>;
+  update(id: string, data: Partial<DbExportMetadata>): Promise<DbExportMetadata | null>;
+  linkVerification(exportMetadataId: string, verificationId: string): Promise<boolean>;
+}
+
+// ─── Export Message Hash Repository ────────────────────────────────────────
+
+export interface ExportMessageHashRepository {
+  findByExportMetadataId(exportMetadataId: string): Promise<DbExportMessageHash[]>;
+  createBatch(hashes: Omit<DbExportMessageHash, "id" | "createdAt">[]): Promise<DbExportMessageHash[]>;
+}
+
+// ─── Export Verification Attempt Repository ───────────────────────────────
+
+export interface ExportVerificationAttemptRepository {
+  findByExportMetadataId(exportMetadataId: string): Promise<DbExportVerificationAttempt[]>;
+  create(data: Omit<DbExportVerificationAttempt, "id" | "createdAt">): Promise<DbExportVerificationAttempt>;
+}
+
 // ─── Unit of Work ─────────────────────────────────────────────────────────────
 
 /**
@@ -447,6 +475,9 @@ export interface UnitOfWork {
   momentReactions: MomentReactionRepository;
   scheduledNotifications: ScheduledNotificationRepository;
   exportJobs: ExportJobsRepository;
+  exportMetadata: ExportMetadataRepository;
+  exportMessageHashes: ExportMessageHashRepository;
+  exportVerificationAttempts: ExportVerificationAttemptRepository;
 
   /** Begin a transaction */
   beginTransaction(): Promise<void>;

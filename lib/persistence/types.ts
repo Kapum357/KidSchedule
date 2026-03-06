@@ -368,6 +368,51 @@ export interface DbSmsRelayParticipant {
   enrolledAt: string;
 }
 
+// ─── Export & Hash Verification Entities ──────────────────────────────────
+
+export interface DbExportMetadata {
+  id: string;
+  exportId: string; // Reference to export_jobs table
+  familyId: string;
+  reportType: string; // "custody-compliance", "message-transcript", etc.
+  hashChainVerificationId?: string; // Reference to hash_chain_verifications
+  includedMessageIds: string[]; // UUID[]
+  custodyPeriodStart?: string;
+  custodyPeriodEnd?: string;
+  pdfHash: string; // SHA-256 of the PDF buffer
+  pdfSizeBytes: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DbExportMessageHash {
+  id: string;
+  exportMetadataId: string;
+  messageId: string;
+  chainIndex: number;
+  messageHash: string; // SHA-256
+  previousHash: string; // Link to previous message
+  sentAt: string;
+  senderId: string;
+  messagePreview?: string;
+  createdAt: string;
+}
+
+export interface DbExportVerificationAttempt {
+  id: string;
+  exportMetadataId: string;
+  verifiedBy: string; // parentId
+  verifiedAt: string;
+  verificationStatus: string; // "pending", "valid", "tampered"
+  isValid: boolean;
+  integrityStatus?: string;
+  pdfHashMatch?: boolean;
+  errorsDetected?: string[];
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+}
+
 // ─── Moment Entities ──────────────────────────────────────────────────────────
 
 export interface DbMoment {
