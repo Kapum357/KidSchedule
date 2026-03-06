@@ -41,6 +41,7 @@ import type {
   DbScheduledNotification,
   AuditAction,
 } from "./types";
+import type { ExportJobRecord } from "@/types";
 
 // ─── User Repository ──────────────────────────────────────────────────────────
 
@@ -377,6 +378,22 @@ export interface ScheduledNotificationRepository {
   delete(id: string): Promise<boolean>;
 }
 
+// ─── Export Jobs Repository ───────────────────────────────────────────────────
+
+export interface ExportJobsRepository {
+  findById(id: string): Promise<ExportJobRecord | null>;
+  findByFamilyId(familyId: string): Promise<ExportJobRecord[]>;
+  findByUserId(userId: string): Promise<ExportJobRecord[]>;
+  findByStatus(status: string): Promise<ExportJobRecord[]>;
+  create(data: {
+    familyId: string;
+    userId: string;
+    type: string;
+    params: Record<string, unknown>;
+  }): Promise<ExportJobRecord>;
+  update(id: string, data: Partial<ExportJobRecord>): Promise<ExportJobRecord | null>;
+}
+
 // ─── Unit of Work ─────────────────────────────────────────────────────────────
 
 /**
@@ -411,6 +428,7 @@ export interface UnitOfWork {
   moments: MomentRepository;
   momentReactions: MomentReactionRepository;
   scheduledNotifications: ScheduledNotificationRepository;
+  exportJobs: ExportJobsRepository;
 
   /** Begin a transaction */
   beginTransaction(): Promise<void>;
