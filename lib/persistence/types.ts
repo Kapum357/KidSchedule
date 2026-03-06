@@ -520,3 +520,114 @@ export interface DbScheduledNotification {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── Billing Entities (BILL-001) ──────────────────────────────────────────────
+
+export interface DbStripeCustomer {
+  id: string;
+  userId: string;
+  stripeCustomerId: string;
+  email: string;
+  name?: string;
+  currency: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SubscriptionStatus =
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "unpaid"
+  | "incomplete"
+  | "incomplete_expired"
+  | "paused";
+
+export type InvoiceStatus = "draft" | "open" | "paid" | "uncollectible" | "void";
+
+export interface DbPaymentMethod {
+  id: string;
+  stripeCustomerId: string;       // FK to stripe_customers.id (local UUID)
+  stripePaymentMethodId: string;
+  type: string;
+  last4?: string;
+  brand?: string;
+  expMonth?: number;
+  expYear?: number;
+  isDefault: boolean;
+  isDeleted: boolean;
+  deletedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DbSubscription {
+  id: string;
+  stripeCustomerId: string;       // FK to stripe_customers.id (local UUID)
+  stripeSubscriptionId: string;
+  stripePriceId: string;
+  planTier: string;
+  status: SubscriptionStatus;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  canceledAt?: string;
+  cancelAt?: string;
+  trialStart?: string;
+  trialEnd?: string;
+  quantity: number;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DbInvoice {
+  id: string;
+  stripeCustomerId: string;       // FK to stripe_customers.id (local UUID)
+  subscriptionId?: string;
+  stripeInvoiceId: string;
+  status: InvoiceStatus;
+  billingReason?: string;
+  currency: string;
+  subtotal: number;               // cents
+  total: number;                  // cents
+  amountDue: number;              // cents
+  amountPaid: number;             // cents
+  amountRemaining: number;        // cents
+  tax: number;                    // cents
+  dueDate?: string;
+  paidAt?: string;
+  voidedAt?: string;
+  invoicePdf?: string;
+  hostedInvoiceUrl?: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DbWebhookEvent {
+  id: string;
+  stripeEventId: string;          // evt_xxx — idempotency key
+  type: string;                   // e.g. 'customer.subscription.updated'
+  apiVersion?: string;
+  payload: Record<string, unknown>;
+  processedAt?: string;
+  processingError?: string;
+  retryCount: number;
+  createdAt: string;
+}
+
+export interface DbPlanTier {
+  id: string;                     // 'free', 'starter', 'professional'
+  displayName: string;
+  stripePriceId?: string;
+  monthlyPriceCents: number;
+  annualPriceId?: string;
+  annualPriceCents: number;
+  features: string[];
+  maxChildren?: number;
+  maxDocuments?: number;
+  isActive: boolean;
+  createdAt: string;
+}

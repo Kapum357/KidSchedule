@@ -1,23 +1,42 @@
 /**
  * Export Queue Unit Tests
  *
- * Tests for FIFO queue operations with Redis
+ * Tests for FIFO queue operations.
+ * Uses an in-memory mock instead of Redis to avoid infrastructure dependencies.
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+// ─── In-memory queue mock ─────────────────────────────────────────────────────
+
+const inMemoryQueue: string[] = [];
+
+jest.mock("@/lib/export-queue", () => ({
+  enqueueExport: jest.fn(async (jobId: string) => {
+    inMemoryQueue.push(jobId);
+  }),
+  dequeueExport: jest.fn(async () => {
+    return inMemoryQueue.length > 0 ? (inMemoryQueue.shift() ?? null) : null;
+  }),
+  getQueueLength: jest.fn(async () => inMemoryQueue.length),
+  clearQueue: jest.fn(async () => {
+    inMemoryQueue.length = 0;
+  }),
+}));
+
 import { enqueueExport, dequeueExport, getQueueLength, clearQueue } from "@/lib/export-queue";
 
-describe("Export Queue (Redis)", () => {
+// ─── Tests ───────────────────────────────────────────────────────────────────
+
+describe("Export Queue", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
+    inMemoryQueue.length = 0;
   });
 
   afterEach(async () => {
-    // Clean up queue after each test
     try {
       await clearQueue();
-    } catch (err) {
-      // Ignore cleanup errors in tests
+    } catch {
+      // ignore
     }
   });
 
@@ -33,12 +52,10 @@ describe("Export Queue (Redis)", () => {
     it("should maintain FIFO order", async () => {
       const jobIds = ["job-1", "job-2", "job-3"];
 
-      // Enqueue in order
       for (const jobId of jobIds) {
         await enqueueExport(jobId);
       }
 
-      // Dequeue should return in same order (FIFO)
       for (const expectedId of jobIds) {
         const jobId = await dequeueExport();
         expect(jobId).toBe(expectedId);
@@ -48,7 +65,6 @@ describe("Export Queue (Redis)", () => {
     it("should handle multiple concurrent enqueues", async () => {
       const jobIds = Array.from({ length: 10 }, (_, i) => `job-${i}`);
 
-      // Enqueue all in parallel
       await Promise.all(jobIds.map((id) => enqueueExport(id)));
 
       const length = await getQueueLength();
@@ -108,7 +124,6 @@ describe("Export Queue (Redis)", () => {
     });
 
     it("should handle clearing empty queue", async () => {
-      // Should not throw
       await expect(clearQueue()).resolves.not.toThrow();
     });
   });

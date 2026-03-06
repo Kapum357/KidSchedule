@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib";
 import { db } from "@/lib/persistence";
 import { getMediationAssistantTips } from "@/lib/providers/ai";
 import { sendMessage } from "./actions";
+import { SmsRelaySetup } from "@/components/messages/SmsRelaySetup";
 import type { Message } from "@/types";
 
 type MessageSearchParams = {
@@ -194,6 +195,10 @@ export default async function MessagesPage({
             </ul>
           </section>
         )}
+
+        <div className="mb-5">
+          <SmsRelaySetup />
+        </div>
 
         {messages.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">

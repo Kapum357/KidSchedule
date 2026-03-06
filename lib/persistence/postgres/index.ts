@@ -38,6 +38,12 @@ import { createMomentRepository, createMomentReactionRepository } from "./moment
 import { createScheduledNotificationRepository } from "./scheduled-notification-repository";
 import { createExportJobsRepository } from "./export-jobs-repository";
 import {
+  createStripeCustomerRepository,
+  createSubscriptionRepository,
+  createWebhookEventRepository,
+  createPlanTierRepository,
+} from "./billing-repository";
+import {
   createExportMetadataRepository,
   createExportMessageHashRepository,
   createExportVerificationAttemptRepository,
@@ -93,6 +99,10 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     exportMetadata: createExportMetadataRepository(tx),
     exportMessageHashes: createExportMessageHashRepository(tx),
     exportVerificationAttempts: createExportVerificationAttemptRepository(tx),
+    stripeCustomers: createStripeCustomerRepository(tx),
+    subscriptions: createSubscriptionRepository(tx),
+    webhookEvents: createWebhookEventRepository(tx),
+    planTiers: createPlanTierRepository(tx),
 
     // Transaction methods - these are no-ops for direct UoW usage
     // Use withTransaction() for actual transaction support

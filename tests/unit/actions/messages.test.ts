@@ -50,7 +50,14 @@ jest.mock("@/lib/persistence", () => ({
     messages: {
       create: jest.fn(),
     },
+    smsRelayParticipants: {
+      findByFamilyId: jest.fn().mockResolvedValue([]),
+    },
   },
+}));
+
+jest.mock("@/lib/providers/sms", () => ({
+  getSmsSender: jest.fn().mockReturnValue({ send: jest.fn().mockResolvedValue(undefined) }),
 }));
 
 jest.mock("@/lib/providers/ai", () => ({

@@ -43,6 +43,10 @@ import type {
   DbExportMetadata,
   DbExportMessageHash,
   DbExportVerificationAttempt,
+  DbStripeCustomer,
+  DbSubscription,
+  DbWebhookEvent,
+  DbPlanTier,
   AuditAction,
 } from "./types";
 import type { ExportJobRecord } from "@/types";
@@ -439,6 +443,36 @@ export interface ExportVerificationAttemptRepository {
   create(data: Omit<DbExportVerificationAttempt, "id" | "createdAt">): Promise<DbExportVerificationAttempt>;
 }
 
+// ─── Billing Repositories ─────────────────────────────────────────────────────
+
+export interface StripeCustomerRepository {
+  findByUserId(userId: string): Promise<DbStripeCustomer | null>;
+  findByStripeId(stripeCustomerId: string): Promise<DbStripeCustomer | null>;
+  create(data: Omit<DbStripeCustomer, "id" | "createdAt" | "updatedAt">): Promise<DbStripeCustomer>;
+  update(id: string, data: Partial<DbStripeCustomer>): Promise<DbStripeCustomer | null>;
+}
+
+export interface SubscriptionRepository {
+  findByCustomer(stripeCustomerLocalId: string): Promise<DbSubscription | null>;
+  findByStripeId(stripeSubscriptionId: string): Promise<DbSubscription | null>;
+  findActive(stripeCustomerLocalId: string): Promise<DbSubscription | null>;
+  create(data: Omit<DbSubscription, "id" | "createdAt" | "updatedAt">): Promise<DbSubscription>;
+  update(id: string, data: Partial<DbSubscription>): Promise<DbSubscription | null>;
+}
+
+export interface WebhookEventRepository {
+  findByStripeEventId(stripeEventId: string): Promise<DbWebhookEvent | null>;
+  createIfNotExists(data: Omit<DbWebhookEvent, "id" | "createdAt">): Promise<{ event: DbWebhookEvent; alreadyProcessed: boolean }>;
+  markProcessed(id: string): Promise<void>;
+  markFailed(id: string, error: string): Promise<void>;
+  findUnprocessed(limit?: number): Promise<DbWebhookEvent[]>;
+}
+
+export interface PlanTierRepository {
+  findAll(): Promise<DbPlanTier[]>;
+  findById(id: string): Promise<DbPlanTier | null>;
+}
+
 // ─── Unit of Work ─────────────────────────────────────────────────────────────
 
 /**
@@ -475,6 +509,10 @@ export interface UnitOfWork {
   momentReactions: MomentReactionRepository;
   scheduledNotifications: ScheduledNotificationRepository;
   exportJobs: ExportJobsRepository;
+  stripeCustomers: StripeCustomerRepository;
+  subscriptions: SubscriptionRepository;
+  webhookEvents: WebhookEventRepository;
+  planTiers: PlanTierRepository;
   exportMetadata: ExportMetadataRepository;
   exportMessageHashes: ExportMessageHashRepository;
   exportVerificationAttempts: ExportVerificationAttemptRepository;

@@ -266,27 +266,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // ─── End SMS Relay Handling ──────────────────────────────────────────────
 
-    // Handle opt-out requests
-    if (isOptOutRequest(payload.Body)) {
-      logEvent("info", "SMS opt-out request", {
-        phone: maskPhone(payload.From),
-      });
-      return new NextResponse(generateTwiMLResponse(getOptOutResponse()), {
-        status: 200,
-        headers: { "Content-Type": "text/xml" },
-      });
-    }
-
-    // Handle help requests
-    if (isHelpRequest(payload.Body)) {
-      return new NextResponse(generateTwiMLResponse(getHelpResponse()), {
-        status: 200,
-        headers: { "Content-Type": "text/xml" },
-      });
-    }
-
-    // For regular messages, acknowledge without auto-reply
-    // Message storage would be handled by a separate service
+    // Acknowledge relay message without additional auto-reply
     return new NextResponse(generateTwiMLResponse(), {
       status: 200,
       headers: { "Content-Type": "text/xml" },
