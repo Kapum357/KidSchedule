@@ -347,7 +347,7 @@ export default async function ChangeRequestDetailPage({
     id: req.id,
     title: req.title,
     status: req.status as ScheduleChangeRequest["status"],
-    submitter: requester?.name.split(" ")[0] || "Co-Parent",
+    submitter: mappedParents.find((p) => p.id === req.requestedBy)?.name.split(" ")[0] || "Co-Parent",
     createdAt: req.createdAt,
   }));
 
