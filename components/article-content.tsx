@@ -58,4 +58,4 @@ export function ArticleContent({ html, className }: Readonly<ArticleContentProps
 }
 
 export const ARTICLE_CONTENT_CLASSNAMES =
-  "prose max-w-none text-lg text-slate-600 prose-headings:font-bold prose-headings:text-slate-900 prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl";
+  "prose max-w-none text-lg text-slate-600 prose-headings:font-bold prose-headings:text-slate-900 prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl prose-blockquote:not-italic prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-white prose-blockquote:shadow-sm prose-blockquote:rounded-r-xl prose-blockquote:px-8 prose-blockquote:py-6 prose-blockquote:my-10 prose-blockquote:text-slate-700 prose-blockquote:text-xl prose-blockquote:leading-relaxed prose-strong:text-slate-900";

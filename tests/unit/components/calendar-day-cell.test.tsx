@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import type { CalendarDayState } from '@/lib/calendar-engine';
-import { CalendarDayCell } from '@/app/calendar/components/calendar-day-cell';
+import { CalendarDayCell } from '@/components/calendar-day-cell';
 
 // Test helpers
 function createMockDay(overrides?: Partial<CalendarDayState>): CalendarDayState {

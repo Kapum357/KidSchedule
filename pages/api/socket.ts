@@ -123,7 +123,7 @@ export default function handler(
     res.end();
   } else {
     res.setHeader("Allow", ["GET", "POST"]);
-    // eslint-disable-next-line @typescript-eslint/no-magic-numbers
+     
     res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 }

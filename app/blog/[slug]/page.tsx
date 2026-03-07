@@ -273,6 +273,27 @@ function RelatedArticleCard({
   );
 }
 
+// ─── Custody Checklist Widget ─────────────────────────────────────────────────
+
+function CustodyChecklistWidget() {
+  return (
+    <div className="bg-gradient-to-br from-blue-50 to-white rounded-2xl p-8 border border-blue-100 text-center shadow-sm relative overflow-hidden group">
+      <div className="absolute top-0 right-0 w-24 h-24 bg-blue-100 rounded-full blur-2xl -mr-12 -mt-12 opacity-50 pointer-events-none"></div>
+      <div className="bg-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-md text-primary transform group-hover:rotate-6 transition-transform duration-300">
+        <span className="material-symbols-outlined text-3xl">checklist</span>
+      </div>
+      <h3 className="text-xl font-bold text-slate-900 mb-3">Free Custody Checklist</h3>
+      <p className="text-slate-600 text-sm mb-8 leading-relaxed">
+        Don't forget the essentials. Download our comprehensive holiday swap checklist to ensure nothing gets left behind.
+      </p>
+      <button className="w-full bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 hover:border-primary/30 font-bold py-3 px-4 rounded-xl transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 group-hover:text-primary">
+        <span className="material-symbols-outlined">download</span>
+        Download Now
+      </button>
+    </div>
+  );
+}
+
 // ─── Newsletter Subscription ───────────────────────────────────────────────────
 
 function NewsletterSignup() {
@@ -575,6 +596,9 @@ export default async function BlogArticlePage({
           <aside className="lg:col-span-4 space-y-8">
             {/* Table of Contents (Desktop) */}
             <TableOfContents toc={article.toc} />
+
+            {/* Custody Checklist Widget */}
+            <CustodyChecklistWidget />
 
             {/* Related Articles */}
             <div>

@@ -20,136 +20,104 @@ export default async function CheckEmailPage({
     <>
       <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased h-screen w-full flex overflow-hidden">
       {/* Desktop left panel */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 relative bg-primary/20 items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 bg-primary/10 mix-blend-multiply z-10" />
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-60 mix-blend-overlay"
+          className="absolute w-full h-full bg-cover bg-center"
           style={{
             backgroundImage:
-              "url('https://lh3.googleusercontent.com/aida-public/AB6AXuB3ZZUvm_udMqWsOMnM6zsvvgyd7QeNOptbu96Fsckw9EQokqiCh_U24zsYbX0Gtn35df-m85QP2kee_Sqz6o5ZRCCvEaJksIYcyCkPgsjReyZuZ0cG921yH0FGE1jY57HDjZR-EFNOKB4CQGvASUEDYU-5Y5qv34GNhXAY_uNUG4euMHh5KpV_ii5PGsgrzpCFCkuyljDkgG-yAX2GlCjfG5TN4aVJawfH_6WNc7PU5GF4bCEEF5H3k3ZF-1WV7vXtYfqxedx0z68')",
+              "url('https://lh3.googleusercontent.com/aida-public/AB6AXuB2qbnKpG-L3elt6G4F38crsBEeLy_FKkttGPLFQ3zjLrnVcly8wdAkrSEtr0dwVxvMHuu_TV_9RsSdAbn7L7hCBlIqugdKXJqknMW2QHa8PuLJ_wPeHDuJP3Ow6_RjD41iy3qvi-UVmXfHnrqAOTbdCDRxO14GUdvybrCEq0GiN3PnqN407nHlCxUL9zYmJVd0r7oVkcHsGK38jEWUCOErOCqfrSVUt76TtsQn43Bx2Mnfi6SfRnKx73xXAY0wPxW8eAJGJfx-TqA')",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-teal-900/90 to-slate-900/40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent z-20" />
 
-        <div className="relative z-10 flex flex-col justify-between w-full h-full p-12 text-white">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/10 backdrop-blur-sm flex items-center justify-center rounded-lg size-10">
-              <span className="material-symbols-outlined text-2xl">family_restroom</span>
+        <div className="relative z-30 p-12 text-white max-w-lg">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="bg-white/20 backdrop-blur-sm p-2 rounded-lg">
+              <span className="material-symbols-outlined text-3xl">family_restroom</span>
             </div>
-            <span className="text-xl font-bold tracking-tight">KidSchedule</span>
+            <span className="text-2xl font-bold tracking-tight">KidSchedule</span>
           </div>
-
-          <div className="max-w-md mb-12">
-            <h2 className="text-4xl font-bold mb-4 leading-tight">Check your inbox.</h2>
-            <p className="text-teal-100/80 text-lg font-light">
-              We&apos;ve sent a password reset link to your email. Click it to set a new password.
-            </p>
-          </div>
-
-          <div className="text-sm text-white/40 flex gap-6">
-            <span>© 2024 KidSchedule Inc.</span>
-            <a className="hover:text-white transition-colors" href="#">
-              Privacy
-            </a>
-            <a className="hover:text-white transition-colors" href="#">
-              Terms
-            </a>
-          </div>
+          <h2 className="text-4xl font-bold mb-4 leading-tight">
+            Peaceful co-parenting starts here.
+          </h2>
+          <p className="text-lg text-white/90 leading-relaxed">
+            Join thousands of parents managing schedules, expenses, and communication in one calm,
+            secure place.
+          </p>
         </div>
       </div>
 
       {/* Right panel */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 bg-white dark:bg-background-dark overflow-y-auto">
+      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 lg:p-24 bg-white dark:bg-background-dark overflow-y-auto relative">
         <div className="w-full max-w-md space-y-8 text-center">
-          {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2 mb-8 justify-center">
-            <div className="bg-primary/10 flex items-center justify-center rounded-lg size-10 text-primary">
-              <span className="material-symbols-outlined text-2xl">family_restroom</span>
-            </div>
-            <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-              KidSchedule
-            </span>
+          {/* Icon */}
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 dark:bg-primary/20">
+            <span className="material-symbols-outlined text-5xl text-primary">mark_email_read</span>
           </div>
 
           {/* Heading */}
-          <div>
-            <div className="inline-flex items-center justify-center size-16 rounded-full bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 mb-6">
-              <span className="material-symbols-outlined text-4xl">mail_outline</span>
-            </div>
+          <div className="space-y-4">
             <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
               Check your email
             </h1>
-            <p className="mt-4 text-base text-slate-600 dark:text-slate-400 leading-relaxed">
-              We&apos;ve sent a password reset link to{" "}
+            <p className="text-slate-600 dark:text-slate-300 text-base leading-relaxed">
+              We have sent a password reset link to{" "}
               {email ? (
-                <>
-                  <span className="font-semibold text-slate-900 dark:text-white">{email}</span>
-                </>
+                <span className="font-semibold text-slate-900 dark:text-white">{email}</span>
               ) : (
                 "the email address on your account"
               )}
-              .
+              . Please check your inbox and follow the instructions to create a new password.
             </p>
           </div>
 
-          {/* Steps */}
-          <div className="space-y-4 mt-8 text-left">
-            <div className="flex gap-4 items-start">
-              <div className="flex items-center justify-center size-8 rounded-full bg-primary text-white font-semibold text-sm shrink-0">
-                1
-              </div>
-              <div>
-                <p className="font-medium text-slate-900 dark:text-white">Open the email</p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Look for an email from KidSchedule (check spam if needed).
-                </p>
-              </div>
-            </div>
+          <div className="h-4" />
 
-            <div className="flex gap-4 items-start">
-              <div className="flex items-center justify-center size-8 rounded-full bg-primary text-white font-semibold text-sm shrink-0">
-                2
-              </div>
-              <div>
-                <p className="font-medium text-slate-900 dark:text-white">Click the reset link</p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  The link expires in 1 hour for security.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-4 items-start">
-              <div className="flex items-center justify-center size-8 rounded-full bg-primary text-white font-semibold text-sm shrink-0">
-                3
-              </div>
-              <div>
-                <p className="font-medium text-slate-900 dark:text-white">Set a new password</p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Choose a strong password you haven&apos;t used before.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* CTA */}
-          <div className="mt-10 pt-8 border-t border-slate-200 dark:border-slate-700">
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Didn&apos;t receive the email?</p>
+          {/* Actions */}
+          <div className="space-y-6">
             <a
-              className="inline-block rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white px-6 py-2 font-medium transition-colors"
-              href="/forgot-password"
-            >
-              Try again
-            </a>
-          </div>
-
-          {/* Back to login */}
-          <div>
-            <a
-              className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary transition-colors dark:text-slate-400 dark:hover:text-primary"
+              className="inline-flex w-full justify-center items-center rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all duration-200"
               href="/login"
             >
-              <span className="material-symbols-outlined text-lg">arrow_back</span>
+              <span className="material-symbols-outlined mr-2 text-lg">arrow_back</span>
               Return to login
             </a>
+
+            <div className="text-sm">
+              <p className="text-slate-500 dark:text-slate-400">
+                Didn&apos;t receive the email?{" "}
+                <a
+                  className="font-semibold text-primary hover:text-primary-dark transition-colors focus:outline-none focus:underline"
+                  href="/forgot-password"
+                >
+                  Click to resend
+                </a>
+              </p>
+            </div>
+          </div>
+
+          {/* Support link */}
+          <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800">
+            <a
+              className="text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center gap-1 transition-colors"
+              href="mailto:support@kidschedule.com"
+            >
+              <span className="material-symbols-outlined text-lg">help</span>
+              Need help? Contact Support
+            </a>
+          </div>
+        </div>
+
+        {/* Mobile logo — absolute top-left */}
+        <div className="absolute top-6 left-6 lg:hidden">
+          <div className="flex items-center gap-2">
+            <div className="bg-primary/10 flex items-center justify-center rounded-lg size-8 text-primary">
+              <span className="material-symbols-outlined text-xl">family_restroom</span>
+            </div>
+            <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+              KidSchedule
+            </span>
           </div>
         </div>
       </div>

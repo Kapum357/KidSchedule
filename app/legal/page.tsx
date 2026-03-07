@@ -18,6 +18,7 @@
 import { LegalEngine } from "@/lib/legal-engine";
 import type { LegalSection } from "@/types";
 import Link from "next/link";
+import { TableOfContents } from "./table-of-contents";
 
 // This page can be statically generated since legal content changes infrequently
 export const dynamic = "force-static";
@@ -121,48 +122,13 @@ export default function LegalPage() {
       </header>
 
       <div className="flex flex-1 h-full overflow-hidden">
-        {/* Sidebar – Table of Contents */}
-        <aside className="w-72 bg-surface-light dark:bg-surface-dark border-r border-slate-200 dark:border-slate-800 hidden md:flex flex-col h-full overflow-y-auto custom-scrollbar shrink-0 print:hidden">
-          <div className="p-6">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
-              Table of Contents
-            </h3>
-
-            <nav className="space-y-1">
-              {allSections.map((section) => (
-                <a
-                  key={`${section.docType}-${section.id}`}
-                  className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                  href={`#${section.id}`}
-                >
-                  <span className="material-symbols-outlined text-lg">{section.icon}</span>
-                  {section.title}
-                </a>
-              ))}
-            </nav>
-
-            {/* Support Section */}
-            <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
-                Support
-              </h3>
-              <a
-                className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 hover:text-primary transition-colors mb-3"
-                href="mailto:legal@kidschedule.com"
-              >
-                <span className="material-symbols-outlined text-lg">mail</span>
-                legal@kidschedule.com
-              </a>
-              <a
-                className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 hover:text-primary transition-colors"
-                href="/help"
-              >
-                <span className="material-symbols-outlined text-lg">help</span>
-                Help Center
-              </a>
-            </div>
-          </div>
-        </aside>
+        <TableOfContents
+          sections={allSections.map((section) => ({
+            id: section.id,
+            label: section.title,
+            icon: section.icon,
+          }))}
+        />
 
         {/* Main Content */}
         <main

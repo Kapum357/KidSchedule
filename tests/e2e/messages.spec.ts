@@ -1,126 +1,131 @@
 /**
  * Messages E2E Tests
  *
- * Full integration tests for messaging, SMS relay, and read receipts
+ * Tests for the messages API endpoints: auth requirements, input validation,
+ * and response structure. Full workflow tests (WebSocket, real-time events,
+ * SMS relay) require an authenticated session and running database.
  */
 
 import { test, expect } from "@playwright/test";
 
-test.describe("Messages Feature E2E", () => {
-  test.beforeEach(async () => {
-    // Reset state between tests
+test.describe("Messages API: Authentication", () => {
+  test("GET /api/messages requires authentication", async ({ request }) => {
+    const response = await request.get("/api/messages");
+    expect([401, 403, 404]).toContain(response.status());
   });
 
-  test.describe("Message sending and receiving", () => {
-    test("should send message to family thread", async () => {
-      // This is a placeholder for E2E testing
-      // In a full E2E setup, this would:
-      // 1. Create test users (parent 1 and parent 2)
-      // 2. Create a family
-      // 3. Parent 1 sends a message
-      // 4. Verify message appears in both parents' views
-      expect(true).toBe(true);
+  test("POST /api/messages requires authentication", async ({ request }) => {
+    const response = await request.post("/api/messages", {
+      data: { body: "Hello" },
     });
 
-    test("should emit socket event when new message arrives", async () => {
-      // E2E test would:
-      // 1. Connect parent 2 socket to family room
-      // 2. Have parent 1 send message
-      // 3. Verify parent 2 socket receives 'message:new' event
-      expect(true).toBe(true);
-    });
+    expect([401, 403]).toContain(response.status());
+    const body = await response.json();
+    expect(body).toHaveProperty("error");
   });
 
-  test.describe("Read receipts", () => {
-    test("should mark message as read when recipient opens it", async () => {
-      // E2E test would:
-      // 1. Parent 1 sends message
-      // 2. Parent 2 opens message list
-      // 3. Parent 2's IntersectionObserver detects message in viewport
-      // 4. POST to /api/messages/{id}/read
-      // 5. Verify message.readAt is set in DB
-      expect(true).toBe(true);
-    });
-
-    test("should emit read receipt to sender in real-time", async () => {
-      // E2E test would:
-      // 1. Parent 1 and Parent 2 both connected via socket
-      // 2. Parent 1 sends message
-      // 3. Parent 2 marks as read
-      // 4. Verify Parent 1 socket receives 'message:read' event
-      // 5. Verify ✓✓ indicator appears for Parent 1
-      expect(true).toBe(true);
-    });
+  test("POST /api/messages/:id/read requires authentication", async ({
+    request,
+  }) => {
+    const response = await request.post(
+      "/api/messages/00000000-0000-0000-0000-000000000001/read",
+      { data: {} },
+    );
+    expect([401, 403, 404]).toContain(response.status());
   });
 
-  test.describe("SMS Relay", () => {
-    test("should enroll parent in SMS relay with valid phone", async () => {
-      // E2E test would:
-      // 1. Parent goes to Messages page
-      // 2. Fills in phone number in SmsRelaySetup component
-      // 3. Clicks "Enable SMS Relay"
-      // 4. Verify enrollment in database
-      // 5. Verify proxy number is assigned and displayed
-      expect(true).toBe(true);
+  test("POST /api/messages/relay requires authentication", async ({
+    request,
+  }) => {
+    const response = await request.post("/api/messages/relay", {
+      data: { phone: "+15551234567" },
+    });
+    expect([401, 403]).toContain(response.status());
+  });
+});
+
+test.describe("Messages API: Input Validation", () => {
+  test("POST /api/messages with empty body is rejected", async ({
+    request,
+  }) => {
+    const response = await request.post("/api/messages", {
+      data: {},
     });
 
-    test("should send SMS when other parent sends message", async () => {
-      // E2E test would:
-      // 1. Parent 1 enrolls in SMS relay
-      // 2. Parent 2 sends message
-      // 3. Verify SMS is sent via Twilio mock
-      // 4. Verify SMS contains message text
-      // 5. Verify SMS is from proxy number to enrolled parent's real phone
-      expect(true).toBe(true);
-    });
-
-    test("should create message when SMS is received", async () => {
-      // E2E test would:
-      // 1. Parent 1 is enrolled in SMS relay
-      // 2. Send SMS to proxy number
-      // 3. Webhook receives incoming SMS
-      // 4. Verify message is created in family thread
-      // 5. Verify socket event is emitted to connected parents
-      expect(true).toBe(true);
-    });
-
-    test("should prevent SMS relay for unenrolled parents", async () => {
-      // E2E test would:
-      // 1. Parent sends message
-      // 2. Verify SMS is NOT sent to unenrolled family members
-      // 3. Verify enrolled parents DO receive SMS
-      expect(true).toBe(true);
-    });
+    expect([400, 401, 403]).toContain(response.status());
   });
 
-  test.describe("Conflict detection", () => {
-    test("should block hostile messages before sending", async () => {
-      // E2E test would:
-      // 1. Parent tries to send hostile message
-      // 2. Verify conflict detection blocks it
-      // 3. Verify page shows suggestion for rewrite
-      // 4. Verify message is not in thread until rewritten
-      expect(true).toBe(true);
+  test("POST /api/messages returns JSON error format", async ({ request }) => {
+    const response = await request.post("/api/messages", {
+      data: {},
     });
+
+    const contentType = response.headers()["content-type"];
+    expect(contentType).toContain("application/json");
+
+    const body = await response.json();
+    expect(body).toHaveProperty("error");
+  });
+});
+
+test.describe("Messages API: Webhook Security", () => {
+  test("Twilio webhook rejects requests without signature", async ({
+    request,
+  }) => {
+    const response = await request.post("/api/webhooks/twilio/incoming", {
+      form: {
+        From: "+15551234567",
+        To: "+15559876543",
+        Body: "Test message",
+        MessageSid: "SM1234567890abcdef",
+      },
+    });
+
+    // Twilio webhook should verify signature — reject unsigned requests
+    expect([400, 401, 403]).toContain(response.status());
   });
 
-  test.describe("Message history", () => {
-    test("should load and display message history", async () => {
-      // E2E test would:
-      // 1. Create 10 test messages in family thread
-      // 2. Load messages page
-      // 3. Verify all messages are displayed
-      // 4. Verify messages are sorted by time (newest first)
-      // 5. Verify sender names are displayed
-      expect(true).toBe(true);
+  test("Twilio webhook returns proper content-type on rejection", async ({
+    request,
+  }) => {
+    const response = await request.post("/api/webhooks/twilio/incoming", {
+      form: {
+        From: "+15551234567",
+        Body: "Test",
+      },
     });
 
-    test("should handle empty message thread", async () => {
-      // E2E test would:
-      // 1. Load messages page for family with no messages
-      // 2. Verify "No messages yet" message appears
-      // 3. Verify message form is still available
-      expect(true).toBe(true);
-    });
+    const contentType = response.headers()["content-type"] ?? "";
+    // Should return either TwiML XML or JSON error
+    expect(
+      contentType.includes("text/xml") ||
+        contentType.includes("application/json"),
+    ).toBe(true);
+  });
+});
+
+test.describe("Messages API: Response Format", () => {
+  test("unauthenticated requests return consistent error shape", async ({
+    request,
+  }) => {
+    const protectedEndpoints = [
+      { method: "POST", path: "/api/messages", data: { body: "hi" } },
+      { method: "POST", path: "/api/messages/relay", data: { phone: "+15551234567" } },
+    ] as const;
+
+    for (const endpoint of protectedEndpoints) {
+      const response = await request.post(endpoint.path, {
+        data: endpoint.data,
+      });
+
+      expect([400, 401, 403]).toContain(response.status());
+
+      const contentType = response.headers()["content-type"];
+      expect(contentType).toContain("application/json");
+
+      const body = await response.json();
+      expect(typeof body).toBe("object");
+      expect(body).toHaveProperty("error");
+    }
   });
 });

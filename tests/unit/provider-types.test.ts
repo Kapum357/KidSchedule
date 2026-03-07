@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars */
+ 
 /* eslint-disable sonarlint/S1192 */
 /*
  * Provider types smoke tests

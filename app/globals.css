@@ -35,6 +35,12 @@
   --color-secondary-active: #6d28d9;
   --color-secondary-subtle: rgba(139, 92, 246, 0.12);
   --color-secondary-muted: rgba(139, 92, 246, 0.24);
+
+  /* Parent B calendar color (orange) */
+  --color-parent-b: #F4A261;
+  --color-parent-b-hover: #e8924d;
+  --color-parent-b-subtle: rgba(244, 162, 97, 0.12);
+  --color-parent-b-muted: rgba(244, 162, 97, 0.24);
   
   /* Accent (attention/urgency) */
   --color-accent: #FFA726;
@@ -291,6 +297,11 @@ html.dark {
   --color-secondary: var(--color-secondary);
   --color-secondary-hover: var(--color-secondary-hover);
   --color-secondary-subtle: var(--color-secondary-subtle);
+
+  --color-parent-b: var(--color-parent-b);
+  --color-parent-b-hover: var(--color-parent-b-hover);
+  --color-parent-b-subtle: var(--color-parent-b-subtle);
+  --color-parent-b-muted: var(--color-parent-b-muted);
   
   --color-accent: var(--color-accent);
   --color-accent-hover: var(--color-accent-hover);

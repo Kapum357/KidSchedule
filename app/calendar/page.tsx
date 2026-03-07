@@ -14,7 +14,7 @@ import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
 import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { CalendarFeedSubscription } from "@/app/calendar/calendar-feed-subscription";
-import { CalendarDayCell } from "@/app/calendar/components/calendar-day-cell";
+import { CalendarDayCell } from "@/components/calendar-day-cell";
 import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
 import Link from "next/link";

@@ -110,7 +110,7 @@ export default async function ReviewPage({
               Parent A ({preview.parentAPercent}%)
             </span>
             <span className="inline-flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-parent-b"></span>
               Parent B ({preview.parentBPercent}%)
             </span>
           </div>

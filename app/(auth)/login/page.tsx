@@ -274,10 +274,7 @@ function LoginForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
         className="group relative flex w-full justify-center rounded-lg bg-teal-soft px-4 py-3 text-sm font-semibold text-white hover:bg-teal-dark focus:outline-none focus:ring-2 focus:ring-teal-soft focus:ring-offset-2 shadow-sm transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
         type="submit"
       >
-        <span className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-base">login</span>
-          Log In
-        </span>
+        Log In
       </button>
     </form>
   );

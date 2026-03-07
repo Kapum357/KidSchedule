@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ScheduleOverride } from '@/types';
-import { DeleteConfirmDialog } from './delete-confirm-dialog';
+import { DeleteConfirmDialog } from '@/components/holidays/delete-confirm-dialog';
 
 export interface HolidayListProps {
   holidays: ScheduleOverride[];

@@ -6,6 +6,7 @@ import {
   type MomentChildTag,
   type MomentVisibility,
 } from "@/lib/moment-engine";
+import { FileUploadZone } from "./file-upload-zone";
 
 type ShareMomentSearchParams = {
   title?: string;
@@ -183,24 +184,7 @@ export default async function ShareMomentPage({
             )}
 
             <form action={handleShareMoment} className="space-y-8" method="post" encType="multipart/form-data">
-              <div className="group relative">
-                <label className="block text-sm font-semibold leading-6 text-slate-900 dark:text-white mb-2" htmlFor="file-upload">
-                  Upload Photos or Video
-                </label>
-                <div className="mt-2 flex justify-center rounded-xl border border-dashed border-slate-300 dark:border-slate-600 px-6 py-10 hover:border-primary hover:bg-primary/5 transition-colors cursor-pointer group-hover:border-primary">
-                  <div className="text-center">
-                    <span className="material-symbols-outlined mx-auto text-5xl text-slate-300 dark:text-slate-500 group-hover:text-primary transition-colors">cloud_upload</span>
-                    <div className="mt-4 flex text-sm leading-6 text-slate-600 dark:text-slate-400 justify-center">
-                      <label className="relative cursor-pointer rounded-md bg-transparent font-semibold text-primary focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 hover:text-primary-hover" htmlFor="file-upload">
-                        <span>Upload a file</span>
-                        <input className="sr-only" id="file-upload" name="media" type="file" accept="image/png,image/jpeg,video/mp4" required />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
-                    </div>
-                    <p className="text-xs leading-5 text-slate-500 dark:text-slate-500">PNG, JPG, MP4 up to 50MB</p>
-                  </div>
-                </div>
-              </div>
+              <FileUploadZone />
 
               <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
                 <div className="sm:col-span-6">

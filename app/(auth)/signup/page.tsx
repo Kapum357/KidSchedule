@@ -237,6 +237,15 @@ function SignupForm({
             </button>
           </div>
 
+          {/* Password Strength Indicator */}
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex-1 h-1 bg-primary rounded-full" />
+            <div className="flex-1 h-1 bg-primary rounded-full" />
+            <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
+            <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
+            <span className="text-xs font-medium text-slate-500 ml-2">Medium</span>
+          </div>
+
           {/* Password Requirements */}
           <div className="mt-3 text-xs text-slate-600 dark:text-slate-400 space-y-1">
             <p>Password must contain:</p>

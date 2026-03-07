@@ -9,6 +9,7 @@ import {
   type RotationStarter,
   type TemplateId,
 } from "@/lib/schedule-wizard-engine";
+import { PatternConfigForm } from "./pattern-config-form";
 
 const WEEKDAY_HEADERS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
 
@@ -150,115 +151,13 @@ export default async function PatternConfigPage({
       </header>
 
       <main className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
-        <form
-          method="get"
-          action="/calendar/wizard/pattern"
-          className="w-full lg:w-1/3 xl:w-1/4 bg-surface dark:bg-surface border-r border-slate-200 dark:border-slate-800 flex flex-col h-full overflow-y-auto z-10 shadow-lg lg:shadow-none"
-        >
-          <input type="hidden" name="template" value={config.templateId} />
-          <input type="hidden" name="mode" value={config.mode} />
-
-          <div className="p-6 space-y-8 pb-24">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Configuration</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Customize your {config.templateId} schedule details.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <label htmlFor="startDate" className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                Schedule Start Date
-              </label>
-              <input
-                id="startDate"
-                name="startDate"
-                className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm"
-                type="date"
-                defaultValue={config.scheduleStartDate}
-              />
-              <p className="text-xs text-slate-500">The first day this schedule applies.</p>
-            </div>
-
-            <div className="h-px bg-slate-200 dark:bg-slate-700"></div>
-
-            <div className="space-y-4">
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Rotation Start</label>
-              <div className="bg-surface-sunken dark:bg-background-dark p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-                <span className="text-sm font-medium">Who starts the rotation?</span>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="cursor-pointer">
-                    <input type="radio" name="startsWith" value="A" defaultChecked={config.rotationStarter === "A"} className="peer sr-only" />
-                    <span className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-500 peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary peer-checked:font-semibold transition-all">
-                      <span className="w-3 h-3 rounded-full bg-primary"></span>
-                      Parent A
-                    </span>
-                  </label>
-                  <label className="cursor-pointer">
-                    <input type="radio" name="startsWith" value="B" defaultChecked={config.rotationStarter === "B"} className="peer sr-only" />
-                    <span className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-500 peer-checked:border-secondary peer-checked:bg-secondary/10 peer-checked:text-secondary peer-checked:font-semibold transition-all">
-                      <span className="w-3 h-3 rounded-full bg-secondary"></span>
-                      Parent B
-                    </span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Transition Times</label>
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label htmlFor="pickup" className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1.5 block">
-                    Pick-up Time
-                  </label>
-                  <select
-                    id="pickup"
-                    name="pickup"
-                    className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm"
-                    defaultValue={config.pickupTime}
-                  >
-                    {getPickupTimeOptions().map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="dropoff" className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1.5 block">
-                    Drop-off Time
-                  </label>
-                  <select
-                    id="dropoff"
-                    name="dropoff"
-                    className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm"
-                    defaultValue={config.dropoffTime}
-                  >
-                    {getDropoffTimeOptions().map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500 mt-2">
-                <span className="material-symbols-outlined text-sm" aria-hidden="true">
-                  info
-                </span>
-                <span>Standard exchanges occur at school/care.</span>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-            >
-              Update Preview
-            </button>
-          </div>
-        </form>
+        <PatternConfigForm
+          config={config}
+          pickupOptions={getPickupTimeOptions()}
+          dropoffOptions={getDropoffTimeOptions()}
+          templateId={config.templateId}
+          mode={config.mode}
+        />
 
         <section className="w-full lg:w-2/3 xl:w-3/4 bg-surface-sunken dark:bg-surface-sunken p-6 lg:p-10 overflow-y-auto flex flex-col relative">
           <div className="max-w-5xl mx-auto w-full h-full flex flex-col">
@@ -303,8 +202,8 @@ export default async function PatternConfigPage({
               {preview.weeks.map((week, weekIndex) => (
                 <div key={`week-${weekIndex}`} className="flex-1 grid grid-cols-7 divide-x divide-slate-100 dark:divide-slate-800 min-h-[160px] border-b last:border-b-0 border-slate-200 dark:border-slate-800">
                   {week.map((day) => {
-                    const dayColor = day.parent === "A" ? "primary" : "secondary";
-                    const textColor = day.parent === "A" ? "text-primary" : "text-orange-700 dark:text-orange-300";
+                    const dayColor = day.parent === "A" ? "primary" : "parent-b";
+                    const textColor = day.parent === "A" ? "text-primary" : "text-parent-b";
 
                     return (
                       <div
@@ -312,7 +211,7 @@ export default async function PatternConfigPage({
                         className={`relative p-2 flex flex-col group transition-colors ${
                           dayColor === "primary"
                             ? "bg-primary/5 hover:bg-primary/10"
-                            : "bg-secondary/5 hover:bg-secondary/10"
+                            : "bg-parent-b/5 hover:bg-parent-b/10"
                         }`}
                       >
                         <span className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{day.dayOfMonth}</span>
@@ -320,7 +219,7 @@ export default async function PatternConfigPage({
                           className={`flex-1 rounded-lg p-2 border-l-4 ${
                             dayColor === "primary"
                               ? "bg-primary/20 border-primary"
-                              : "bg-secondary/20 border-secondary"
+                              : "bg-parent-b/20 border-parent-b"
                           }`}
                         >
                           <div className={`text-xs font-bold ${textColor}`}>Parent {day.parent}</div>
@@ -339,7 +238,7 @@ export default async function PatternConfigPage({
                 <span>Parent A ({preview.parentAPercent}%)</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-secondary"></div>
+                <div className="w-3 h-3 rounded bg-parent-b"></div>
                 <span>Parent B ({preview.parentBPercent}%)</span>
               </div>
             </div>

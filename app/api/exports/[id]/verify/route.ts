@@ -164,7 +164,7 @@ export async function POST(
     let isValid = false;
 
     // Optional: Verify PDF hash if provided
-    let storedPdfHash = metadata.pdfHash;
+    const storedPdfHash = metadata.pdfHash;
     if (request.body) {
       const body = (await request.json()) as VerifyRequest;
 

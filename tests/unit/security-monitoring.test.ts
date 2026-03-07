@@ -1,4 +1,4 @@
-/* eslint-disable no-magic-numbers */
+ 
 /* eslint-disable no-duplicate-string */
 
 import { db } from "@/lib/persistence";

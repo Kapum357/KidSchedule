@@ -1,4 +1,4 @@
-/* eslint-disable no-magic-numbers */
+ 
 
 import { initDb, db, _test_resetDbInstance } from "@/lib/persistence";
 import type { UnitOfWork } from "@/lib/persistence/repositories";

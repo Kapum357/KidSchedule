@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { HolidayForm } from '@/app/holidays/components/holiday-form';
+import { HolidayForm } from '@/components/holidays/holiday-form';
 import { createHoliday, updateHoliday } from '@/app/actions/holidays';
 import type { DbScheduleOverride } from '@/lib/persistence/types';
 
