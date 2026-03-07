@@ -19,6 +19,8 @@ type DismissRequestBody = {
   sendAcknowledgment?: boolean;
 };
 
+const ROUTE = "POST /api/mediation/warnings/[id]/dismiss";
+
 const ACKNOWLEDGMENT_MESSAGE =
   "I've reviewed your message and I'm working to ensure our communication stays constructive. Let's focus on what's best for our child.";
 
@@ -33,7 +35,7 @@ export async function POST(
 
     if (!parent) {
       observeApiRequest({
-        route: "/api/mediation/warnings/[id]/dismiss",
+        route: ROUTE,
         method: "POST",
         status: 403,
         durationMs: Date.now() - startedAt,
@@ -46,7 +48,7 @@ export async function POST(
 
     if (!warning || warning.familyId !== parent.familyId) {
       observeApiRequest({
-        route: "/api/mediation/warnings/[id]/dismiss",
+        route: ROUTE,
         method: "POST",
         status: 404,
         durationMs: Date.now() - startedAt,
@@ -57,9 +59,13 @@ export async function POST(
     const dismissed = await db.mediationWarnings.dismiss(id, parent.id);
 
     if (!dismissed) {
-      logEvent("error", "Failed to dismiss warning", { warningId: id });
+      logEvent("error", "mediation.warning_dismissal_failed", {
+        warningId: id,
+        parentId: parent.id,
+        familyId: parent.familyId,
+      });
       observeApiRequest({
-        route: "/api/mediation/warnings/[id]/dismiss",
+        route: ROUTE,
         method: "POST",
         status: 500,
         durationMs: Date.now() - startedAt,
@@ -124,7 +130,7 @@ export async function POST(
     });
 
     observeApiRequest({
-      route: "/api/mediation/warnings/[id]/dismiss",
+      route: ROUTE,
       method: "POST",
       status: 200,
       durationMs: Date.now() - startedAt,
@@ -132,16 +138,15 @@ export async function POST(
 
     return NextResponse.json({ warning: dismissed });
   } catch (error) {
-    logEvent("error", "POST /api/mediation/warnings/[id]/dismiss error", {
-      error: error instanceof Error ? error.message : "unknown",
+    logEvent("error", "mediation.warning_dismissal_error", {
+      errorMessage: error instanceof Error ? error.message : String(error),
     });
     observeApiRequest({
-      route: "/api/mediation/warnings/[id]/dismiss",
+      route: ROUTE,
       method: "POST",
       status: 500,
       durationMs: Date.now() - startedAt,
     });
-    console.error("[POST /api/mediation/warnings/[id]/dismiss]", error);
     return NextResponse.json(
       { error: "Failed to dismiss warning" },
       { status: 500 }
