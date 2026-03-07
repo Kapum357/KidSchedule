@@ -12,6 +12,7 @@ import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
 import type { DbMediationWarning } from "@/lib/persistence/types";
 import { logEvent } from "@/lib/observability/logger";
+import { Metadata } from "next";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,6 +113,13 @@ function formatDate(isoString: string): string {
     day: "numeric",
   });
 }
+
+// ─── Metadata ─────────────────────────────────────────────────────────────────
+
+export const metadata: Metadata = {
+  title: "Warning History | Mediation",
+  description: "View historical warning signals and resolutions",
+};
 
 // ─── Page Component ───────────────────────────────────────────────────────────
 
