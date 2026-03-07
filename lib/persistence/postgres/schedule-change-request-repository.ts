@@ -151,10 +151,12 @@ export function createScheduleChangeRequestRepository(tx?: SqlClient): ScheduleC
       return rows[0] ? rowToDb(rows[0]) : null;
     },
 
-    async withdraw(id: string): Promise<boolean> {
+    async withdraw(id: string, withdrawnBy: string): Promise<boolean> {
       const rows = await query<{ id: string }[]>`
         UPDATE schedule_change_requests
-        SET status = 'declined'
+        SET status = 'withdrawn',
+            responded_by = ${withdrawnBy},
+            responded_at = NOW()
         WHERE id = ${id} AND status = 'pending'
         RETURNING id
       `;

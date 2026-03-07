@@ -179,7 +179,7 @@ export interface ScheduleChangeRequestRepository {
   approve(id: string, respondedBy: string, responseNote?: string): Promise<DbScheduleChangeRequest | null>;
   decline(id: string, respondedBy: string, responseNote?: string): Promise<DbScheduleChangeRequest | null>;
   counter(id: string, respondedBy: string, responseNote: string): Promise<DbScheduleChangeRequest | null>;
-  withdraw(id: string): Promise<boolean>;
+  withdraw(id: string, withdrawnBy: string): Promise<boolean>;
 }
 
 // ─── Change Request Message Repository ───────────────────────────────────────
