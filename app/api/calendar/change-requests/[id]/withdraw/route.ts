@@ -59,7 +59,6 @@ export async function POST(
       error: error instanceof Error ? error.message : "unknown",
     });
     observeApiRequest({ route, method: "POST", status: 500, durationMs: Date.now() - startedAt });
-    console.error("[POST /api/calendar/change-requests/[id]/withdraw]", error);
-    return NextResponse.json({ error: "Failed to withdraw request" }, { status: 500 });
+return NextResponse.json({ error: "Failed to withdraw request" }, { status: 500 });
   }
 }

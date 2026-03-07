@@ -35,13 +35,13 @@ export async function POST(
       observeApiRequest({ route, method: "POST", status: 403, durationMs: Date.now() - startedAt });
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    if (request.requestedBy === parent.id) {
-      observeApiRequest({ route, method: "POST", status: 403, durationMs: Date.now() - startedAt });
-      return NextResponse.json({ error: "Cannot counter your own request" }, { status: 403 });
-    }
     if (request.status !== "pending") {
       observeApiRequest({ route, method: "POST", status: 400, durationMs: Date.now() - startedAt });
       return NextResponse.json({ error: "Request is no longer pending" }, { status: 400 });
+    }
+    if (request.requestedBy === parent.id) {
+      observeApiRequest({ route, method: "POST", status: 403, durationMs: Date.now() - startedAt });
+      return NextResponse.json({ error: "Cannot counter your own request" }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -70,7 +70,6 @@ export async function POST(
       error: error instanceof Error ? error.message : "unknown",
     });
     observeApiRequest({ route, method: "POST", status: 500, durationMs: Date.now() - startedAt });
-    console.error("[POST /api/calendar/change-requests/[id]/counter]", error);
-    return NextResponse.json({ error: "Failed to counter request" }, { status: 500 });
+return NextResponse.json({ error: "Failed to counter request" }, { status: 500 });
   }
 }

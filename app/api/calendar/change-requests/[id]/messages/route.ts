@@ -46,8 +46,7 @@ export async function GET(
       error: error instanceof Error ? error.message : "unknown",
     });
     observeApiRequest({ route, method: "GET", status: 500, durationMs: Date.now() - startedAt });
-    console.error("[GET /api/calendar/change-requests/[id]/messages]", error);
-    return NextResponse.json({ error: "Failed to fetch messages" }, { status: 500 });
+return NextResponse.json({ error: "Failed to fetch messages" }, { status: 500 });
   }
 }
 
@@ -109,7 +108,7 @@ export async function POST(
       {
         id: newMsg.id,
         senderName: parent.name,
-        senderInitial: parent.name[0] ?? "?",
+        senderInitial: parent.name?.charAt(0) ?? "?",
         isCurrentUser: true,
         body: newMsg.body,
         createdAt: newMsg.createdAt,
@@ -121,7 +120,6 @@ export async function POST(
       error: error instanceof Error ? error.message : "unknown",
     });
     observeApiRequest({ route, method: "POST", status: 500, durationMs: Date.now() - startedAt });
-    console.error("[POST /api/calendar/change-requests/[id]/messages]", error);
-    return NextResponse.json({ error: "Failed to send message" }, { status: 500 });
+return NextResponse.json({ error: "Failed to send message" }, { status: 500 });
   }
 }
