@@ -41,6 +41,7 @@ const STATUS_LABELS: Record<string, string> = {
   accepted: "Accepted",
   declined: "Declined",
   countered: "Counter-Proposed",
+  withdrawn: "Withdrawn",
   expired: "Expired",
 };
 
@@ -327,6 +328,10 @@ export default async function ChangeRequestDetailPage({
 
   if (!dbRequest) {
     redirect("/calendar/change-request");
+  }
+
+  if (dbRequest.familyId !== activeParent.familyId) {
+    redirect("/calendar/change-requests");
   }
 
   if (dbParents.length < 2) {

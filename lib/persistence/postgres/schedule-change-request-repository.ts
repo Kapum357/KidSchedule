@@ -14,8 +14,8 @@ type RequestRow = {
   description: string | null;
   givingUpPeriodStart: Date;
   givingUpPeriodEnd: Date;
-  requestedMakeUpStart: Date;
-  requestedMakeUpEnd: Date;
+  requestedMakeUpStart: Date | null;
+  requestedMakeUpEnd: Date | null;
   status: string;
   createdAt: Date;
   respondedAt: Date | null;
@@ -34,8 +34,8 @@ function rowToDb(row: RequestRow): DbScheduleChangeRequest {
     description: row.description ?? undefined,
     givingUpPeriodStart: row.givingUpPeriodStart.toISOString(),
     givingUpPeriodEnd: row.givingUpPeriodEnd.toISOString(),
-    requestedMakeUpStart: row.requestedMakeUpStart.toISOString(),
-    requestedMakeUpEnd: row.requestedMakeUpEnd.toISOString(),
+    requestedMakeUpStart: row.requestedMakeUpStart?.toISOString() ?? "",
+    requestedMakeUpEnd: row.requestedMakeUpEnd?.toISOString() ?? "",
     status: row.status,
     createdAt: row.createdAt.toISOString(),
     respondedAt: row.respondedAt?.toISOString(),

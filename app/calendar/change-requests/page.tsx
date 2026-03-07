@@ -13,6 +13,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { RequestsHubClient, type RequestSummary } from "./requests-hub-client";
+import type { ChangeRequestStatus } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,7 @@ export default async function ChangeRequestsHubPage() {
     .map((r) => ({
       id: r.id,
       title: r.title,
-      status: r.status,
+      status: r.status as ChangeRequestStatus,
       changeType: r.changeType,
       requestedBy: r.requestedBy,
       requesterName: parentNameMap.get(r.requestedBy)?.split(" ")[0] ?? "Co-Parent",
@@ -78,7 +79,7 @@ export default async function ChangeRequestsHubPage() {
     .map((r) => ({
       id: r.id,
       title: r.title,
-      status: r.status,
+      status: r.status as ChangeRequestStatus,
       changeType: r.changeType,
       requestedBy: r.requestedBy,
       requesterName: parentNameMap.get(r.requestedBy)?.split(" ")[0] ?? "You",
@@ -93,7 +94,7 @@ export default async function ChangeRequestsHubPage() {
     .map((r) => ({
       id: r.id,
       title: r.title,
-      status: r.status,
+      status: r.status as ChangeRequestStatus,
       changeType: r.changeType,
       requestedBy: r.requestedBy,
       requesterName: parentNameMap.get(r.requestedBy)?.split(" ")[0] ?? "Parent",

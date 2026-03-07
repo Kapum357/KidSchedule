@@ -14,7 +14,7 @@ export function ActionButtons({ requestId, isRequester, status }: ActionButtonsP
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function callAction(action: string, note?: string) {
+  async function callAction(action: "approve" | "decline" | "counter" | "withdraw", note?: string) {
     setLoading(true);
     setError(null);
     try {

@@ -225,6 +225,7 @@ export type ChangeRequestStatus =
   | "accepted"
   | "declined"
   | "countered"  // other parent proposed a different swap
+  | "withdrawn"  // requester cancelled their own request
   | "expired";   // no response within the deadline
 
 export interface ScheduleChangeRequest {

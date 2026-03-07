@@ -1,0 +1,153 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    # Ramp up to 100 concurrent users over 2 minutes
+    - duration: 120
+      arrivalRate: 1
+      rampTo: 100
+      name: "Ramp up to 100 users"
+    # Sustained load at 100 users for 5 minutes
+    - duration: 300
+      arrivalRate: 100
+      name: "Sustained 100 users"
+    # Spike test: sudden increase to 200 users
+    - duration: 60
+      arrivalRate: 200
+      name: "Spike to 200 users"
+    # Recovery: back to 100 users
+    - duration: 120
+      arrivalRate: 100
+      name: "Recovery at 100 users"
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+
+scenarios:
+  # Authentication flow (10% of traffic)
+  - name: "Authentication Flow"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "test{{ $randomInt }}@example.com"
+            password: "password123"
+          capture:
+            json: "$.accessToken"
+            as: "accessToken"
+      - get:
+          url: "/api/auth/refresh"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+      - post:
+          url: "/api/auth/logout"
+
+  # Dashboard loading (20% of traffic)
+  - name: "Dashboard Load"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "test{{ $randomInt }}@example.com"
+            password: "password123"
+          capture:
+            json: "$.accessToken"
+            as: "accessToken"
+      - get:
+          url: "/dashboard"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+      - get:
+          url: "/api/calendar/events"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          qs:
+            year: "2026"
+            month: "3"
+      - get:
+          url: "/api/messages"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+
+  # Calendar operations (30% of traffic)
+  - name: "Calendar Operations"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "test{{ $randomInt }}@example.com"
+            password: "password123"
+          capture:
+            json: "$.accessToken"
+            as: "accessToken"
+      - get:
+          url: "/api/calendar/events"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          qs:
+            year: "2026"
+            month: "{{ $randomInt(1, 12) }}"
+      - post:
+          url: "/api/calendar/events"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          json:
+            title: "Load Test Event {{ $randomInt }}"
+            startAt: "2026-03-{{ $randomInt(1, 31) }}T10:00:00Z"
+            endAt: "2026-03-{{ $randomInt(1, 31) }}T11:00:00Z"
+            category: "custody"
+      - get:
+          url: "/calendar"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+
+  # Messaging operations (25% of traffic)
+  - name: "Messaging Operations"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "test{{ $randomInt }}@example.com"
+            password: "password123"
+          capture:
+            json: "$.accessToken"
+            as: "accessToken"
+      - get:
+          url: "/api/messages"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+      - post:
+          url: "/api/messages"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          json:
+            body: "Load test message {{ $randomString }}"
+            recipientId: "test-recipient-{{ $randomInt }}"
+      - get:
+          url: "/messages"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+
+  # API stress test (15% of traffic)
+  - name: "API Stress Test"
+    weight: 15
+    flow:
+      - get:
+          url: "/api/health"
+      - get:
+          url: "/api/holidays"
+      - get:
+          url: "/api/billing/plans"
+      - post:
+          url: "/api/phone/verify/start"
+          json:
+            phoneNumber: "+1555{{ $randomInt(1000000, 9999999) }}"
+      - get:
+          url: "/blog"
+          qs:
+            page: "{{ $randomInt(1, 5) }}"
+      - get:
+          url: "/api/observability/security-snapshot"

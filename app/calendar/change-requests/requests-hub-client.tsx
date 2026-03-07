@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { ParentId } from "@/types";
+import type { ParentId, ChangeRequestStatus } from "@/types";
 
 export type RequestSummary = {
   id: string;
   title: string;
-  status: string;
+  status: ChangeRequestStatus;
   changeType: string;
   requestedBy: ParentId;
   requesterName: string;
