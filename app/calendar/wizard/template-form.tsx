@@ -20,6 +20,7 @@ export function TemplateForm({
   const [mounted, setMounted] = useState(false);
 
   // Hydration guard: read from localStorage after mount
+  // Only runs once on mount; safe to call setState directly
   useEffect(() => {
     const saved = localStorage.getItem("ks_wizard_draft");
     if (saved) {

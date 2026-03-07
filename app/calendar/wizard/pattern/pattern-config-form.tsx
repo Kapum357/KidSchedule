@@ -29,31 +29,46 @@ export function PatternConfigForm({
   const [dropoff, setDropoff] = useState(config.dropoffTime);
   const [mounted, setMounted] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
-  const [dateError, setDateError] = useState("");
+  const [dateError, setDateError] = useState<string | undefined>();
+
+  // Validate date helper
+  const validateDate = (dateValue: string): boolean => {
+    const today = getTodayIsoDate();
+    if (dateValue < today) {
+      setDateError("Start date must be today or in the future.");
+      return false;
+    }
+    setDateError(undefined);
+    return true;
+  };
 
   // Hydration guard + localStorage restore
+  // Only runs once on mount; safe to call setState directly
   useEffect(() => {
     const saved = localStorage.getItem("ks_wizard_draft");
     if (saved) {
       try {
         const draft = JSON.parse(saved);
-        // Only restore from localStorage if URL params are defaults
-        // (i.e., user hasn't explicitly set them)
-        const urlIsDefault =
-          config.scheduleStartDate === "2025-01-15" && // example default
-          config.rotationStarter === "A";
-
-        if (urlIsDefault) {
-          if (draft.startDate) setDate(draft.startDate);
-          if (draft.startsWith) setStartsWith(draft.startsWith);
-          if (draft.pickup) setPickup(draft.pickup);
-          if (draft.dropoff) setDropoff(draft.dropoff);
+        // Restore from localStorage - user may have a draft from a previous session
+        // The URL params will have some values; we restore from draft where available
+        if (draft.startDate && draft.startDate !== config.scheduleStartDate) {
+          setDate(draft.startDate);
+        }
+        if (draft.startsWith && draft.startsWith !== config.rotationStarter) {
+          setStartsWith(draft.startsWith);
+        }
+        if (draft.pickup && draft.pickup !== config.pickupTime) {
+          setPickup(draft.pickup);
+        }
+        if (draft.dropoff && draft.dropoff !== config.dropoffTime) {
+          setDropoff(draft.dropoff);
         }
       } catch {
         // Ignore parse errors
       }
     }
     setMounted(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Write to localStorage whenever config changes
@@ -73,27 +88,41 @@ export function PatternConfigForm({
     localStorage.setItem("ks_wizard_draft", JSON.stringify(draft));
   }, [date, startsWith, pickup, dropoff, mounted]);
 
-  // Date validation
+  // Date validation: update error state based on current date value
   useEffect(() => {
     const today = getTodayIsoDate();
     if (date < today) {
       setDateError("Start date must be today or in the future.");
     } else {
-      setDateError("");
+      setDateError(undefined);
     }
   }, [date]);
 
   const isDateValid = !dateError;
 
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!validateDate(date)) {
+      return;
+    }
+    // Build query string and navigate
+    const query = new URLSearchParams({
+      template: templateId,
+      startDate: date,
+      startsWith,
+      pickup,
+      dropoff,
+      mode,
+    });
+    window.location.href = `/calendar/wizard/pattern?${query.toString()}`;
+  };
+
   return (
     <>
       <form
-        method="get"
-        action="/calendar/wizard/pattern"
+        onSubmit={handleSubmit}
         className="w-full lg:w-1/3 xl:w-1/4 bg-surface dark:bg-surface border-r border-slate-200 dark:border-slate-800 flex flex-col h-full overflow-y-auto z-10 shadow-lg lg:shadow-none"
       >
-        <input type="hidden" name="template" value={templateId} />
-        <input type="hidden" name="mode" value={mode} />
 
         {/* Mobile toggle button */}
         <div className="lg:hidden sticky top-0 bg-surface dark:bg-surface border-b border-slate-200 dark:border-slate-800 p-4 z-20">
@@ -132,16 +161,22 @@ export function PatternConfigForm({
             </label>
             <input
               id="startDate"
-              name="startDate"
-              className={`w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm ${
-                dateError ? "border-red-500 dark:border-red-500" : ""
+              className={`w-full rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm transition-colors ${
+                dateError
+                  ? "border-red-500 dark:border-red-500 focus:ring-red-500/50"
+                  : "border-slate-300 dark:border-slate-600 focus:ring-primary/50"
               }`}
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
             {dateError && (
-              <p className="text-sm font-medium text-red-600 dark:text-red-400">{dateError}</p>
+              <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400">
+                <span aria-hidden="true" className="material-symbols-outlined text-base flex-shrink-0 mt-0.5">
+                  error
+                </span>
+                <span>{dateError}</span>
+              </div>
             )}
             <p className="text-xs text-slate-500">The first day this schedule applies.</p>
           </div>
@@ -243,9 +278,12 @@ export function PatternConfigForm({
           <button
             type="submit"
             disabled={!isDateValid}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
+            className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed"
           >
-            Update Preview
+            <span>Update Preview</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-base">
+              refresh
+            </span>
           </button>
         </div>
       </form>

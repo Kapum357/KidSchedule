@@ -7,14 +7,16 @@ CREATE TABLE IF NOT EXISTS mediation_topics (
   description TEXT,
   status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'in_progress', 'resolved')),
   draft_suggestion TEXT,
-  resolved_at TIMESTAMP,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  resolved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_mediation_topics_family_id ON mediation_topics(family_id);
 CREATE INDEX idx_mediation_topics_status ON mediation_topics(status);
 CREATE INDEX idx_mediation_topics_updated_at ON mediation_topics(updated_at DESC);
+CREATE INDEX idx_mediation_topics_family_id_status
+  ON mediation_topics(family_id, status);
 
 -- Create mediation_warnings table
 CREATE TABLE IF NOT EXISTS mediation_warnings (
@@ -27,15 +29,17 @@ CREATE TABLE IF NOT EXISTS mediation_warnings (
   title VARCHAR(255) NOT NULL,
   description TEXT NOT NULL,
   excerpt TEXT NOT NULL,
-  flagged_at TIMESTAMP NOT NULL,
+  flagged_at TIMESTAMPTZ NOT NULL,
   dismissed BOOLEAN NOT NULL DEFAULT FALSE,
-  dismissed_at TIMESTAMP,
+  dismissed_at TIMESTAMPTZ,
   dismissed_by UUID REFERENCES parents(id) ON DELETE SET NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_mediation_warnings_family_id ON mediation_warnings(family_id);
 CREATE INDEX idx_mediation_warnings_dismissed ON mediation_warnings(dismissed);
 CREATE INDEX idx_mediation_warnings_severity ON mediation_warnings(severity);
 CREATE INDEX idx_mediation_warnings_flagged_at ON mediation_warnings(flagged_at DESC);
+CREATE INDEX idx_mediation_warnings_family_id_dismissed
+  ON mediation_warnings(family_id, dismissed);

@@ -352,8 +352,8 @@ function CustodyScheduleCard({
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0">
-                <span aria-hidden="true" className="material-symbols-outlined text-slate-500 text-[20px]">
+              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0 text-blue-600 dark:text-blue-400">
+                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
                   swap_horiz
                 </span>
               </div>
@@ -920,24 +920,35 @@ export default async function DashboardPage() {
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-7xl mx-auto pb-24">
-            <CustodyScheduleCard
-              custody={data.custody}
-              upcomingTransitions={data.upcomingTransitions}
-              monthlyOwnership={data.monthlyOwnership}
-              family={data.family}
-              isCurrentUser={isCurrentUserCustody}
-              upcomingEvents={data.upcomingEvents}
-            />
+            {/* Custody Schedule — 2 cols on md+, 1 on mobile */}
+            <div className="md:col-span-2">
+              <CustodyScheduleCard
+                custody={data.custody}
+                upcomingTransitions={data.upcomingTransitions}
+                monthlyOwnership={data.monthlyOwnership}
+                family={data.family}
+                isCurrentUser={isCurrentUserCustody}
+                upcomingEvents={data.upcomingEvents}
+              />
+            </div>
+
+            {/* Comm Health — 1 col on all (naturally flows to right on md) */}
             <CommHealthCard climate={data.climate} />
+
+            {/* Pending Actions — 1 col on all (naturally flows to next row on md) */}
             <PendingActionsCard
               unreadCount={data.unreadMessageCount}
               recentActivity={data.recentActivity}
               pendingChangeRequests={data.pendingChangeRequests}
             />
-            <MomentsCard
-              moments={data.moments}
-              parents={family.parents}
-            />
+
+            {/* Moments Carousel — 2 cols on xl, 2 cols on md (spans width with custody above) */}
+            <div className="md:col-span-2">
+              <MomentsCard
+                moments={data.moments}
+                parents={family.parents}
+              />
+            </div>
           </div>
         </div>
 
