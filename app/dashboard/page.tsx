@@ -650,7 +650,7 @@ function PendingActionsCard({
               </div>
             </div>
             <Link
-              href="/calendar/change-request"
+              href="/calendar/change-requests"
               className="shrink-0 ml-2 px-3 py-1 bg-white dark:bg-[#1e2928] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold shadow-sm hover:border-[#6BCABD] hover:text-[#6BCABD] transition-colors"
             >
               View

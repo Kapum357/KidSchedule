@@ -439,14 +439,20 @@ function CalendarSidebar({
       {/* Pending Requests */}
       <div className="flex flex-col gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
         <div className="flex items-center justify-between">
-          <h3 className="text-slate-900 dark:text-slate-100 font-bold text-sm uppercase tracking-wider">
+          <Link
+            href="/calendar/change-requests"
+            className="text-slate-900 dark:text-slate-100 font-bold text-sm uppercase tracking-wider hover:text-primary transition-colors"
+          >
             Pending Requests
-          </h3>
-          {shownRequests.length > 0 && (
-            <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
+          </Link>
+          {shownRequests.length > 0 ? (
+            <Link
+              href="/calendar/change-requests"
+              className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full hover:bg-amber-200 transition-colors"
+            >
               {shownRequests.length} New
-            </span>
-          )}
+            </Link>
+          ) : null}
         </div>
         {shownRequests.length > 0 ? (
           shownRequests.map((req) => (
@@ -859,6 +865,17 @@ export default async function CalendarPage({
             <div className="flex gap-3">
               {/* View switcher */}
               <CalendarViewSwitcher currentMode={viewMode} year={year} month={month} />
+              {/* Change Requests Hub */}
+              <Link href="/calendar/change-requests"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                <span className="material-symbols-outlined text-sm">swap_horiz</span>
+                Change Requests
+                {pendingRequests.length > 0 && (
+                  <span className="bg-amber-100 text-amber-700 text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
+                    {pendingRequests.length}
+                  </span>
+                )}
+              </Link>
               {/* New Event */}
               <Link
                 href="/calendar/change-request"
