@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import type { ParentId } from "@/types";
 
 export type RequestSummary = {
   id: string;
   title: string;
   status: string;
   changeType: string;
-  requestedBy: string;
+  requestedBy: ParentId;
   requesterName: string;
   givingUpPeriodStart: string;
   givingUpPeriodEnd: string;
@@ -45,8 +46,8 @@ function formatDateRange(start: string, end: string): string {
   const s = new Date(start + "T00:00:00Z");
   const e = new Date(end + "T00:00:00Z");
   const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  const startStr = s.toLocaleDateString([], opts);
-  const endStr = e.toLocaleDateString([], opts);
+  const startStr = s.toLocaleDateString("en-US", opts);
+  const endStr = e.toLocaleDateString("en-US", opts);
   return start === end ? startStr : `${startStr} – ${endStr}`;
 }
 

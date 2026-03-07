@@ -49,11 +49,9 @@ export default async function ChangeRequestsHubPage() {
   const parent = await db.parents.findByUserId(user.userId);
   if (!parent) redirect("/calendar/wizard?onboarding=1");
 
-  const activeParent = parent as NonNullable<typeof parent>;
-
   const [allRequests, allParents] = await Promise.all([
-    db.scheduleChangeRequests.findByFamilyId(activeParent.familyId),
-    db.parents.findByFamilyId(activeParent.familyId),
+    db.scheduleChangeRequests.findByFamilyId(parent.familyId),
+    db.parents.findByFamilyId(parent.familyId),
   ]);
 
   // Build a name lookup map
@@ -61,7 +59,7 @@ export default async function ChangeRequestsHubPage() {
 
   // Bucket requests into tabs
   const incoming: RequestSummary[] = allRequests
-    .filter((r) => r.requestedBy !== activeParent.id && r.status === "pending")
+    .filter((r) => r.requestedBy !== parent.id && r.status === "pending")
     .map((r) => ({
       id: r.id,
       title: r.title,
@@ -76,7 +74,7 @@ export default async function ChangeRequestsHubPage() {
     }));
 
   const outgoing: RequestSummary[] = allRequests
-    .filter((r) => r.requestedBy === activeParent.id && r.status === "pending")
+    .filter((r) => r.requestedBy === parent.id && r.status === "pending")
     .map((r) => ({
       id: r.id,
       title: r.title,
