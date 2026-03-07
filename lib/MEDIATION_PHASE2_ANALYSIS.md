@@ -85,10 +85,10 @@ async create(data: Omit<DbMessageThread, "id" | "createdAt" | "lastMessageAt">):
 
 ---
 
-## 3. Message API Patterns (`app/api/messages/relay/route.ts`)
+## 3. Message API Patterns
 
 ### Authentication Pattern
-All message endpoints follow this authentication sequence:
+All message endpoints (including mediation message creation) follow this authentication sequence:
 
 ```typescript
 // 1. Authenticate user
@@ -132,6 +132,9 @@ return NextResponse.json(
 - `404`: Not found (resource doesn't exist)
 - `409`: Conflict (e.g., duplicate enrollment)
 
+### Note on References
+This pattern is documented in `app/api/messages/relay/route.ts` (SMS relay enrollment context), but the same auth, validation, and response conventions apply across all message endpoints. The key is to authenticate first, validate inputs, authorize family access, then call the repository layer.
+
 ---
 
 ## 4. Claude Integration (`lib/providers/ai/mediation-assistant.ts`)
@@ -139,7 +142,7 @@ return NextResponse.json(
 ### Two Functions Available
 
 #### A. `getMediationAssistantTips()`
-Analyzes recent messages and returns de-escalation tips.
+Analyzes recent messages in a conversation and returns de-escalation insights to help parents communicate better.
 
 **Function Signature:**
 ```typescript
@@ -161,6 +164,11 @@ interface MediationAssistantResult {
 }
 ```
 
+**When to Use:**
+- Use to generate de-escalation suggestions FROM recent messages in a thread
+- Called when a parent wants AI-powered tips on how to improve future replies
+- Input: historical messages; output: proactive advice
+
 **Key Details:**
 - Automatically redacts PII before sending to Claude (emails, phones, SSNs, card numbers)
 - Uses `claude-3-5-haiku-latest` by default (configurable via `CLAUDE_MEDIATION_MODEL` env var)
@@ -169,7 +177,7 @@ interface MediationAssistantResult {
 - Circuit breaker opens if error rate exceeds 50% over 5 minutes
 
 #### B. `analyzeMessageTone()`
-Analyzes a single message for hostile language.
+Analyzes a single message (typically a draft) for hostile language and provides a neutral rewrite.
 
 **Function Signature:**
 ```typescript
@@ -187,6 +195,11 @@ interface ToneAnalysisResult {
   neutralRewrite: string;       // Claude's suggested rewrite
 }
 ```
+
+**When to Use:**
+- Use to CHECK a single message before sending (e.g., parent draft, AI suggestion)
+- Called to validate tone and get a neutral rewrite if the message is hostile
+- Input: a single message; output: tone flags + suggested revision
 
 ### Claude Integration Architecture (`lib/providers/ai/claude-adapter.ts`)
 
@@ -276,22 +289,20 @@ export interface Message {
 5. Call `db.messages.create()` with:
    - `threadId`: Thread where suggestion is posted
    - `familyId`: Family context
-   - `senderId`: System/admin user ID or a special "mediation_assistant" actor
+   - `senderId`: Use the requesting parent's user ID (they initiated the suggestion, even if AI-assisted). Do NOT use a system actor ID—this ensures audit trails accurately reflect which parent authored the suggestion.
    - `body`: Suggestion text
    - `sentAt`: Current ISO timestamp
    - `toneAnalysis`: Result from `analyzeMessageTone()`
 
 ### Step 2: Adjust Tone via Claude (Server Action)
-1. Take the current suggestion text
-2. Call `analyzeMessageTone()` to get the current tone
-3. If hostile, use Claude to generate a rewrite:
-   ```typescript
-   const toneResult = await analyzeMessageTone(userId, text);
-   if (toneResult.neutralRewrite) {
-     // Use the rewrite as the adjusted version
-   }
-   ```
-4. Update the suggestion (or create a new version) with the adjusted text
+**IMPORTANT: Messages are immutable after creation (hash chain requirement).**
+
+1. Take the current suggestion text (before creation)
+2. Call `analyzeMessageTone()` to get the tone analysis
+3. If `neutralRewrite` is provided and you want to use a better version:
+   - **Option A (Recommended)**: Use Claude's `neutralRewrite` as the message body BEFORE calling `db.messages.create()`. This ensures the final message in the thread has the improved tone from the start.
+   - **Option B**: If adjustment happens after creation, create a NEW message in the same thread with the adjusted text. Link it to the original via `attachmentIds` or thread context (e.g., "Revised version of previous suggestion").
+4. Never attempt to update an existing message—the repository will reject it due to hash chain integrity.
 
 ### Step 3: Warning Dismissal with Message
 1. Fetch the mediation warning
