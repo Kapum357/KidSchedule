@@ -48,6 +48,10 @@ import {
   createExportMessageHashRepository,
   createExportVerificationAttemptRepository,
 } from "./export-metadata-repository";
+import {
+  createMediationTopicRepository,
+  createMediationWarningRepository,
+} from "./mediation-repository";
 
 // ─── Unit of Work Implementation ──────────────────────────────────────────────
 
@@ -103,6 +107,8 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     subscriptions: createSubscriptionRepository(tx),
     webhookEvents: createWebhookEventRepository(tx),
     planTiers: createPlanTierRepository(tx),
+    mediationTopics: createMediationTopicRepository(tx),
+    mediationWarnings: createMediationWarningRepository(tx),
 
     // Transaction methods - these are no-ops for direct UoW usage
     // Use withTransaction() for actual transaction support

@@ -475,6 +475,49 @@ export interface PlanTierRepository {
   findById(id: string): Promise<DbPlanTier | null>;
 }
 
+// ─── Mediation Topic Repository ───────────────────────────────────────────────
+
+export interface MediationTopicRepository {
+  findById(id: string): Promise<DbMediationTopic | null>;
+  findByFamilyId(familyId: string): Promise<DbMediationTopic[]>;
+  findByFamilyIdAndStatus(
+    familyId: string,
+    status: "draft" | "in_progress" | "resolved"
+  ): Promise<DbMediationTopic[]>;
+  create(
+    topic: Omit<DbMediationTopic, "id" | "createdAt" | "updatedAt">
+  ): Promise<DbMediationTopic>;
+  update(
+    id: string,
+    data: Partial<Omit<DbMediationTopic, "id" | "familyId" | "createdAt">>
+  ): Promise<DbMediationTopic | null>;
+  saveDraft(id: string, draftSuggestion: string): Promise<DbMediationTopic | null>;
+  resolve(id: string): Promise<DbMediationTopic | null>;
+  delete(id: string): Promise<boolean>;
+}
+
+// ─── Mediation Warning Repository ─────────────────────────────────────────────
+
+export interface MediationWarningRepository {
+  findById(id: string): Promise<DbMediationWarning | null>;
+  findByFamilyId(familyId: string): Promise<DbMediationWarning[]>;
+  findByFamilyIdAndDateRange(
+    familyId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<DbMediationWarning[]>;
+  findUndismissedByFamilyId(familyId: string): Promise<DbMediationWarning[]>;
+  create(
+    warning: Omit<DbMediationWarning, "id" | "createdAt" | "updatedAt">
+  ): Promise<DbMediationWarning>;
+  dismiss(id: string, dismissedBy: string): Promise<DbMediationWarning | null>;
+  getStats(familyId: string): Promise<{
+    total: number;
+    undismissed: number;
+    highSeverityCount: number;
+  }>;
+}
+
 // ─── Unit of Work ─────────────────────────────────────────────────────────────
 
 /**
@@ -518,6 +561,8 @@ export interface UnitOfWork {
   exportMetadata: ExportMetadataRepository;
   exportMessageHashes: ExportMessageHashRepository;
   exportVerificationAttempts: ExportVerificationAttemptRepository;
+  mediationTopics: MediationTopicRepository;
+  mediationWarnings: MediationWarningRepository;
 
   /** Begin a transaction */
   beginTransaction(): Promise<void>;
