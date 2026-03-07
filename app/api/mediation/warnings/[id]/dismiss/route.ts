@@ -2,6 +2,11 @@
  * KidSchedule – Mediation Warning Dismiss Route
  *
  * POST /api/mediation/warnings/[id]/dismiss – dismiss a warning
+ *
+ * Request body:
+ * {
+ *   sendAcknowledgment?: boolean
+ * }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -9,6 +14,13 @@ import { db } from "@/lib/persistence";
 import { requireAuth } from "@/lib";
 import { logEvent } from "@/lib/observability/logger";
 import { observeApiRequest } from "@/lib/observability/api-observability";
+
+type DismissRequestBody = {
+  sendAcknowledgment?: boolean;
+};
+
+const ACKNOWLEDGMENT_MESSAGE =
+  "I've reviewed your message and I'm working to ensure our communication stays constructive. Let's focus on what's best for our child.";
 
 export async function POST(
   request: NextRequest,
@@ -58,9 +70,57 @@ export async function POST(
       );
     }
 
-    logEvent("info", "Mediation warning dismissed", {
+    // Parse request body to check for sendAcknowledgment flag
+    let sendAcknowledgment = false;
+    try {
+      const body = (await request.json()) as DismissRequestBody;
+      sendAcknowledgment = body.sendAcknowledgment ?? false;
+    } catch {
+      // Body might be empty or invalid JSON; default to false
+      sendAcknowledgment = false;
+    }
+
+    // If sendAcknowledgment is true, create acknowledgment message
+    if (sendAcknowledgment && warning.messageId) {
+      try {
+        // Get other parent in family
+        const familyParents = await db.parents.findByFamilyId(parent.familyId);
+        const otherParent = familyParents.find((p) => p.id !== parent.id);
+
+        if (otherParent) {
+          // Create acknowledgment message in the same thread as the original warning
+          // messageHash and chainIndex are computed by the repository
+          const acknowledgmentMessage = await db.messages.create({
+            threadId: warning.messageId,
+            familyId: parent.familyId,
+            senderId: parent.id,
+            body: ACKNOWLEDGMENT_MESSAGE,
+            sentAt: new Date().toISOString(),
+            attachmentIds: [],
+            messageHash: "",
+            chainIndex: 0,
+          });
+
+          if (acknowledgmentMessage) {
+            logEvent("info", "mediation.warning_acknowledged", {
+              warningId: id,
+              messageId: acknowledgmentMessage.id,
+            });
+          }
+        }
+      } catch (msgError) {
+        // Log the error but don't fail the dismissal if message creation fails
+        logEvent("error", "Failed to create acknowledgment message", {
+          warningId: id,
+          error: msgError instanceof Error ? msgError.message : "unknown",
+        });
+      }
+    }
+
+    logEvent("info", "mediation_warnings.dismissed", {
       warningId: id,
-      dismissedBy: parent.id
+      dismissedBy: parent.id,
+      withAcknowledgment: sendAcknowledgment,
     });
 
     observeApiRequest({
