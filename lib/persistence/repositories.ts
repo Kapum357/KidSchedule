@@ -23,6 +23,7 @@ import type {
   DbChild,
   DbCalendarEvent,
   DbScheduleChangeRequest,
+  DbChangeRequestMessage,
   DbScheduleOverride,
   DbHolidayDefinition,
   DbHolidayExceptionRule,
@@ -171,14 +172,21 @@ export interface CalendarEventRepository {
 export interface ScheduleChangeRequestRepository {
   findById(id: string): Promise<DbScheduleChangeRequest | null>;
   findByFamilyId(familyId: string): Promise<DbScheduleChangeRequest[]>;
+  findByFamilyIdAndStatus(familyId: string, status: string): Promise<DbScheduleChangeRequest[]>;
+  findByRequestedBy(familyId: string, parentId: string): Promise<DbScheduleChangeRequest[]>;
   findPendingByFamilyId(familyId: string): Promise<DbScheduleChangeRequest[]>;
-  create(
-    request: Omit<DbScheduleChangeRequest, "id" | "createdAt">
-  ): Promise<DbScheduleChangeRequest>;
-  update(
-    id: string,
-    data: Partial<DbScheduleChangeRequest>
-  ): Promise<DbScheduleChangeRequest | null>;
+  create(request: Omit<DbScheduleChangeRequest, "id" | "createdAt">): Promise<DbScheduleChangeRequest>;
+  approve(id: string, respondedBy: string, responseNote?: string): Promise<DbScheduleChangeRequest | null>;
+  decline(id: string, respondedBy: string, responseNote?: string): Promise<DbScheduleChangeRequest | null>;
+  counter(id: string, respondedBy: string, responseNote: string): Promise<DbScheduleChangeRequest | null>;
+  withdraw(id: string): Promise<boolean>;
+}
+
+// ─── Change Request Message Repository ───────────────────────────────────────
+
+export interface ChangeRequestMessageRepository {
+  findByRequestId(requestId: string): Promise<DbChangeRequestMessage[]>;
+  create(msg: Omit<DbChangeRequestMessage, "id" | "createdAt">): Promise<DbChangeRequestMessage>;
 }
 
 // ─── Schedule Override Repository ─────────────────────────────────────────────
@@ -536,6 +544,7 @@ export interface UnitOfWork {
   children: ChildRepository;
   calendarEvents: CalendarEventRepository;
   scheduleChangeRequests: ScheduleChangeRequestRepository;
+  changeRequestMessages: ChangeRequestMessageRepository;
   scheduleOverrides: ScheduleOverrideRepository;
   holidays: HolidayRepository;
   holidayExceptionRules: HolidayExceptionRuleRepository;

@@ -18,6 +18,7 @@ import { createParentRepository } from "./parent-repository";
 import { createChildRepository } from "./child-repository";
 import { createCalendarEventRepository } from "./calendar-event-repository";
 import { createScheduleChangeRequestRepository } from "./schedule-change-request-repository";
+import { createChangeRequestMessageRepository } from "./change-request-message-repository";
 import { createScheduleOverrideRepository } from "./schedule-override-repository";
 import { createHolidayRepository } from "./holiday-repository";
 import { createHolidayExceptionRuleRepository } from "./holiday-exception-rule-repository";
@@ -82,6 +83,7 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     children: createChildRepository(tx),
     calendarEvents: createCalendarEventRepository(tx),
     scheduleChangeRequests: createScheduleChangeRequestRepository(tx),
+    changeRequestMessages: createChangeRequestMessageRepository(tx),
     scheduleOverrides: createScheduleOverrideRepository(tx),
     holidays: createHolidayRepository(tx),
     holidayExceptionRules: createHolidayExceptionRuleRepository(tx),

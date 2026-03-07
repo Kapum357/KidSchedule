@@ -173,6 +173,7 @@ async function submitChangeRequest(formData: FormData): Promise<void> {
     requestedMakeUpStart: input.changeType === "swap" ? input.startDate : input.startDate,
     requestedMakeUpEnd: input.changeType === "swap" ? input.endDate : input.endDate,
     status: "pending",
+    changeType: input.changeType,
     // optional fields
     respondedAt: undefined,
     responseNote: undefined,

@@ -20,6 +20,9 @@ type RequestRow = {
   createdAt: Date;
   respondedAt: Date | null;
   responseNote: string | null;
+  respondedBy: string | null;     // NEW
+  changeType: string;             // NEW
+  expiresAt: Date | null;         // NEW
 };
 
 function rowToDb(row: RequestRow): DbScheduleChangeRequest {
@@ -37,6 +40,9 @@ function rowToDb(row: RequestRow): DbScheduleChangeRequest {
     createdAt: row.createdAt.toISOString(),
     respondedAt: row.respondedAt?.toISOString(),
     responseNote: row.responseNote ?? undefined,
+    respondedBy: row.respondedBy ?? undefined,
+    changeType: row.changeType,
+    expiresAt: row.expiresAt?.toISOString(),
   };
 }
 
@@ -56,9 +62,27 @@ export function createScheduleChangeRequestRepository(tx?: SqlClient): ScheduleC
       return rows.map(rowToDb);
     },
 
+    async findByFamilyIdAndStatus(familyId: string, status: string): Promise<DbScheduleChangeRequest[]> {
+      const rows = await query<RequestRow[]>`
+        SELECT * FROM schedule_change_requests
+        WHERE family_id = ${familyId} AND status = ${status}
+        ORDER BY created_at DESC
+      `;
+      return rows.map(rowToDb);
+    },
+
+    async findByRequestedBy(familyId: string, parentId: string): Promise<DbScheduleChangeRequest[]> {
+      const rows = await query<RequestRow[]>`
+        SELECT * FROM schedule_change_requests
+        WHERE family_id = ${familyId} AND requested_by = ${parentId}
+        ORDER BY created_at DESC
+      `;
+      return rows.map(rowToDb);
+    },
+
     async findPendingByFamilyId(familyId: string): Promise<DbScheduleChangeRequest[]> {
       const rows = await query<RequestRow[]>`
-        SELECT * FROM schedule_change_requests 
+        SELECT * FROM schedule_change_requests
         WHERE family_id = ${familyId} AND status = 'pending'
         ORDER BY created_at DESC
       `;
@@ -70,29 +94,71 @@ export function createScheduleChangeRequestRepository(tx?: SqlClient): ScheduleC
         INSERT INTO schedule_change_requests (
           family_id, requested_by, title, description,
           giving_up_period_start, giving_up_period_end,
-          requested_make_up_start, requested_make_up_end, status
+          requested_make_up_start, requested_make_up_end,
+          status, change_type, expires_at
         ) VALUES (
-          ${request.familyId}, ${request.requestedBy}, ${request.title}, ${request.description ?? null},
-          ${new Date(request.givingUpPeriodStart)}, ${new Date(request.givingUpPeriodEnd)},
-          ${new Date(request.requestedMakeUpStart)}, ${new Date(request.requestedMakeUpEnd)}, ${request.status}
+          ${request.familyId}, ${request.requestedBy},
+          ${request.title}, ${request.description ?? null},
+          ${new Date(request.givingUpPeriodStart)},
+          ${new Date(request.givingUpPeriodEnd)},
+          ${new Date(request.requestedMakeUpStart)},
+          ${new Date(request.requestedMakeUpEnd)},
+          ${request.status},
+          ${request.changeType ?? "swap"},
+          ${request.expiresAt ? new Date(request.expiresAt) : null}
         )
         RETURNING *
       `;
       return rowToDb(rows[0]);
     },
 
-    async update(id: string, data: Partial<DbScheduleChangeRequest>): Promise<DbScheduleChangeRequest | null> {
-      const updates: string[] = [];
-      if (data.status !== undefined) updates.push(`status = '${data.status}'`);
-      if (data.responseNote !== undefined) updates.push(`response_note = ${data.responseNote ? `'${data.responseNote}'` : "NULL"}`);
-      if (data.status && data.status !== "pending") updates.push(`responded_at = NOW()`);
-      
-      if (updates.length === 0) return this.findById(id);
-
+    async approve(id: string, respondedBy: string, responseNote?: string): Promise<DbScheduleChangeRequest | null> {
       const rows = await query<RequestRow[]>`
-        UPDATE schedule_change_requests SET ${sql.unsafe(updates.join(", "))} WHERE id = ${id} RETURNING *
+        UPDATE schedule_change_requests
+        SET status = 'accepted',
+            responded_by = ${respondedBy},
+            response_note = ${responseNote ?? null},
+            responded_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
       `;
       return rows[0] ? rowToDb(rows[0]) : null;
+    },
+
+    async decline(id: string, respondedBy: string, responseNote?: string): Promise<DbScheduleChangeRequest | null> {
+      const rows = await query<RequestRow[]>`
+        UPDATE schedule_change_requests
+        SET status = 'declined',
+            responded_by = ${respondedBy},
+            response_note = ${responseNote ?? null},
+            responded_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `;
+      return rows[0] ? rowToDb(rows[0]) : null;
+    },
+
+    async counter(id: string, respondedBy: string, responseNote: string): Promise<DbScheduleChangeRequest | null> {
+      const rows = await query<RequestRow[]>`
+        UPDATE schedule_change_requests
+        SET status = 'countered',
+            responded_by = ${respondedBy},
+            response_note = ${responseNote},
+            responded_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `;
+      return rows[0] ? rowToDb(rows[0]) : null;
+    },
+
+    async withdraw(id: string): Promise<boolean> {
+      const rows = await query<{ id: string }[]>`
+        UPDATE schedule_change_requests
+        SET status = 'declined'
+        WHERE id = ${id} AND status = 'pending'
+        RETURNING id
+      `;
+      return rows.length > 0;
     },
   };
 }
