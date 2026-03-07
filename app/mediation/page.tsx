@@ -14,6 +14,7 @@ import { ConflictClimateAnalyzer } from "@/lib/conflict-analyzer";
 import { MediationAnalyzer, type WarningSignal } from "@/lib/mediation-analyzer";
 import type { Message, Parent } from "@/types";
 import type { DbParent } from "@/lib/persistence/types";
+import { loadMediationData } from "./page-actions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -190,32 +191,6 @@ function getBarHeightPercent(count: number): number {
   return Math.min((count / 7) * 100, 100);
 }
 
-/**
- * Create mock mediation topics for MVP
- * In production, these would be persisted with drafts and history
- */
-function getMockMediationTopics(): MediationTopic[] {
-  return [
-    {
-      id: "winter-break-2024",
-      title: "Winter Break 2024 Schedule",
-      status: "in_progress",
-      createdAt: new Date(Date.now() - 2 * 60_000).toISOString(), // 2 min ago
-      lastEditedAt: new Date(Date.now() - 2 * 60_000).toISOString(),
-      draftSuggestion:
-        "Hi, regarding the 24th, I would like to propose a 2:00 PM exchange at the library. This aligns with our standard holiday rotation and allows both families time for evening plans. Let me know if this works.",
-      isNew: true,
-    },
-    {
-      id: "medical-bill-reimbursement",
-      title: "Medical Bill Reimbursement",
-      status: "in_progress",
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-      lastEditedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      isNew: false,
-    },
-  ];
-}
 
 // ─── Component: Sidebar ────────────────────────────────────────────────────────
 
@@ -621,9 +596,23 @@ export default async function MediationPage({
   const climateAnalyzer = new ConflictClimateAnalyzer({ windowDays: 30 });
   const climate = climateAnalyzer.analyze(recentMessages as Message[], new Date());
 
-  // Detect warning signals
-  const mediationAnalyzer = new MediationAnalyzer();
-  const allWarnings = mediationAnalyzer.analyzeThread(recentMessages as Message[]);
+  // ── Load Mediation Data (Topics & Warnings) ────────────────────────────────
+  const mediationData = await loadMediationData();
+
+  // Convert mediation data warnings to WarningSignal format for compatibility
+  const allWarnings: WarningSignal[] = mediationData.warnings.map((w) => ({
+    id: w.id,
+    messageId: "",
+    senderName: "Unknown",
+    category: w.category as WarningSignal["category"],
+    severity: w.severity,
+    flaggedAt: w.createdAt,
+    title: w.title,
+    description: w.description,
+    excerpt: "",
+    messageTimestamp: w.createdAt,
+    dismissed: false,
+  }));
 
   // ── Build Health Overview Data ──────────────────────────────────────────────
   const healthData: HealthOverviewData = {
@@ -643,7 +632,7 @@ export default async function MediationPage({
   const conflictFrequency = getConflictFrequencyData(allWarnings);
 
   // ── Get Mediation Topics ────────────────────────────────────────────────────
-  const topics = getMockMediationTopics();
+  const topics = mediationData.topics;
   const resolvedParams = await searchParams;
   const selectedTopicId = resolvedParams?.topicId;
   const selectedTopic = topics.find((t) => t.id === selectedTopicId);
