@@ -13,6 +13,7 @@ import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
 import type { Parent, ScheduleChangeRequest } from "@/types";
 import type { DbParent } from "@/lib/persistence/types";
+import { ActionButtons } from "./action-buttons";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -339,6 +340,8 @@ export default async function ChangeRequestDetailPage({
     (p) => p.id === activeParent.id
   )?.name;
 
+  const isRequester = dbRequest.requestedBy === activeParent.id;
+
   // ── Build Request List for Sidebar ─────────────────────────────────────────
   const sidebarRequests = dbOtherRequests.map((req) => ({
     id: req.id,
@@ -420,14 +423,11 @@ export default async function ChangeRequestDetailPage({
                 Created on {formatDate(dbRequest.createdAt)}
               </p>
             </div>
-            <div className="flex gap-2">
-              <button className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors border border-slate-200 dark:border-slate-700">
-                Withdraw
-              </button>
-              <button className="px-4 py-2 text-sm font-medium text-white bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors shadow-sm">
-                Export PDF
-              </button>
-            </div>
+            <ActionButtons
+              requestId={requestId}
+              isRequester={isRequester}
+              status={dbRequest.status}
+            />
           </div>
 
           {/* Timeline */}
