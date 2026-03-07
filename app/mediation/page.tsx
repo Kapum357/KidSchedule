@@ -15,6 +15,9 @@ import { MediationAnalyzer, type WarningSignal } from "@/lib/mediation-analyzer"
 import type { Message, Parent } from "@/types";
 import type { DbParent } from "@/lib/persistence/types";
 import { loadMediationData } from "./page-actions";
+import { WarningsPanel } from "@/components/warnings-panel";
+import { HealthOverviewTips } from "@/components/health-overview-tips";
+import { MediationInterface } from "@/components/mediation-interface";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -302,113 +305,74 @@ function HealthOverviewCard({
         </span>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-8">
-        {/* Gauge */}
-        <div className="w-full md:w-1/3 flex flex-col items-center justify-center p-4 bg-background-light dark:bg-background-dark rounded-lg">
-          <div className="relative w-40 h-24 overflow-hidden mb-2">
-            {/* Semi-circle track (gray) */}
-            <div className="absolute top-0 left-0 w-40 h-40 rounded-full border-[12px] border-slate-200 dark:border-slate-700 border-b-transparent border-l-transparent transform -rotate-45" />
-            {/* Colored arc (filled portion) */}
-            <div
-              className={`absolute top-0 left-0 w-40 h-40 rounded-full border-[12px] ${statusColor.split(" ")[0]} border-t-transparent border-r-transparent border-b-transparent transform rotate-[45deg]`}
-              style={{
-                clipPath: `polygon(0 0, 100% 0, 100% ${(data.score / 100) * 50 + 50}%, 0 ${(data.score / 100) * 50 + 50}%)`,
-              }}
-            />
-            {/* Needle */}
-            <div
-              className="absolute bottom-0 left-1/2 w-1 h-20 bg-slate-800 dark:bg-white origin-bottom rounded-full"
-              style={{ transform: `translateX(-50%) rotate(${gaugeRotation})` }}
-            />
-          </div>
-          <h3 className="font-semibold text-slate-700 dark:text-slate-200 mt-2">Climate Gauge</h3>
-          <p className="text-sm text-slate-500">
-            {data.tensionLevel === "low"
-              ? "Neutral / Cooperative"
-              : data.tensionLevel === "medium"
-                ? "Moderate / Caution"
-                : "High / Escalating"}
-          </p>
-        </div>
-
-        {/* Conflict Frequency Chart */}
-        <div className="w-full md:w-2/3 flex flex-col justify-end">
-          <h3 className="text-sm font-semibold text-slate-500 mb-4">Conflict Frequency (Last 7 Days)</h3>
-          <div className="flex items-end justify-between h-32 gap-2">
-            {conflictFrequency.map((point, idx) => (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Gauge */}
+          <div className="w-full md:w-1/3 flex flex-col items-center justify-center p-4 bg-background-light dark:bg-background-dark rounded-lg">
+            <div className="relative w-40 h-24 overflow-hidden mb-2">
+              {/* Semi-circle track (gray) */}
+              <div className="absolute top-0 left-0 w-40 h-40 rounded-full border-[12px] border-slate-200 dark:border-slate-700 border-b-transparent border-l-transparent transform -rotate-45" />
+              {/* Colored arc (filled portion) */}
               <div
-                key={idx}
-                className={`w-full rounded-t-sm relative group`}
+                className={`absolute top-0 left-0 w-40 h-40 rounded-full border-[12px] ${statusColor.split(" ")[0]} border-t-transparent border-r-transparent border-b-transparent transform rotate-[45deg]`}
                 style={{
-                  height: `${Math.max(8, getBarHeightPercent(point.count))}px`,
-                  backgroundColor: point.isAlertDay
-                    ? "rgb(239, 68, 68)"
-                    : "rgba(107, 202, 189, 0.3)",
+                  clipPath: `polygon(0 0, 100% 0, 100% ${(data.score / 100) * 50 + 50}%, 0 ${(data.score / 100) * 50 + 50}%)`,
                 }}
-              >
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-medium opacity-0 group-hover:opacity-100 whitespace-nowrap">
-                  {point.day}
-                </div>
-              </div>
-            ))}
+              />
+              {/* Needle */}
+              <div
+                className="absolute bottom-0 left-1/2 w-1 h-20 bg-slate-800 dark:bg-white origin-bottom rounded-full"
+                style={{ transform: `translateX(-50%) rotate(${gaugeRotation})` }}
+              />
+            </div>
+            <h3 className="font-semibold text-slate-700 dark:text-slate-200 mt-2">Climate Gauge</h3>
+            <p className="text-sm text-slate-500">
+              {data.tensionLevel === "low"
+                ? "Neutral / Cooperative"
+                : data.tensionLevel === "medium"
+                  ? "Moderate / Caution"
+                  : "High / Escalating"}
+            </p>
           </div>
+
+          {/* Conflict Frequency Chart */}
+          <div className="w-full md:w-2/3 flex flex-col justify-end">
+            <h3 className="text-sm font-semibold text-slate-500 mb-4">Conflict Frequency (Last 7 Days)</h3>
+            <div className="flex items-end justify-between h-32 gap-2">
+              {conflictFrequency.map((point, idx) => (
+                <div
+                  key={idx}
+                  className={`w-full rounded-t-sm relative group`}
+                  style={{
+                    height: `${Math.max(8, getBarHeightPercent(point.count))}px`,
+                    backgroundColor: point.isAlertDay
+                      ? "rgb(239, 68, 68)"
+                      : "rgba(107, 202, 189, 0.3)",
+                  }}
+                >
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-medium opacity-0 group-hover:opacity-100 whitespace-nowrap">
+                    {point.day}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* De-escalation Tips */}
+        <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined text-lg text-emerald-500">tips_and_updates</span>
+            Suggested Actions
+          </h3>
+          <HealthOverviewTips />
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Component: Warning Signals Panel ──────────────────────────────────────────
-
-function WarningsPanel({
-  warnings,
-}: Readonly<{
-  warnings: WarningSignal[];
-}>) {
-  const displayedWarnings = warnings.slice(0, 3);
-
-  return (
-    <div className="lg:col-span-4 bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex flex-col">
-      <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-4">
-        <span className="material-symbols-outlined text-amber-500">notifications_active</span>
-        Warning Signals
-      </h2>
-
-      <div className="space-y-3 flex-1 overflow-y-auto max-h-[250px] pr-2">
-        {displayedWarnings.length > 0 ? (
-          displayedWarnings.map((warning) => (
-            <div
-              key={warning.id}
-              className={`p-3 rounded-r-md ${getWarningSeverityColor(warning)}`}
-            >
-              <div className="flex justify-between items-start mb-1">
-                <span className="text-xs font-bold uppercase">
-                  {getWarningLabel(warning.category)}
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  {formatWarningTime(getWarningCreatedAt(warning))}
-                </span>
-              </div>
-              <p className="text-sm text-slate-700 dark:text-slate-300">
-                {warning.description}
-              </p>
-            </div>
-          ))
-        ) : (
-          <div className="flex items-center justify-center h-32 text-center">
-            <p className="text-sm text-slate-500">No active warnings. Communication is healthy.</p>
-          </div>
-        )}
-      </div>
-
-      {warnings.length > 3 && (
-        <button className="mt-4 w-full text-sm text-primary hover:text-primary-hover font-semibold">
-          View All {warnings.length} Alerts
-        </button>
-      )}
-    </div>
-  );
-}
+// ─── Component: Warning Signals Panel is now a client component imported from @/components/warnings-panel
 
 // ─── Component: AI Mediator Interface ──────────────────────────────────────────
 
@@ -526,28 +490,18 @@ function AIMediatorInterface({
           </div>
         </div>
 
-        {/* Input Box */}
+        {/* Mediation Interface */}
         <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark">
-          <div className="relative">
-            <input
-              className="w-full pl-4 pr-12 py-3 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-              placeholder="Type your response or ask AI for advice..."
-              type="text"
-              disabled
-            />
-            <button
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-primary hover:bg-primary-hover text-white rounded-md transition-colors shadow-sm disabled:opacity-50"
-              aria-label="Send message"
-              disabled
-            >
-              <span className="material-symbols-outlined text-lg">send</span>
-            </button>
-          </div>
-          <div className="flex justify-between items-center mt-2 px-1">
+          <MediationInterface
+            topicId={activeTopic.id}
+            topicTitle={activeTopic.title}
+            draftSuggestion={activeTopic.draftSuggestion}
+            recipientParentId="recipient_parent_id_here"
+          />
+          <div className="flex justify-between items-center mt-4 px-1">
             <p className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">
               AI De-escalation Active
             </p>
-            <span className="text-xs text-slate-400">Press Enter to send</span>
           </div>
         </div>
       </div>

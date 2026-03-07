@@ -98,6 +98,27 @@ Rules:
 }
 
 /**
+ * Get de-escalation tips for the current family's messages
+ * Returns an array of actionable tips to improve co-parent communication
+ */
+export async function getDeescalationTips(
+  userId: string,
+  messages: Message[]
+): Promise<string[]> {
+  try {
+    const result = await getMediationAssistantTips(userId, messages);
+    return result.deescalationTips;
+  } catch (error) {
+    logEvent("error", "Failed to get de-escalation tips", {
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    // Return fallback tips
+    return buildFallbackTips(messages).deescalationTips;
+  }
+}
+
+/**
  * Adjust a suggestion's tone using Claude
  * Supported adjustments: gentler, shorter, more_formal, warmer
  */

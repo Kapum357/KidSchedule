@@ -13,6 +13,7 @@ import { requireAuth } from "@/lib";
 import { MediationAnalyzer } from "@/lib/mediation-analyzer";
 import { logEvent } from "@/lib/observability/logger";
 import { adjustSuggestion } from "@/lib/providers/ai";
+import { getDeescalationTips as getDeescalationTipsFromAssistant } from "@/lib/providers/ai/mediation-assistant";
 import type { Message } from "@/types/index";
 
 export interface MediationPageData {
@@ -403,6 +404,47 @@ export async function adjustSuggestionTone(
     logEvent("error", "mediation.suggestion_adjustment_failed", {
       familyId: parent.familyId,
       adjustment,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+/**
+ * Get de-escalation tips based on recent family messages
+ */
+export async function getDeescalationTips(): Promise<string[]> {
+  const user = await requireAuth();
+  const parent = await db.parents.findByUserId(user.userId);
+
+  if (!parent) {
+    throw new Error("Parent profile not found");
+  }
+
+  try {
+    // Get recent messages from the family
+    const dbMessages = await db.messages.findByFamilyId(parent.familyId);
+
+    // Filter to last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentMessages = dbMessages.filter((msg) => {
+      const msgDate = new Date(msg.sentAt);
+      return msgDate >= thirtyDaysAgo;
+    });
+
+    const tips = await getDeescalationTipsFromAssistant(user.userId, recentMessages as Message[]);
+
+    logEvent("info", "mediation.deescalation_tips_retrieved", {
+      familyId: parent.familyId,
+      tipsCount: tips.length,
+      messagesAnalyzed: recentMessages.length,
+    });
+
+    return tips;
+  } catch (error) {
+    logEvent("error", "mediation.deescalation_tips_failed", {
+      familyId: parent.familyId,
       errorMessage: error instanceof Error ? error.message : String(error),
     });
     throw error;
