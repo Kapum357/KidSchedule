@@ -117,55 +117,41 @@ export async function adjustSuggestion(
     warmer: "Make this tone warmer and more collaborative, showing willingness to work together.",
   };
 
-  try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    const isClaudeEnabled = typeof apiKey === "string" && apiKey.length > 0;
-    if (!isClaudeEnabled) {
-      return text;
+  function parseAdjustmentResult(value: unknown): string {
+    if (typeof value === "string") {
+      return value.trim();
     }
+    if (typeof value === "object" && value !== null && "text" in value) {
+      const obj = value as Record<string, unknown>;
+      if (typeof obj.text === "string") {
+        return obj.text.trim();
+      }
+    }
+    return text;
+  }
 
-    const response = await fetch(process.env.ANTHROPIC_API_URL ?? "https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: process.env.CLAUDE_TONE_MODEL ?? "claude-opus-4-6",
-        max_tokens: 1024,
-        temperature: 0,
-        system: "You are a co-parenting communication expert. Adjust the given message as requested. Return only the adjusted text, no preamble or explanation.",
-        messages: [
-          {
-            role: "user",
-            content: `${adjustmentPrompts[adjustment]}\n\nOriginal message: "${text}"\n\nAdjusted message (no preamble):`,
-          },
-        ],
-      }),
+  const userPrompt = `${adjustmentPrompts[adjustment]}\n\nOriginal message: "${text}"\n\nAdjusted message (no preamble):`;
+  const systemPrompt = "You are a co-parenting communication expert. Adjust the given message as requested. Return only the adjusted text, no preamble or explanation.";
+
+  try {
+    const adjustedText = await runClaudeJsonWithGuardrails<string>({
+      userId,
+      operation: "mediation_assistant",
+      model: process.env.CLAUDE_TONE_MODEL ?? "claude-3-5-haiku-latest",
+      maxTokens: 1024,
+      fallback: text,
+      systemPrompt,
+      userPrompt,
+      validate: parseAdjustmentResult,
     });
 
-    if (!response.ok) {
-      await response.text();
-      logEvent("error", "Claude API request failed for suggestion adjustment", {
-        status: response.status,
-        operation: "adjust_suggestion",
-        userId,
-      });
-      return text;
-    }
+    logEvent("info", "mediation.suggestion_adjusted", {
+      adjustment,
+      originalLength: text.length,
+      adjustedLength: adjustedText.length,
+    });
 
-    const payload = (await response.json()) as {
-      content?: Array<{ type: string; text?: string }>;
-      error?: { message?: string };
-    };
-
-    const textContent = payload.content?.find((c) => c.type === "text" && typeof c.text === "string");
-    if (textContent && "text" in textContent && typeof textContent.text === "string") {
-      return textContent.text.trim();
-    }
-
-    return text;
+    return adjustedText;
   } catch (error) {
     logEvent("error", "Failed to adjust suggestion tone", {
       userId,

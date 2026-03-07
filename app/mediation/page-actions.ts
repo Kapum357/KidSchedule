@@ -13,7 +13,7 @@ import { requireAuth } from "@/lib";
 import { MediationAnalyzer } from "@/lib/mediation-analyzer";
 import { logEvent } from "@/lib/observability/logger";
 import { adjustSuggestion } from "@/lib/providers/ai";
-import type { Message } from "@/types";
+import type { Message } from "@/types/index";
 
 export interface MediationPageData {
   topics: Array<{
@@ -379,6 +379,9 @@ export async function adjustSuggestionTone(
   // Validate input
   if (!originalText || !originalText.trim()) {
     throw new Error("Original text cannot be empty");
+  }
+  if (originalText.length > 2000) {
+    throw new Error("Original text must be under 2,000 characters");
   }
 
   if (!["gentler", "shorter", "more_formal", "warmer"].includes(adjustment)) {
