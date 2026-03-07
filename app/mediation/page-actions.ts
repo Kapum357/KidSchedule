@@ -12,6 +12,7 @@ import { db } from "@/lib/persistence";
 import { requireAuth } from "@/lib";
 import { MediationAnalyzer } from "@/lib/mediation-analyzer";
 import { logEvent } from "@/lib/observability/logger";
+import { adjustSuggestion } from "@/lib/providers/ai";
 import type { Message } from "@/types";
 
 export interface MediationPageData {
@@ -358,4 +359,49 @@ export async function analyzeAndStoreWarnings(): Promise<number> {
 
   revalidatePath("/mediation");
   return created;
+}
+
+/**
+ * Adjust a suggestion's tone using Claude
+ * Supported adjustments: gentler, shorter, more_formal, warmer
+ */
+export async function adjustSuggestionTone(
+  originalText: string,
+  adjustment: "gentler" | "shorter" | "more_formal" | "warmer"
+): Promise<{ adjustedText: string }> {
+  const user = await requireAuth();
+  const parent = await db.parents.findByUserId(user.userId);
+
+  if (!parent) {
+    throw new Error("Parent profile not found");
+  }
+
+  // Validate input
+  if (!originalText || !originalText.trim()) {
+    throw new Error("Original text cannot be empty");
+  }
+
+  if (!["gentler", "shorter", "more_formal", "warmer"].includes(adjustment)) {
+    throw new Error(`Invalid adjustment type: ${adjustment}`);
+  }
+
+  try {
+    const adjustedText = await adjustSuggestion(user.userId, originalText, adjustment);
+
+    logEvent("info", "mediation.suggestion_adjusted", {
+      familyId: parent.familyId,
+      adjustment,
+      originalLength: originalText.length,
+      adjustedLength: adjustedText.length,
+    });
+
+    return { adjustedText };
+  } catch (error) {
+    logEvent("error", "mediation.suggestion_adjustment_failed", {
+      familyId: parent.familyId,
+      adjustment,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 }

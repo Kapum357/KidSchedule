@@ -1,6 +1,7 @@
 import { MediationSuggestionEngine } from "@/lib/mediation-suggestion-engine";
 import type { Message } from "@/types";
 import { redactPIIForClaude, runClaudeJsonWithGuardrails } from "./claude-adapter";
+import { logEvent } from "@/lib/observability/logger";
 
 export interface MediationAssistantResult {
   conflictLevel: "low" | "medium" | "high";
@@ -94,4 +95,83 @@ Rules:
     userPrompt: `Based on this recent conversation, provide de-escalation tips as JSON only:\n\n${condensedConversation}`,
     validate: parseMediationResult,
   });
+}
+
+/**
+ * Adjust a suggestion's tone using Claude
+ * Supported adjustments: gentler, shorter, more_formal, warmer
+ */
+export async function adjustSuggestion(
+  userId: string,
+  text: string,
+  adjustment: "gentler" | "shorter" | "more_formal" | "warmer"
+): Promise<string> {
+  if (!text || !text.trim()) {
+    return text;
+  }
+
+  const adjustmentPrompts: Record<string, string> = {
+    gentler: "Make this tone more gentle and less confrontational, while keeping the same message.",
+    shorter: "Make this message shorter (max 2 sentences), keeping the key points.",
+    more_formal: "Rewrite this in a more formal tone suitable for legal documentation.",
+    warmer: "Make this tone warmer and more collaborative, showing willingness to work together.",
+  };
+
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const isClaudeEnabled = typeof apiKey === "string" && apiKey.length > 0;
+    if (!isClaudeEnabled) {
+      return text;
+    }
+
+    const response = await fetch(process.env.ANTHROPIC_API_URL ?? "https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: process.env.CLAUDE_TONE_MODEL ?? "claude-3-5-haiku-latest",
+        max_tokens: 1024,
+        temperature: 0,
+        system: "You are a co-parenting communication expert. Adjust the given message as requested. Return only the adjusted text, no preamble or explanation.",
+        messages: [
+          {
+            role: "user",
+            content: `${adjustmentPrompts[adjustment]}\n\nOriginal message: "${text}"\n\nAdjusted message (no preamble):`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      await response.text();
+      logEvent("error", "Claude API request failed for suggestion adjustment", {
+        status: response.status,
+        operation: "adjust_suggestion",
+        userId,
+      });
+      return text;
+    }
+
+    const payload = (await response.json()) as {
+      content?: Array<{ type: string; text?: string }>;
+      error?: { message?: string };
+    };
+
+    const textContent = payload.content?.find((c) => c.type === "text" && typeof c.text === "string");
+    if (textContent && "text" in textContent && typeof textContent.text === "string") {
+      return textContent.text.trim();
+    }
+
+    return text;
+  } catch (error) {
+    logEvent("error", "Failed to adjust suggestion tone", {
+      userId,
+      adjustment,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return text;
+  }
 }
