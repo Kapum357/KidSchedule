@@ -188,87 +188,109 @@ export async function sendMediationSuggestion(
     throw new Error("Parent profile not found");
   }
 
-  // Get the mediation topic
-  const topic = await db.mediationTopics.findById(topicId);
-  if (!topic) {
-    throw new Error("Topic not found");
+  // Validate draft text
+  if (!draftText?.trim()) {
+    throw new Error("Draft suggestion cannot be empty");
+  }
+  if (draftText.length > 2000) {
+    throw new Error("Draft suggestion must be under 2,000 characters");
   }
 
-  // Verify topic belongs to parent's family
-  if (topic.familyId !== parent.familyId) {
-    throw new Error("Topic not found or access denied");
-  }
-
-  // Get the recipient parent
-  const recipient = await db.parents.findById(recipientParentId);
-  if (!recipient) {
-    throw new Error("Recipient parent not found");
-  }
-
-  // Verify recipient is in same family
-  if (recipient.familyId !== parent.familyId) {
-    throw new Error("Recipient not found or access denied");
-  }
-
-  // Find or create message thread for this mediation topic
-  let thread = null;
-  const existingThreads = await db.messageThreads.findByFamilyId(
-    parent.familyId
-  );
-
-  // Look for thread that includes both parents and is for this topic
-  for (const existingThread of existingThreads) {
-    const messages = await db.messages.findByThreadId(existingThread.id);
-    const participants = new Set<string>();
-    messages.forEach((msg) => participants.add(msg.senderId));
-
-    // Check if thread has both parents and matches topic
-    if (
-      participants.has(parent.id) &&
-      participants.has(recipientParentId) &&
-      existingThread.subject?.includes(topic.title)
-    ) {
-      thread = existingThread;
-      break;
+  try {
+    // Get the mediation topic
+    const topic = await db.mediationTopics.findById(topicId);
+    if (!topic) {
+      throw new Error("Topic not found");
     }
-  }
 
-  // Create new thread if not found
-  if (!thread) {
-    thread = await db.messageThreads.create({
+    // Verify topic belongs to parent's family
+    if (topic.familyId !== parent.familyId) {
+      throw new Error("Topic not found or access denied");
+    }
+
+    // Get the recipient parent
+    const recipient = await db.parents.findById(recipientParentId);
+    if (!recipient) {
+      throw new Error("Recipient parent not found");
+    }
+
+    // Verify recipient is in same family
+    if (recipient.familyId !== parent.familyId) {
+      throw new Error("Recipient not found or access denied");
+    }
+
+    // Find or create message thread for this mediation topic
+    // NOTE: This uses an O(n×m) pattern where we fetch all threads and then for each thread
+    // fetch all messages to check participants. This is necessary because the repository
+    // doesn't currently support a "find thread by participants + subject" query.
+    // TODO: For better performance, consider extracting this into a dedicated repository
+    // method like `db.messageThreads.findByParticipantsAndSubject()` if this becomes a bottleneck.
+    let thread = null;
+    const existingThreads = await db.messageThreads.findByFamilyId(
+      parent.familyId
+    );
+
+    // Look for thread that includes both parents and is for this topic
+    for (const existingThread of existingThreads) {
+      const messages = await db.messages.findByThreadId(existingThread.id);
+      const participants = new Set<string>();
+      messages.forEach((msg) => participants.add(msg.senderId));
+
+      // Check if thread has both parents and matches topic
+      if (
+        participants.has(parent.id) &&
+        participants.has(recipientParentId) &&
+        existingThread.subject?.includes(topic.title)
+      ) {
+        thread = existingThread;
+        break;
+      }
+    }
+
+    // Create new thread if not found
+    if (!thread) {
+      thread = await db.messageThreads.create({
+        familyId: parent.familyId,
+        subject: `Mediation: ${topic.title}`,
+      });
+    }
+
+    // Create the message
+    // Hash chain fields (messageHash, chainIndex) are auto-computed by repository
+    const sentAt = new Date().toISOString();
+    const message = await db.messages.create({
+      threadId: thread.id,
       familyId: parent.familyId,
-      subject: `Mediation: ${topic.title}`,
+      senderId: parent.id,
+      body: draftText,
+      sentAt,
+      attachmentIds: [],
+      messageHash: "", // Computed by repository
+      chainIndex: 0, // Computed by repository
     });
+
+    // Update topic status to "in_progress"
+    await db.mediationTopics.update(topicId, { status: "in_progress" });
+
+    // Log the event
+    logEvent("info", "mediation.suggestion_sent", {
+      topicId,
+      messageId: message.id,
+      familyId: parent.familyId,
+      threadId: thread.id,
+    });
+
+    revalidatePath("/mediation");
+
+    return { success: true, messageId: message.id };
+  } catch (error) {
+    logEvent("error", "mediation.suggestion_send_failed", {
+      topicId,
+      recipientParentId,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
   }
-
-  // Create the message
-  // Hash chain fields (messageHash, chainIndex) are auto-computed by repository
-  const sentAt = new Date().toISOString();
-  const message = await db.messages.create({
-    threadId: thread.id,
-    familyId: parent.familyId,
-    senderId: parent.id,
-    body: draftText,
-    sentAt,
-    attachmentIds: [],
-    messageHash: "", // Computed by repository
-    chainIndex: 0, // Computed by repository
-  });
-
-  // Update topic status to "in_progress"
-  await db.mediationTopics.update(topicId, { status: "in_progress" });
-
-  // Log the event
-  logEvent("info", "mediation.suggestion_sent", {
-    topicId,
-    messageId: message.id,
-    familyId: parent.familyId,
-    threadId: thread.id,
-  });
-
-  revalidatePath("/mediation");
-
-  return { success: true, messageId: message.id };
 }
 
 /**
