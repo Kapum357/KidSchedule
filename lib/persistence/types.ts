@@ -180,6 +180,7 @@ export interface DbScheduleChangeRequest {
   id: string;
   familyId: string;
   requestedBy: string;
+  respondedBy?: string;          // parent ID who approved/declined/countered
   title: string;
   description?: string;
   givingUpPeriodStart: string;
@@ -187,9 +188,20 @@ export interface DbScheduleChangeRequest {
   requestedMakeUpStart: string;
   requestedMakeUpEnd: string;
   status: string;
+  changeType: string;            // "swap" | "cancel" | "extra"
+  expiresAt?: string;            // ISO timestamp deadline
   createdAt: string;
   respondedAt?: string;
   responseNote?: string;
+}
+
+export interface DbChangeRequestMessage {
+  id: string;
+  requestId: string;
+  familyId: string;
+  senderParentId: string;
+  body: string;
+  createdAt: string;
 }
 
 // ─── Blog Entities ────────────────────────────────────────────────────────────
