@@ -14,6 +14,7 @@ import { ThemeToggle } from "@/app/theme-toggle";
 import type { Parent, ScheduleChangeRequest } from "@/types";
 import type { DbParent } from "@/lib/persistence/types";
 import { ActionButtons } from "./action-buttons";
+import { DiscussionThread } from "./discussion-thread";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -317,10 +318,11 @@ export default async function ChangeRequestDetailPage({
   const resolvedParams = await params;
   const requestId = resolvedParams.id;
 
-  const [dbRequest, dbParents, dbOtherRequests] = await Promise.all([
+  const [dbRequest, dbParents, dbOtherRequests, dbMessages] = await Promise.all([
     db.scheduleChangeRequests.findById(requestId),
     db.parents.findByFamilyId(activeParent.familyId),
     db.scheduleChangeRequests.findByFamilyId(activeParent.familyId),
+    db.changeRequestMessages.findByRequestId(requestId),
   ]);
 
   if (!dbRequest) {
@@ -332,6 +334,16 @@ export default async function ChangeRequestDetailPage({
   }
 
   const mappedParents = dbParents.map(mapParent);
+
+  const threadMessages = dbMessages.map((m) => ({
+    id: m.id,
+    senderName: mappedParents.find((p) => p.id === m.senderParentId)?.name ?? "Parent",
+    senderInitial: mappedParents.find((p) => p.id === m.senderParentId)?.name?.charAt(0) ?? "?",
+    isCurrentUser: m.senderParentId === activeParent.id,
+    body: m.body,
+    createdAt: m.createdAt,
+  }));
+
   const requester = mappedParents.find((p) => p.id === dbRequest.requestedBy);
   const otherParent = mappedParents.find(
     (p) => p.id !== activeParent.id
@@ -549,95 +561,11 @@ export default async function ChangeRequestDetailPage({
           </div>
 
           {/* Discussion Thread */}
-          <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/30">
-              <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <span className="material-symbols-outlined text-slate-500">
-                  forum
-                </span>
-                Request Discussion
-              </h3>
-              <span className="text-xs text-slate-500 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 px-2 py-1 rounded">
-                Visible to: Both Parents
-              </span>
-            </div>
-
-            <div className="p-6 space-y-6 flex-1">
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-                    {currentParentName?.substring(0, 1).toUpperCase()}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <div className="bg-blue-50 dark:bg-slate-800 p-4 rounded-2xl rounded-tl-none text-sm text-slate-800 dark:text-slate-200 leading-relaxed shadow-sm">
-                    <p>{dbRequest.description || "Schedule swap request"}</p>
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500 ml-2">
-                    {formatDateTime(dbRequest.createdAt)},{" "}
-                    {formatTime(dbRequest.createdAt)}
-                  </div>
-                </div>
-              </div>
-
-              {dbRequest.responseNote && (
-                <div className="flex gap-4 flex-row-reverse">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-300 font-bold text-sm border border-purple-200 dark:border-purple-800">
-                      {otherParent?.name.substring(0, 1).toUpperCase()}
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <div className="bg-white border border-slate-200 dark:bg-slate-800 dark:border-slate-700 p-4 rounded-2xl rounded-tr-none text-sm text-slate-800 dark:text-slate-200 leading-relaxed shadow-sm text-right">
-                      <p>{dbRequest.responseNote}</p>
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500 mr-2 text-right">
-                      {dbRequest.respondedAt &&
-                        `${formatDateTime(dbRequest.respondedAt)}, ${formatTime(dbRequest.respondedAt)}`}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {dbRequest.status === "pending" && (
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-800">
-                <div className="relative">
-                  <textarea
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-3 pr-12 text-sm focus:ring-2 focus:ring-primary focus:border-transparent resize-none h-24"
-                    placeholder="Type your reply here..."
-                  ></textarea>
-                  <div
-                    className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 text-xs px-2 py-1 rounded-full cursor-help group transition-all"
-                    title="AI Tone Analysis"
-                  >
-                    <span className="material-symbols-outlined text-[14px]">
-                      psychology
-                    </span>
-                    <span className="font-medium">Tone: Neutral</span>
-                    <div className="hidden group-hover:block absolute bottom-full right-0 mb-2 w-48 bg-slate-800 text-white text-xs p-2 rounded shadow-lg z-20">
-                      AI Analysis: This message appears calm and factual. Good
-                      for constructive communication.
-                    </div>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center mt-3">
-                  <div className="text-xs text-slate-400 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-sm">
-                      lock
-                    </span>
-                    Encrypted & Auditable
-                  </div>
-                  <button className="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm">
-                    Send Reply
-                    <span className="material-symbols-outlined text-sm">
-                      send
-                    </span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <DiscussionThread
+            requestId={requestId}
+            initialMessages={threadMessages}
+            isPending={dbRequest.status === "pending"}
+          />
 
           {/* Audit Log */}
           <div className="text-center pb-4">
