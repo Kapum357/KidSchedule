@@ -131,7 +131,7 @@ function getTimelineSteps(
 
 function formatDate(isoString: string): string {
   const date = new Date(isoString + "T00:00:00Z");
-  return date.toLocaleDateString([], {
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -140,7 +140,7 @@ function formatDate(isoString: string): string {
 
 function formatDateTime(isoString: string): string {
   const date = new Date(isoString);
-  return date.toLocaleDateString([], {
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
@@ -148,7 +148,7 @@ function formatDateTime(isoString: string): string {
 
 function formatTime(isoString: string): string {
   const date = new Date(isoString);
-  return date.toLocaleTimeString([], {
+  return date.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
@@ -338,7 +338,7 @@ export default async function ChangeRequestDetailPage({
   const threadMessages = dbMessages.map((m) => ({
     id: m.id,
     senderName: mappedParents.find((p) => p.id === m.senderParentId)?.name ?? "Parent",
-    senderInitial: mappedParents.find((p) => p.id === m.senderParentId)?.name?.charAt(0) ?? "?",
+    senderInitial: mappedParents.find((p) => p.id === m.senderParentId)?.name?.charAt(0) || "?",
     isCurrentUser: m.senderParentId === activeParent.id,
     body: m.body,
     createdAt: m.createdAt,

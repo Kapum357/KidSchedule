@@ -96,7 +96,7 @@ export function DiscussionThread({
               }`}>
                 <p>{msg.body}</p>
               </div>
-              <div className={`mt-1 text-xs text-slate-500 ${msg.isCurrentUser ? "ml-2" : "mr-2 text-right"}`}>
+              <div className={`mt-1 text-xs text-slate-500 ${msg.isCurrentUser ? "ml-2" : "ml-2"}`}>
                 {new Date(msg.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })},{" "}
                 {new Date(msg.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
               </div>
