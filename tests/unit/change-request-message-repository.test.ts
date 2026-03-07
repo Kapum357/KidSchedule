@@ -15,10 +15,9 @@ import { initDb, _test_resetDbInstance } from "@/lib/persistence";
 
 // ─── In-Memory Fake ───────────────────────────────────────────────────────────
 
-let _idCounter = 0;
-
 function makeFakeMessageRepo(): ChangeRequestMessageRepository {
   const store: DbChangeRequestMessage[] = [];
+  let idCounter = 0;
 
   return {
     async findByRequestId(requestId) {
@@ -27,11 +26,11 @@ function makeFakeMessageRepo(): ChangeRequestMessageRepository {
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     },
     async create(msg) {
-      _idCounter += 1;
+      idCounter += 1;
       const record: DbChangeRequestMessage = {
         ...msg,
-        id: `msg-${_idCounter}`,
-        createdAt: new Date().toISOString(),
+        id: `msg-${idCounter}`,
+        createdAt: (msg as { createdAt?: string }).createdAt ?? new Date().toISOString(),
       };
       store.push(record);
       return record;
@@ -109,7 +108,6 @@ function makeMinimalUnitOfWork(
 
 describe("ChangeRequestMessageRepository", () => {
   beforeEach(() => {
-    _idCounter = 0;
     _test_resetDbInstance();
   });
 
@@ -211,24 +209,9 @@ describe("ChangeRequestMessageRepository", () => {
       await initDb(makeMinimalUnitOfWork(repo));
 
       // Insert messages with explicit createdAt values via create (order reflects insertion)
-      await repo.create({
-        requestId: "req-order",
-        familyId: "family-1",
-        senderParentId: "parent-1",
-        body: "First",
-      });
-      await repo.create({
-        requestId: "req-order",
-        familyId: "family-1",
-        senderParentId: "parent-2",
-        body: "Second",
-      });
-      await repo.create({
-        requestId: "req-order",
-        familyId: "family-1",
-        senderParentId: "parent-1",
-        body: "Third",
-      });
+      await repo.create({ requestId: "req-order", familyId: "family-1", senderParentId: "parent-1", body: "First", createdAt: "2026-01-01T00:00:00.000Z" } as Omit<DbChangeRequestMessage, "id">);
+      await repo.create({ requestId: "req-order", familyId: "family-1", senderParentId: "parent-2", body: "Second", createdAt: "2026-01-01T00:00:01.000Z" } as Omit<DbChangeRequestMessage, "id">);
+      await repo.create({ requestId: "req-order", familyId: "family-1", senderParentId: "parent-1", body: "Third", createdAt: "2026-01-01T00:00:02.000Z" } as Omit<DbChangeRequestMessage, "id">);
 
       const result = await repo.findByRequestId("req-order");
 
