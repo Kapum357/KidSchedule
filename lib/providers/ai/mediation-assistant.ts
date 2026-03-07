@@ -137,7 +137,7 @@ export async function adjustSuggestion(
     const adjustedText = await runClaudeJsonWithGuardrails<string>({
       userId,
       operation: "mediation_assistant",
-      model: process.env.CLAUDE_TONE_MODEL ?? "claude-3-5-haiku-latest",
+      model: process.env.CLAUDE_TONE_MODEL ?? "claude-opus-4-6",
       maxTokens: 1024,
       fallback: text,
       systemPrompt,
