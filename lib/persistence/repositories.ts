@@ -47,6 +47,8 @@ import type {
   DbSubscription,
   DbWebhookEvent,
   DbPlanTier,
+  DbMediationTopic,
+  DbMediationWarning,
   AuditAction,
 } from "./types";
 import type { ExportJobRecord } from "@/types";

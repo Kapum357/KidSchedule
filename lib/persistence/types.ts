@@ -631,3 +631,36 @@ export interface DbPlanTier {
   isActive: boolean;
   createdAt: string;
 }
+
+// ─── Mediation Entities ───────────────────────────────────────────────────────
+
+export interface DbMediationTopic {
+  id: string;
+  familyId: string;
+  parentId: string; // which parent created this topic
+  title: string;
+  description?: string;
+  status: "draft" | "in_progress" | "resolved";
+  draftSuggestion?: string; // AI-suggested neutral response
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DbMediationWarning {
+  id: string;
+  familyId: string;
+  messageId: string;
+  senderParentId: string;
+  category: string; // aggressive_capitalization, emotional_intensity, etc.
+  severity: "high" | "medium" | "low";
+  title: string;
+  description: string;
+  excerpt: string;
+  flaggedAt: string;
+  dismissed: boolean;
+  dismissedAt?: string;
+  dismissedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
