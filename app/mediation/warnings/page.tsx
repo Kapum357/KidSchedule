@@ -329,7 +329,7 @@ export default async function WarningsHistoryPage({
                   {warning.excerpt && (
                     <div className="bg-slate-200/50 dark:bg-slate-800/50 rounded p-3 mb-3 border-l-2 border-slate-400 dark:border-slate-600">
                       <p className="text-sm text-slate-700 dark:text-slate-300 italic">
-                        "{warning.excerpt}"
+                        &ldquo;{warning.excerpt}&rdquo;
                       </p>
                     </div>
                   )}

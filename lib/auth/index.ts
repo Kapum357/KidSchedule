@@ -51,7 +51,23 @@ async function hashPassword(password: string): Promise<string> {
  */
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
   const computed = await hashPassword(password);
-  // Constant-time comparison
+  // Fast path: exact match (new-format hashes)
+  if (computed === hash) return true;
+
+  // Backwards compatibility: some older accounts store a raw 64-char
+  // hex SHA-256 digest (no "bcrypt$..." prefix). In that case compare
+  // the suffix of the computed value in constant time.
+  if (hash.length === 64 && /^[0-9a-fA-F]{64}$/.test(hash)) {
+    const computedSuffix = computed.slice(-64);
+    // Constant-time compare of the two 64-char hex strings
+    let mismatch = 0;
+    for (let i = 0; i < 64; i++) {
+      mismatch |= computedSuffix.charCodeAt(i) ^ hash.charCodeAt(i);
+    }
+    return mismatch === 0;
+  }
+
+  // Final fallback: constant-time compare on full strings (different lengths -> false)
   if (computed.length !== hash.length) return false;
   let mismatch = 0;
   for (let i = 0; i < computed.length; i++) {
@@ -60,11 +76,31 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   return mismatch === 0;
 }
 
-// ─── Rate Limiting ────────────────────────────────────────────────────────────
+// ─── Rate Limiting ───────────────────────────────────────────────────────────
 
-const EMAIL_RATE_LIMIT = { max: 5, windowMs: 15 * 60 * 1000, lockoutMs: 15 * 60 * 1000 };
-const IP_RATE_LIMIT = { max: 20, windowMs: 15 * 60 * 1000, lockoutMs: 30 * 60 * 1000 };
-const PASSWORD_RESET_RATE_LIMIT = { max: 3, windowMs: 60 * 60 * 1000 };
+// Make rate limits configurable via environment for development convenience.
+// In non-production environments we set very high limits to avoid accidental lockouts.
+const _isProd = process.env.NODE_ENV === "production";
+const _defaultEmailMax = _isProd ? 5 : 1_000_000;
+const _defaultIpMax = _isProd ? 20 : 1_000_000;
+const _defaultPasswordResetMax = _isProd ? 3 : 1_000_000;
+
+const EMAIL_RATE_LIMIT = {
+  max: Number(process.env.EMAIL_RATE_LIMIT_MAX ?? _defaultEmailMax),
+  windowMs: Number(process.env.EMAIL_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000),
+  lockoutMs: Number(process.env.EMAIL_RATE_LIMIT_LOCKOUT_MS ?? 15 * 60 * 1000),
+};
+
+const IP_RATE_LIMIT = {
+  max: Number(process.env.IP_RATE_LIMIT_MAX ?? _defaultIpMax),
+  windowMs: Number(process.env.IP_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000),
+  lockoutMs: Number(process.env.IP_RATE_LIMIT_LOCKOUT_MS ?? 30 * 60 * 1000),
+};
+
+const PASSWORD_RESET_RATE_LIMIT = {
+  max: Number(process.env.PASSWORD_RESET_RATE_LIMIT_MAX ?? _defaultPasswordResetMax),
+  windowMs: Number(process.env.PASSWORD_RESET_RATE_LIMIT_WINDOW_MS ?? 60 * 60 * 1000),
+};
 
 async function checkRateLimit(key: string, limit: { max: number; windowMs: number }): Promise<{
   allowed: boolean;

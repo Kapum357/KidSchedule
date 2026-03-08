@@ -20,13 +20,14 @@ export function TemplateForm({
   const [mounted, setMounted] = useState(false);
 
   // Hydration guard: read from localStorage after mount
-  // Only runs once on mount; safe to call setState directly
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     const saved = localStorage.getItem("ks_wizard_draft");
     if (saved) {
       try {
         const draft = JSON.parse(saved);
         if (draft.template) {
+          // This setState is intentional during hydration - set once on mount
           setSelectedTemplate(draft.template);
         }
       } catch {

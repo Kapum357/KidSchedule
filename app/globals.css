@@ -1,8 +1,6 @@
 @import "tailwindcss";
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   KidSchedule Design System – CSS Custom Properties & Base Styles
-   ═══════════════════════════════════════════════════════════════════════════
+/* ═════════════════════════════════════════════════════════════════════════
    
    This file defines:
    1. Color tokens for light/dark modes
@@ -63,6 +61,9 @@
   --color-surface-elevated: #FFFFFF;
   --color-surface-sunken: #F8FAFC;
   --color-surface-overlay: rgba(0, 0, 0, 0.5);
+  --color-surface-light: #FFFFFF;
+  --color-surface-dark: #1c2b2a;
+  --color-surface-darker: #12191a;
   
   /* Text Colors */
   --color-text: #0F172A;

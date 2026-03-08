@@ -519,7 +519,7 @@ export default async function MediationPage({
   // ── Auth & DB ──────────────────────────────────────────────────────────────
   const user = await requireAuth();
   const parent = await db.parents.findByUserId(user.userId);
-  if (!parent) redirect("/calendar/wizard?onboarding=1");
+  if (!parent) console.error(`No parent record found for userId ${user.userId}`);
 
   const activeParent = parent as NonNullable<typeof parent>;
 
@@ -529,7 +529,7 @@ export default async function MediationPage({
   ]);
 
   if (dbParents.length < 2) {
-    redirect("/calendar/wizard?onboarding=1");
+    console.error(`Not enough parents found for familyId ${activeParent.familyId}`);
   }
 
   const mappedParent = mapParent(

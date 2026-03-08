@@ -284,7 +284,7 @@ function CustodyChecklistWidget() {
       </div>
       <h3 className="text-xl font-bold text-slate-900 mb-3">Free Custody Checklist</h3>
       <p className="text-slate-600 text-sm mb-8 leading-relaxed">
-        Don't forget the essentials. Download our comprehensive holiday swap checklist to ensure nothing gets left behind.
+        Don&apos;t forget the essentials. Download our comprehensive holiday swap checklist to ensure nothing gets left behind.
       </p>
       <button className="w-full bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 hover:border-primary/30 font-bold py-3 px-4 rounded-xl transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 group-hover:text-primary">
         <span className="material-symbols-outlined">download</span>

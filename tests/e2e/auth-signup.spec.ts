@@ -40,7 +40,7 @@ test.describe("Auth pages", () => {
 
   test("verify-email route handles missing token", async ({ page }) => {
     await page.goto("/verify-email");
-    await expect(page.getByRole("heading", { name: "Email verification failed" })).toBeVisible();
+    await expect(page.getByText(/Email verification failed/i)).toBeVisible();
     await expect(page.getByText(/Missing verification token/i)).toBeVisible();
   });
 });

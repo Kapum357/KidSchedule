@@ -146,7 +146,7 @@ export function BillingSection({ userId, currentPlanTier, subscription }: Billin
           </div>
         ) : (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center dark:border-slate-700 dark:bg-slate-800">
-            <p className="mb-4 text-slate-600 dark:text-slate-400">You're currently on the Free Plan</p>
+            <p className="mb-4 text-slate-600 dark:text-slate-400">You&apos;re currently on the Free Plan</p>
             <button
               onClick={() => setShowPricingModal(true)}
               className="rounded-lg bg-primary px-6 py-2 font-semibold text-white hover:opacity-90"

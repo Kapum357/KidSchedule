@@ -12,11 +12,13 @@ import '@testing-library/jest-dom';
 
 // TextEncoder/TextDecoder (needed by Next.js crypto operations)
 if (!global.TextEncoder) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { TextEncoder } = require('util');
   global.TextEncoder = TextEncoder;
 }
 
 if (!global.TextDecoder) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { TextDecoder } = require('util');
   global.TextDecoder = TextDecoder;
 }
@@ -27,6 +29,7 @@ if (!global.TextDecoder) {
 if (!(global as any).AbortController) {
   try {
     // Try to use Node.js built-in AbortController (Node 15+)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { AbortController: AC } = require('abort-controller');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (global as any).AbortController = AC;
@@ -38,7 +41,7 @@ if (!(global as any).AbortController) {
       abort() {
         this.signal.aborted = true;
       }
-    } as any;
+    };
   }
 }
 
@@ -47,6 +50,7 @@ if (!(global as any).AbortController) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 if (!(global as any).Request) {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Request, Response, Headers } = require('undici');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (global as any).Request = Request;
@@ -74,30 +78,31 @@ if (!(global as any).Request) {
       get method() {
         return this.#method;
       }
-    } as any;
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (global as any).Response = class Response {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       constructor(body: any, init?: any) {
-        // @ts-ignore
+        // @ts-expect-error - dynamic properties
         this.body = body;
-        // @ts-ignore
+        // @ts-expect-error - dynamic properties
         this.status = init?.status || 200;
       }
-    } as any;
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (global as any).Headers = class Headers {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       constructor(init?: any) {
-        // @ts-ignore
+        // @ts-expect-error - dynamic properties
         this._headers = init || {};
       }
-    } as any;
+    };
   }
 }
 
 // Crypto API (needed by Next.js encryption/hashing in server actions)
 if (!global.crypto) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { webcrypto } = require('crypto');
   global.crypto = webcrypto;
 }

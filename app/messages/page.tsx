@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib";
+import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { db } from "@/lib/persistence";
 import { getMediationAssistantTips } from "@/lib/providers/ai";
 import { sendMessage } from "./actions";
@@ -78,12 +79,8 @@ export default async function MessagesPage({
   const state = resolveMessageState(resolvedSearchParams);
 
   const user = await requireAuth();
-  const currentParent = await db.parents.findByUserId(user.userId);
-
-  if (!currentParent) {
-    redirect("/calendar/wizard?onboarding=1");
-  }
-  const activeParent = currentParent as NonNullable<typeof currentParent>;
+  const parentResult = await ensureParentExists(user.userId);
+  const activeParent = parentResult.parent;
 
   let messages = await db.messages.findByFamilyId(activeParent.familyId);
   const familyParents = await db.parents.findByFamilyId(activeParent.familyId);

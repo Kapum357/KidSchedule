@@ -34,6 +34,7 @@ import type {
 import {
   PTAEngine,
 } from "@/lib/pta-engine";
+import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { requireAuth } from "@/lib";
 import { db } from "@/lib/persistence";
@@ -611,11 +612,8 @@ export default async function SchoolPortalPage({
   const todayStr = now.toISOString().split("T")[0];
 
   const user = await requireAuth();
-  const currentParent = await db.parents.findByUserId(user.userId);
-  if (!currentParent) {
-    redirect("/calendar/wizard?onboarding=1");
-  }
-  const activeParent = currentParent as NonNullable<typeof currentParent>;
+  const parentResult = await ensureParentExists(user.userId);
+  const activeParent = parentResult.parent;
 
   let dbFamilyParents: Awaited<ReturnType<typeof db.parents.findByFamilyId>> = [];
   let dbSchoolEvents: Awaited<ReturnType<typeof db.schoolEvents.findUpcoming>> = [];
@@ -641,7 +639,7 @@ export default async function SchoolPortalPage({
       db.lunchMenus.findByFamilyIdSince(activeParent.familyId, todayStr),
     ]);
   } catch (error) {
-    console.error("[School] Failed to load school portal data", error);
+    console.info("[School] Failed to load school portal data", error);
   }
 
   const allEvents = dbSchoolEvents.map(mapDbSchoolEventToDomain);

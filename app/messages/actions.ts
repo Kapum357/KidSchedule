@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib";
+import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { db } from "@/lib/persistence";
 import { analyzeMessageTone } from "@/lib/providers/ai";
 import { emitNewMessage } from "@/lib/socket-server";
@@ -9,12 +10,15 @@ import { getSmsSender } from "@/lib/providers/sms";
 
 export async function sendMessage(formData: FormData): Promise<void> {
   const user = await requireAuth();
-  const parent = await db.parents.findByUserId(user.userId);
-
-  if (!parent) {
-    redirect("/calendar/wizard?onboarding=1");
+  
+  let activeParent;
+  try {
+    const parentResult = await ensureParentExists(user.userId);
+    activeParent = parentResult.parent;
+  } catch (error) {
+    console.error(`Failed to ensure parent exists for userId ${user.userId}:`, error);
+    redirect("/login?error=setup_failed");
   }
-  const activeParent = parent as NonNullable<typeof parent>;
 
   const messageText = ((formData.get("message") as string | null) ?? "").trim();
 

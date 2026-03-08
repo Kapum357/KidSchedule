@@ -18,6 +18,7 @@ jest.mock("next/headers", () => {
 });
 
 // typed to include our helper function
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const headersFn = require("next/headers").headers as () => { get(name: string): string | null; __set(headers: Record<string,string>): void };
 
 describe("CSRF utilities", () => {

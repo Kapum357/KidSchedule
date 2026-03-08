@@ -257,15 +257,15 @@ describe("sendMessage – validation guards", () => {
 // ─── sendMessage – auth guard ─────────────────────────────────────────────────
 
 describe("sendMessage – auth guard", () => {
-  it("redirects to onboarding when parent record not found", async () => {
+  it("redirects to login error when parent setup fails", async () => {
     requireAuth.mockResolvedValue({ userId: "user-1" });
     db.parents.findByUserId.mockResolvedValue(null);
+    db.users = { findById: jest.fn().mockResolvedValue(null) } as any;
 
     const error = await sendMessage(makeFormData("Hello")).catch((e) => e);
     const url = captureRedirectUrl(error);
 
-    expect(url).toContain("/calendar/wizard");
-    expect(url).toContain("onboarding=1");
+    expect(url).toContain("/login?error=setup_failed");
   });
 });
 

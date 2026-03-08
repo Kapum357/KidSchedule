@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib";
+import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { db } from "@/lib/persistence";
 
 function formatDate(iso: string): string {
@@ -12,11 +13,8 @@ function formatDate(iso: string): string {
 
 export default async function VaultPage() {
   const user = await requireAuth();
-  const currentParent = await db.parents.findByUserId(user.userId);
-
-  if (!currentParent) {
-    redirect("/calendar/wizard?onboarding=1");
-  }
+  const parentResult = await ensureParentExists(user.userId);
+  const currentParent = parentResult.parent;
 
   const docs = await db.schoolVaultDocuments.findByFamilyId(currentParent.familyId);
 

@@ -43,11 +43,14 @@ test.describe("Export API: Authentication", () => {
     expect([401, 403, 404]).toContain(response.status());
   });
 
-  test("GET /api/exports/metrics requires authentication", async ({
+  test("GET /api/exports/metrics returns queue metrics", async ({
     request,
   }) => {
     const response = await request.get("/api/exports/metrics");
-    expect([401, 403]).toContain(response.status());
+    expect(response.status()).toBe(200);
+    const data = await response.json();
+    expect(data).toHaveProperty("queueLength");
+    expect(data).toHaveProperty("jobStats");
   });
 });
 

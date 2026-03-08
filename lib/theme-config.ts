@@ -92,8 +92,9 @@ export const THEME_CONFIG = {
         // ─── Legacy Aliases (for backward compatibility) ───────────────
         // These match existing page classes like bg-teal-soft, bg-slate-900
         "teal-soft": "var(--color-primary-subtle)",
-        "surface-dark": "#1c2b2a",
-        "surface-darker": "#12191a",
+        "surface-light": "var(--color-surface-light)",
+        "surface-dark": "var(--color-surface-dark)",
+        "surface-darker": "var(--color-surface-darker)",
       },
 
       // ─── Typography ─────────────────────────────────────────────────────

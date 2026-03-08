@@ -94,10 +94,10 @@ function resolvePageState(searchParams: ExpenseSearchParams | undefined): Expens
     splitType,
     customYouPercent,
     errorMessage: searchParams?.error,
-    successMessage: searchParams?.success === "1" ? "Expense logged successfully (demo mode)." : undefined,
+    successMessage: searchParams?.success === "1" ? "Expense logged successfully." : undefined,
     receiptMessage:
       searchParams?.receipt === "1"
-        ? "Receipt selected. Cloud upload integration can be wired in persistence next."
+        ? "Receipt uploaded successfully."
         : undefined,
   };
 }

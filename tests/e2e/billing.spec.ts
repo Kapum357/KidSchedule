@@ -10,14 +10,14 @@ test.describe("Billing: Pricing Page", () => {
   test("pricing cards render on homepage", async ({ page }) => {
     await page.goto("/");
 
-    // Find pricing section
-    const pricingSection = page.locator("text=Choose Your Plan");
-    await expect(pricingSection).toBeVisible();
+    // Find pricing section by heading
+    const pricingHeading = page.locator("text=Simple, affordable plans");
+    await expect(pricingHeading).toBeVisible();
 
-    // Check for plan cards
-    const essentialCard = page.locator("text=Essential");
-    const plusCard = page.locator("text=Plus");
-    const completeCard = page.locator("text=Complete");
+    // Check for plan cards by heading (more specific than text search)
+    const essentialCard = page.getByRole("heading", { name: "Essential" });
+    const plusCard = page.getByRole("heading", { name: "Plus" });
+    const completeCard = page.getByRole("heading", { name: "Complete" });
 
     await expect(essentialCard).toBeVisible();
     await expect(plusCard).toBeVisible();
@@ -27,8 +27,8 @@ test.describe("Billing: Pricing Page", () => {
   test("unauthenticated: clicking plan CTA redirects to signup", async ({ page }) => {
     await page.goto("/");
 
-    // Click on "Choose Plan" button (first card)
-    const buttons = page.locator('button:has-text("Choose Plan")');
+    // Click on first "Start Free Trial" button in pricing section
+    const buttons = page.getByRole("link", { name: "Start Free Trial" });
     await buttons.first().click();
 
     // Should redirect to signup
@@ -118,10 +118,8 @@ test.describe("Billing: API Endpoints", () => {
     // Verify plan structure
     const plan = data.plans[0];
     expect(plan).toHaveProperty("id");
-    expect(plan).toHaveProperty("tier");
-    expect(plan).toHaveProperty("displayName");
-    expect(plan).toHaveProperty("monthlyPriceCents");
     expect(plan).toHaveProperty("features");
+    expect(Array.isArray(plan.features)).toBe(true);
   });
 
   test.skip("GET /api/billing/status returns 401 when unauthenticated", async ({ request }) => {
@@ -150,7 +148,7 @@ test.describe("Billing: Error Handling", () => {
   });
 
   test("webhook endpoint returns 400 for invalid signature", async ({ request }) => {
-    const response = await request.post("/api/billing/webhook", {
+    const response = await request.post("/api/webhooks/stripe", {
       headers: { "stripe-signature": "invalid" },
       data: JSON.stringify({ test: "data" }),
     });

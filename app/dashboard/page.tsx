@@ -1,16 +1,10 @@
 /**
- * KidSchedule – Parent Dashboard (v2)
- *
- * A Next.js Server Component. All data is fetched in parallel via Promise.all
- * then composed by aggregateDashboard(). Sub-components are co-located for
- * simplicity; extract them once they grow beyond this file.
- *
- * Color system: uses CSS custom properties defined in globals.css, with
- * hardcoded hex values only where a new v2 design token has no Tailwind alias.
+ * KidSchedule – Parent Dashboard
  */
 
 import { aggregateDashboard } from "@/lib/dashboard-aggregator";
 import { requireAuth } from "@/lib";
+import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { db } from "@/lib/persistence";
 import { SchedulePresets } from "@/lib/custody-engine";
 import { redirect } from "next/navigation";
@@ -30,12 +24,6 @@ import type {
   ScheduleChangeRequest,
   ScheduleTransition,
 } from "@/types";
-
-// ─── Color Constants (Design v2) ──────────────────────────────────────────────
-
-const SURFACE = "bg-white dark:bg-[#1e2928]";
-const BORDER  = "border border-slate-100 dark:border-slate-800";
-const CARD    = `${SURFACE} rounded-2xl shadow-sm ${BORDER}`;
 
 // ─── Formatting Helpers ───────────────────────────────────────────────────────
 
@@ -114,12 +102,12 @@ function Sidebar({
   return (
     <aside
       aria-label="Primary navigation"
-      className="w-64 bg-white dark:bg-[#1e2928] border-r border-slate-200 dark:border-slate-800 flex-col hidden md:flex z-20 transition-all duration-300"
+      className="w-64 bg-white dark:bg-surface border-r border-slate-200 dark:border-slate-800 flex-col hidden md:flex z-20 transition-all duration-300"
     >
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-slate-100 dark:border-slate-800 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="bg-[#6BCABD]/20 p-1.5 rounded-lg text-[#6BCABD]">
+          <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
             <span aria-hidden="true" className="material-symbols-outlined text-2xl">family_restroom</span>
           </div>
           <span className="text-xl font-bold tracking-tight text-slate-800 dark:text-white select-none">
@@ -140,7 +128,7 @@ function Sidebar({
               href={link.href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
                 isActive
-                  ? "text-[#6BCABD] bg-[#6BCABD]/10 font-semibold"
+                  ? "text-primary bg-primary/10 font-semibold"
                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"
               }`}
             >
@@ -192,7 +180,7 @@ function Sidebar({
               src={currentParent.avatarUrl}
             />
           ) : (
-            <div className="w-9 h-9 rounded-full bg-[#6BCABD]/20 flex items-center justify-center text-[#6BCABD] font-bold text-sm shrink-0">
+            <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
               {currentParent.name.charAt(0)}
             </div>
           )}
@@ -217,7 +205,7 @@ function DashboardHeader({
   unreadCount,
 }: Readonly<{ unreadCount: number }>) {
   return (
-    <header className="h-16 bg-white dark:bg-[#1e2928] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 z-10 shrink-0">
+    <header className="h-16 bg-white dark:bg-surface border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 z-10 shrink-0">
       <div className="flex items-center gap-4">
         {/* Mobile hamburger */}
         <button
@@ -239,7 +227,7 @@ function DashboardHeader({
             search
           </span>
           <input
-            className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border-none rounded-full text-sm w-56 lg:w-64 focus:ring-2 focus:ring-[#6BCABD]/50 outline-none text-slate-800 dark:text-white placeholder:text-slate-400"
+            className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border-none rounded-full text-sm w-56 lg:w-64 focus:ring-2 focus:ring-primary/50 outline-none text-slate-800 dark:text-white placeholder:text-slate-400"
             placeholder="Search…"
             type="search"
             aria-label="Search"
@@ -254,7 +242,7 @@ function DashboardHeader({
           {unreadCount > 0 && (
             <span
               aria-hidden="true"
-              className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-[#1e2928]"
+              className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-surface"
             />
           )}
         </button>
@@ -300,14 +288,14 @@ function CustodyScheduleCard({
   const coParent = upcomingTransitions[0]?.toParent || upcomingTransitions[0]?.fromParent;
 
   return (
-    <div className={`${CARD} p-6 md:col-span-2 xl:col-span-2`}>
+    <div className={`p-6 md:col-span-2 xl:col-span-2`}>
       {/* Card header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <AccentChip
             icon="calendar_clock"
-            bg="bg-[#E0F2FE]"
-            fg="text-[#0369A1]"
+            bg="bg-info-subtle"
+            fg="text-info"
           />
           <h2 className="text-lg font-bold text-slate-800 dark:text-white">
             Custody Schedule
@@ -315,7 +303,7 @@ function CustodyScheduleCard({
         </div>
         <a
           href="/calendar"
-          className="text-sm font-medium text-[#6BCABD] hover:text-[#4FB8A9] transition-colors"
+          className="text-sm font-medium text-primary hover:text-primary-hover transition-colors"
         >
           View Calendar
         </a>
@@ -368,7 +356,7 @@ function CustodyScheduleCard({
                     {coParent.phone && (
                       <a
                         href={`tel:${coParent.phone}`}
-                        className="inline-flex items-center gap-1 text-xs text-[#6BCABD] hover:text-[#4FB8A9] font-medium"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary-hover font-medium"
                       >
                         <span className="material-symbols-outlined text-[14px]">call</span>
                         Call
@@ -376,7 +364,7 @@ function CustodyScheduleCard({
                     )}
                     <a
                       href="/messages"
-                      className="inline-flex items-center gap-1 text-xs text-[#6BCABD] hover:text-[#4FB8A9] font-medium"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary-hover font-medium"
                     >
                       <span className="material-symbols-outlined text-[14px]">chat</span>
                       Message
@@ -443,19 +431,19 @@ function CustodyScheduleCard({
           <div className="relative pl-4 border-l-2 border-slate-200 dark:border-slate-700 space-y-6">
             {/* Dot 1 — Now */}
             <div className="relative">
-              <div className="absolute -left-[21px] top-1 w-3 h-3 bg-[#6BCABD] rounded-full ring-4 ring-white dark:ring-[#1e2928]" />
+              <div className="absolute -left-[21px] top-1 w-3 h-3 bg-primary rounded-full ring-4 ring-white dark:ring-surface" />
               <p className="text-xs text-slate-400">Now</p>
               <p className="font-bold text-slate-800 dark:text-white">Active Time</p>
             </div>
             {/* Dot 2 — Drop-off */}
             <div className="relative opacity-60">
-              <div className="absolute -left-[21px] top-1 w-3 h-3 bg-slate-300 dark:bg-slate-600 rounded-full ring-4 ring-white dark:ring-[#1e2928]" />
+              <div className="absolute -left-[21px] top-1 w-3 h-3 bg-slate-300 dark:bg-slate-600 rounded-full ring-4 ring-white dark:ring-surface" />
               <p className="text-xs text-slate-400">{dropoffTime}</p>
               <p className="font-medium text-slate-800 dark:text-white">Drop-off</p>
             </div>
             {/* Dot 3 — Next */}
             <div className="relative opacity-40">
-              <div className="absolute -left-[21px] top-1 w-3 h-3 bg-slate-300 dark:bg-slate-600 rounded-full ring-4 ring-white dark:ring-[#1e2928]" />
+              <div className="absolute -left-[21px] top-1 w-3 h-3 bg-slate-300 dark:bg-slate-600 rounded-full ring-4 ring-white dark:ring-surface" />
               <p className="text-xs text-slate-400">
                 {isTransitionTomorrow(custody.periodEnd) ? "Tomorrow" : "Next"}
               </p>
@@ -483,18 +471,18 @@ function CommHealthCard({ climate }: Readonly<{ climate: ConflictClimate }>) {
 
   // Arc colour follows health
   const arcColor =
-    healthScore >= 70 ? "text-[#6BCABD]" :
+    healthScore >= 70 ? "text-primary" :
     healthScore >= 50 ? "text-amber-400" : "text-red-500";
 
   return (
-    <div className={`${CARD} p-6 flex flex-col`}>
+    <div className={`p-6 flex flex-col`}>
       {/* Card header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <AccentChip
             icon="sentiment_satisfied"
-            bg="bg-[#F3E8FF]"
-            fg="text-[#7E22CE]"
+            bg="bg-secondary-subtle"
+            fg="text-secondary-active"
           />
           <h2 className="text-lg font-bold text-slate-800 dark:text-white">Comm. Health</h2>
         </div>
@@ -539,7 +527,7 @@ function CommHealthCard({ climate }: Readonly<{ climate: ConflictClimate }>) {
             <span className="text-3xl font-bold text-slate-800 dark:text-white leading-none">
               {healthScore}
             </span>
-            <span className="text-xs font-semibold text-[#6BCABD] uppercase mt-0.5 tracking-wide">
+            <span className="text-xs font-semibold text-primary uppercase mt-0.5 tracking-wide">
               {healthLabel}
             </span>
           </div>
@@ -575,13 +563,13 @@ function PendingActionsCard({
   const hasItems = unreadCount > 0 || !!unpaidActivity || !!pendingRequest;
 
   return (
-    <div className={`${CARD} p-6 flex flex-col`}>
+    <div className={`p-6 flex flex-col`}>
       {/* Card header */}
       <div className="flex items-center gap-3 mb-6">
         <AccentChip
           icon="pending_actions"
-          bg="bg-[#FFF7ED]"
-          fg="text-[#C2410C]"
+          bg="bg-accent-subtle"
+          fg="text-accent-active"
         />
         <h2 className="text-lg font-bold text-slate-800 dark:text-white">Pending Actions</h2>
       </div>
@@ -606,7 +594,7 @@ function PendingActionsCard({
             </div>
             <span
               aria-hidden="true"
-              className="material-symbols-outlined text-slate-300 group-hover:text-[#6BCABD] transition-colors text-sm shrink-0 ml-2"
+              className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors text-sm shrink-0 ml-2"
             >
               arrow_forward_ios
             </span>
@@ -630,7 +618,7 @@ function PendingActionsCard({
             </div>
             <a
               href="/expenses"
-              className="shrink-0 ml-2 px-3 py-1 bg-white dark:bg-[#1e2928] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold shadow-sm hover:border-[#6BCABD] hover:text-[#6BCABD] transition-colors"
+              className="shrink-0 ml-2 px-3 py-1 bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold shadow-sm hover:border-[#6BCABD] hover:text-primary transition-colors"
             >
               Review
             </a>
@@ -651,7 +639,7 @@ function PendingActionsCard({
             </div>
             <Link
               href="/calendar/change-requests"
-              className="shrink-0 ml-2 px-3 py-1 bg-white dark:bg-[#1e2928] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold shadow-sm hover:border-[#6BCABD] hover:text-[#6BCABD] transition-colors"
+              className="shrink-0 ml-2 px-3 py-1 bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold shadow-sm hover:border-[#6BCABD] hover:text-primary transition-colors"
             >
               View
             </Link>
@@ -685,7 +673,7 @@ function MomentsCard({
   }
 
   return (
-    <div className={`${CARD} p-6 md:col-span-2 xl:col-span-2`}>
+    <div className={`p-6 md:col-span-2 xl:col-span-2`}>
       {/* Card header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -745,7 +733,7 @@ function MomentsCard({
         <div className="min-w-[100px] snap-start shrink-0 flex flex-col justify-center">
           <a
             href="/moments/share"
-            className="aspect-[4/3] w-full rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 hover:border-[#6BCABD] hover:text-[#6BCABD] hover:bg-[#6BCABD]/5 transition-all"
+            className="aspect-[4/3] w-full rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 hover:border-[#6BCABD] hover:text-primary hover:bg-primary/5 transition-all"
             aria-label="Add new moment"
           >
             <span aria-hidden="true" className="material-symbols-outlined mb-1">add_circle</span>
@@ -780,7 +768,7 @@ function FloatingActionButton() {
       <button
         aria-label="Quick Actions"
         aria-haspopup="true"
-        className="bg-[#6BCABD] hover:bg-[#4FB8A9] text-white w-14 h-14 rounded-full shadow-lg shadow-[#6BCABD]/30 flex items-center justify-center transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-[#6BCABD]/20"
+        className="bg-primary hover:bg-primary-hover text-white w-14 h-14 rounded-full shadow-lg shadow-primary/30 flex items-center justify-center transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-primary/20"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-2xl">add</span>
       </button>
@@ -794,15 +782,15 @@ function FloatingActionButton() {
         <a
           href="/expenses/add"
           role="menuitem"
-          className="flex items-center gap-3 bg-white dark:bg-[#1e2928] text-slate-700 dark:text-slate-200 px-4 py-2.5 rounded-full shadow-md hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-100 dark:border-slate-700 whitespace-nowrap transition-colors"
+          className="flex items-center gap-3 bg-white dark:bg-surface-dark text-slate-700 dark:text-slate-200 px-4 py-2.5 rounded-full shadow-md hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-100 dark:border-slate-700 whitespace-nowrap transition-colors"
         >
           <span className="text-sm font-semibold">Log Expense</span>
-          <span aria-hidden="true" className="material-symbols-outlined text-[#6BCABD] text-[18px]">attach_money</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-primary text-[18px]">attach_money</span>
         </a>
         <a
           href="/moments/share"
           role="menuitem"
-          className="flex items-center gap-3 bg-white dark:bg-[#1e2928] text-slate-700 dark:text-slate-200 px-4 py-2.5 rounded-full shadow-md hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-100 dark:border-slate-700 whitespace-nowrap transition-colors"
+          className="flex items-center gap-3 bg-white dark:bg-surface-dark text-slate-700 dark:text-slate-200 px-4 py-2.5 rounded-full shadow-md hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-100 dark:border-slate-700 whitespace-nowrap transition-colors"
         >
           <span className="text-sm font-semibold">Add Moment</span>
           <span aria-hidden="true" className="material-symbols-outlined text-pink-500 text-[18px]">photo_camera</span>
@@ -820,12 +808,24 @@ export default async function DashboardPage() {
   // ── Authentication ─────────────────────────────────────────────────────
   const user = await requireAuth();
 
-  // ── Parent & family lookup ─────────────────────────────────────────────
-  const parent = await db.parents.findByUserId(user.userId);
-  if (!parent) redirect("/calendar/wizard?onboarding=1");
+  // ── Parent & family lookup / auto-create ───────────────────────────────
+  let parent;
+  try {
+    const result = await ensureParentExists(user.userId);
+    parent = result.parent;
+    if (result.isNewlyCreated) {
+      console.info(`Auto-created parent record for userId ${user.userId}`);
+    }
+  } catch (error) {
+    console.error(`Failed to ensure parent exists for userId ${user.userId}:`, error);
+    throw error;
+  }
 
   const dbFamily = await db.families.findById(parent.familyId);
-  if (!dbFamily) redirect("/calendar/wizard?onboarding=1");
+  if (!dbFamily) {
+    console.warn(`No family found for familyId ${parent.familyId}`);
+    throw new Error(`No family found for familyId ${parent.familyId}`);
+  }
 
   // ── Parallel data fetch ────────────────────────────────────────────────
   const [
@@ -846,7 +846,7 @@ export default async function DashboardPage() {
     db.moments.findByFamilyId(parent.familyId),
   ]);
 
-  if (dbParents.length < 2) redirect("/calendar/wizard?onboarding=1");
+  if (dbParents.length < 2) console.info(`Not enough parents found for familyId ${parent.familyId}`);
 
   const mappedParents: Parent[] = dbParents.map((p) => ({
     id: p.id,
@@ -860,12 +860,16 @@ export default async function DashboardPage() {
 
   // ── Schedule blocks ────────────────────────────────────────────────────
   let scheduleBlocks;
+  // If we don't have a secondary parent yet, create a dummy placeholder to avoid crashes
+  const safePrimary = primaryParent ?? { id: "primary-placeholder", name: "Primary Parent (You)", email: "primary@example.com" };
+  const safeSecondary = secondaryParent ?? { id: "secondary-placeholder", name: "Co-Parent (Pending Setup)", email: "secondary@example.com" };
+  
   if (dbFamily.scheduleId === "alternating-weeks") {
-    scheduleBlocks = SchedulePresets.alternatingWeeks(primaryParent.id, secondaryParent.id);
+    scheduleBlocks = SchedulePresets.alternatingWeeks(safePrimary.id, safeSecondary.id);
   } else if (dbFamily.scheduleId === "3-4-4-3") {
-    scheduleBlocks = SchedulePresets.threeFourFourThree(primaryParent.id, secondaryParent.id);
+    scheduleBlocks = SchedulePresets.threeFourFourThree(safePrimary.id, safeSecondary.id);
   } else {
-    scheduleBlocks = SchedulePresets.twoTwoThree(primaryParent.id, secondaryParent.id);
+    scheduleBlocks = SchedulePresets.twoTwoThree(safePrimary.id, safeSecondary.id);
   }
 
   // ── Build family object ────────────────────────────────────────────────
@@ -878,7 +882,7 @@ export default async function DashboardPage() {
       transitionHour: 17,
       blocks: scheduleBlocks,
     },
-    parents: [primaryParent, secondaryParent],
+    parents: [safePrimary, safeSecondary] as [Parent, Parent],
     children: (dbChildren as unknown as Family["children"]),
   };
 
@@ -905,7 +909,7 @@ export default async function DashboardPage() {
 
   return (
     /* Full-height flex layout — no overflow at root */
-    <div className="flex h-screen overflow-hidden bg-[#f6f8f7] dark:bg-[#141e1d] antialiased">
+    <div className="flex h-screen overflow-hidden bg-surface-sunken dark:bg-surface-sunken antialiased">
       <Sidebar
         currentParent={data.currentParent}
         unreadCount={data.unreadMessageCount}

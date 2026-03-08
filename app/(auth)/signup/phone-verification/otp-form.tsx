@@ -15,12 +15,17 @@ export function OtpForm({ phone, action }: OtpFormProps) {
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   useEffect(() => {
-    if (countdown <= 0) {
-      setCanResend(true);
-      return;
-    }
+    if (countdown <= 0) return;
     const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
+  }, [countdown]);
+
+  // Set canResend flag when countdown completes (intentional setState in effect)
+  useEffect(() => {
+    if (countdown <= 0) {
+      setCanResend(true);
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
   }, [countdown]);
 
   const handleDigitChange = (index: number, value: string) => {

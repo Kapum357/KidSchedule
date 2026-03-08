@@ -10,6 +10,7 @@
 
 import { db } from "@/lib/persistence";
 import { requireAuth } from "@/lib";
+import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
@@ -648,10 +649,8 @@ export default async function ExpensesPage({
 }: Readonly<{ searchParams?: Promise<ExpenseSearchParams> }>) {
   // ── Auth & DB ──────────────────────────────────────────────────────────────
   const user = await requireAuth();
-  const parent = await db.parents.findByUserId(user.userId);
-  if (!parent) redirect("/calendar/wizard?onboarding=1");
-
-  const activeParent = parent as NonNullable<typeof parent>;
+  const parentResult = await ensureParentExists(user.userId);
+  const activeParent = parentResult.parent;
 
   const [dbFamily, dbParents, dbChildren, dbExpenses] = await Promise.all([
     db.families.findById(activeParent.familyId),
@@ -660,11 +659,27 @@ export default async function ExpensesPage({
     db.expenses.findByFamilyId(activeParent.familyId),
   ]);
 
-  if (!dbFamily || dbParents.length < 2) {
-    redirect("/calendar/wizard?onboarding=1");
+  if (!dbFamily) {
+    redirect("/dashboard");
   }
 
-  const mappedParents = dbParents
+  // Ensure at least 2 parents for expenses rendering by adding a placeholder if needed
+  const parentsForExpenses = dbParents.length < 2
+    ? [
+        ...dbParents,
+        {
+          id: "secondary-placeholder",
+          userId: "secondary-placeholder",
+          familyId: dbFamily.id,
+          name: "Co-Parent (Pending Setup)",
+          email: "secondary@placeholder.local",
+          role: "secondary" as const,
+          createdAt: new Date().toISOString(),
+        } as DbParent,
+      ]
+    : dbParents;
+
+  const mappedParents = parentsForExpenses
     .slice()
     .sort((a, b) => {
       if (a.role === "primary") return -1;

@@ -67,7 +67,7 @@ export function getConfig(): ExportConfig {
       ),
     },
     storage: {
-      type: (process.env.EXPORT_STORAGE_TYPE as any) ?? "local",
+      type: (process.env.EXPORT_STORAGE_TYPE as "local" | "s3") ?? "local",
       s3:
         process.env.EXPORT_STORAGE_TYPE === "s3"
           ? {

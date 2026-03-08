@@ -91,8 +91,11 @@ export function useMessagesSocket({
     };
   }, [familyId, onMessageRead, onNewMessage, onConnectionChange]);
 
+  // Return socket getter to avoid accessing ref during render
   return {
     isConnected,
-    socket: socketRef.current,
+    get socket() {
+      return socketRef.current;
+    },
   };
 }

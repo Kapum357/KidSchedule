@@ -13,6 +13,7 @@ import { CalendarListEngine } from "@/lib/calendar-list-engine";
 import { SchedulePresets } from "@/lib/custody-engine";
 import { generateCompleteSchedule } from "@/lib/schedule-generator";
 import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
+import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { CalendarFeedSubscription } from "@/app/calendar/calendar-feed-subscription";
@@ -603,10 +604,8 @@ export default async function CalendarPage({
 
   // ── Auth + DB ──────────────────────────────────────────────────────────────
   const user = await requireAuth();
-  const parent = await db.parents.findByUserId(user.userId);
-  if (!parent) redirect("/calendar/wizard?onboarding=1");
-
-  const activeParent = parent as NonNullable<typeof parent>;
+  const parentResult = await ensureParentExists(user.userId);
+  const activeParent = parentResult.parent;
 
   const [dbFamily, dbParents, dbChildren, dbEvents, dbChangeRequests, dbOverrides] =
     await Promise.all([
@@ -618,11 +617,29 @@ export default async function CalendarPage({
       db.scheduleOverrides.findActiveByFamilyId(activeParent.familyId),
     ]);
 
-  if (!dbFamily) redirect("/calendar/wizard?onboarding=1");
-  if (dbParents.length < 2) redirect("/calendar/wizard?onboarding=1");
+  if (!dbFamily) {
+    console.error(`No family found for familyId ${activeParent.familyId}`);
+  }
 
   const activeFamily = dbFamily as NonNullable<typeof dbFamily>;
-  const mappedParents = mapFamilyParents(dbParents);
+  
+  // Ensure at least 2 parents for calendar rendering by adding a placeholder if needed
+  const parentsForCalendar = dbParents.length < 2 
+    ? [
+        ...dbParents,
+        {
+          id: "secondary-placeholder",
+          userId: "secondary-placeholder",
+          familyId: activeFamily.id,
+          name: "Co-Parent (Pending Setup)",
+          email: "secondary@placeholder.local",
+          role: "secondary" as const,
+          createdAt: new Date().toISOString(),
+        } as DbParent,
+      ]
+    : dbParents;
+
+  const mappedParents = mapFamilyParents(parentsForCalendar);
 
   // Generate custody schedule using the new generator
   const scheduleInput = {

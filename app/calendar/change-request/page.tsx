@@ -9,6 +9,7 @@
  */
 
 import { db } from "@/lib/persistence";
+import { ensureParentExists } from "@/lib/parent-setup-engine";
 import type { DbScheduleChangeRequest } from "@/lib/persistence/types";
 import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
@@ -138,10 +139,8 @@ async function submitChangeRequest(formData: FormData): Promise<void> {
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   const user = await requireAuth();
-  const parent = await db.parents.findByUserId(user.userId);
-  if (!parent) redirect("/calendar/wizard?onboarding=1");
-
-  const activeParent = parent as NonNullable<typeof parent>;
+  const parentResult = await ensureParentExists(user.userId);
+  const activeParent = parentResult.parent;
 
   // ── Parse & Validate ───────────────────────────────────────────────────────
   const input = parseChangeRequestFormData(formData);
@@ -232,8 +231,7 @@ export default async function NewScheduleChangeRequestPage({
 }: Readonly<{ searchParams?: Promise<ChangeRequestSearchParams> }>) {
   // ── Auth ────────────────────────────────────────────────────────────────────
   const user = await requireAuth();
-  const parent = await db.parents.findByUserId(user.userId);
-  if (!parent) redirect("/calendar/wizard?onboarding=1");
+  const parentResult = await ensureParentExists(user.userId);
 
   const resolvedSearchParams = await searchParams;
   const state = resolvePageState(resolvedSearchParams);

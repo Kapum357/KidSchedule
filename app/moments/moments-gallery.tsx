@@ -292,11 +292,13 @@ export function MomentsGallery() {
   const [mounted, setMounted] = useState(false);
 
   // Load filter preferences from localStorage
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     const saved = localStorage.getItem("ks_moments_filters");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        // These setStates are intentional during hydration - set once on mount
         if (parsed.child) setChildFilter(parsed.child);
         if (typeof parsed.sortDesc === "boolean") setSortDesc(parsed.sortDesc);
       } catch {

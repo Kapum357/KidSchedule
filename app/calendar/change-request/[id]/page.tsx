@@ -7,6 +7,7 @@
  */
 
 import { db } from "@/lib/persistence";
+import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -311,10 +312,8 @@ export default async function ChangeRequestDetailPage({
 }: Readonly<{ params: Promise<{ id: string }> }>) {
   // ── Auth & Get Request ──────────────────────────────────────────────────────
   const user = await requireAuth();
-  const parent = await db.parents.findByUserId(user.userId);
-  if (!parent) redirect("/calendar/wizard?onboarding=1");
-
-  const activeParent = parent as NonNullable<typeof parent>;
+  const parentResult = await ensureParentExists(user.userId);
+  const activeParent = parentResult.parent;
 
   const resolvedParams = await params;
   const requestId = resolvedParams.id;
@@ -335,7 +334,7 @@ export default async function ChangeRequestDetailPage({
   }
 
   if (dbParents.length < 2) {
-    redirect("/calendar/wizard?onboarding=1");
+    console.error(`Not enough parents found for familyId ${activeParent.familyId}`);
   }
 
   const mappedParents = dbParents.map(mapParent);

@@ -5,22 +5,6 @@ import { HERO_IMAGE_CONFIG } from "@/lib/image-optimization";
 
 /**
  * Landing Page – Root Route
- *
- * This is a Next.js Server Component that renders the marketing homepage.
- * Dynamic content (audience targeting) is handled by client components that
- * read URL params and localStorage.
- *
- * Structure:
- * - Hero with dynamic messaging
- * - Social proof bar
- * - Feature grid (#features)
- * - Pricing cards (#pricing)
- * - Final CTA + footer
- *
- * Social Targeting:
- * - URL param ?audience=coparent|family|team|pta
- * - Referrer detection (e.g., from divorce lawyer sites)
- * - localStorage persistence across visits
  */
 export default function LandingPage() {
   return (
