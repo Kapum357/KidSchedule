@@ -345,14 +345,14 @@ function PendingRequestCard({
         </p>
       )}
       <div className="flex gap-2">
-        <Link
-          href="/calendar/change-request"
+              <Link
+                href="/calendar/change-request"
           className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold py-2 rounded-lg hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-colors text-center"
         >
           Decline
         </Link>
-        <Link
-          href="/calendar/change-request"
+              <Link
+                href="/calendar/change-request"
           className="flex-1 bg-primary text-white text-xs font-bold py-2 rounded-lg hover:opacity-90 transition-colors shadow-sm text-center"
         >
           Approve
@@ -441,14 +441,14 @@ function CalendarSidebar({
       <div className="flex flex-col gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
         <div className="flex items-center justify-between">
           <Link
-            href="/calendar/change-requests"
+            href="/calendar/change-request"
             className="text-slate-900 dark:text-slate-100 font-bold text-sm uppercase tracking-wider hover:text-primary transition-colors"
           >
             Pending Requests
           </Link>
           {shownRequests.length > 0 ? (
             <Link
-              href="/calendar/change-requests"
+              href="/calendar/change-request"
               className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full hover:bg-amber-200 transition-colors"
             >
               {shownRequests.length} New
@@ -803,7 +803,7 @@ export default async function CalendarPage({
             <a className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors" href="/messages">
               Messages
             </a>
-            <a className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors" href="/settings/profile">
+            <a className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors" href="/settings">
               Profile
             </a>
           </nav>
@@ -883,7 +883,7 @@ export default async function CalendarPage({
               {/* View switcher */}
               <CalendarViewSwitcher currentMode={viewMode} year={year} month={month} />
               {/* Change Requests Hub */}
-              <Link href="/calendar/change-requests"
+              <Link href="/calendar/change-request"
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                 <span className="material-symbols-outlined text-sm">swap_horiz</span>
                 Change Requests

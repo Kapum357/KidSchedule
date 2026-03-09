@@ -330,7 +330,7 @@ export default async function ChangeRequestDetailPage({
   }
 
   if (dbRequest.familyId !== activeParent.familyId) {
-    redirect("/calendar/change-requests");
+    redirect("/calendar/change-request");
   }
 
   if (dbParents.length < 2) {

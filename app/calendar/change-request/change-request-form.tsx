@@ -49,7 +49,9 @@ function defaultIsoDate(daysFromNow: number): string {
 }
 
 function monthYearLabel(date: Date): string {
-  return date.toLocaleDateString([], { month: "long", year: "numeric" });
+  // Use a fixed locale to avoid hydration mismatches between server and client
+  // (server may render in a different locale than the user's browser).
+  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
 function dateAtLocalMidnight(isoDate: string): Date {

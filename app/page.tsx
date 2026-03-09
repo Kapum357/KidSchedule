@@ -92,7 +92,7 @@ export default function LandingPage() {
             </h1>
             <p
               id="hero-subheadline"
-              className="text-xl sm:text-2xl text-gray-600 mb-8 leading-relaxed"
+              className="text-xl sm:text-2xl text-slate-700 mb-8 leading-relaxed"
               data-coparent="Tamper-proof messaging. Documented everything. Built for your sanity — and your lawyer's."
               data-family="School schedules, activities, and everyone's stuff — finally in one place. Syncs everywhere."
               data-team="Parents subscribe and stay updated. Practices, games, and schedules synced automatically."
@@ -109,7 +109,7 @@ export default function LandingPage() {
                 >
                   Start Free for 60 Days
                 </Link>
-                <p className="text-sm text-gray-500 mt-2">No credit card required</p>
+                <p className="text-sm text-slate-700 mt-2">No credit card required</p>
               </div>
               <a
                 href="#features"
@@ -118,7 +118,7 @@ export default function LandingPage() {
                 See How It Works
               </a>
             </div>
-            <div className="flex flex-wrap items-center justify-center space-x-6 text-sm text-gray-600">
+            <div className="flex flex-wrap items-center justify-center space-x-6 text-sm text-slate-700">
               <div className="flex items-center space-x-2">
                 <span className="material-symbols-outlined text-primary">check_circle</span>
                 <span>45,000+ school calendars</span>
@@ -142,19 +142,19 @@ export default function LandingPage() {
           <div className="flex flex-wrap items-center justify-center space-x-8 text-center">
             <div className="flex flex-col items-center">
               <div className="text-3xl font-bold text-primary">45,000+</div>
-              <div className="text-sm text-gray-600">School districts</div>
+              <div className="text-sm text-slate-700">School districts</div>
             </div>
             <div className="flex flex-col items-center">
               <div className="text-3xl font-bold text-primary">500K+</div>
-              <div className="text-sm text-gray-600">Families organized</div>
+              <div className="text-sm text-slate-700">Families organized</div>
             </div>
             <div className="flex flex-col items-center">
-              <div className="text-3xl font-bold text-primary">4.9/5</div>
-              <div className="text-sm text-gray-600">Average rating</div>
+              <div className="text-3xl font-bold text-primary">4.8/5</div>
+              <div className="text-sm text-slate-700">Average rating</div>
             </div>
             <div className="flex flex-col items-center">
               <div className="text-3xl font-bold text-primary">60 days</div>
-              <div className="text-sm text-gray-600">Free trial</div>
+              <div className="text-sm text-slate-700">Free trial</div>
             </div>
           </div>
         </div>
@@ -165,7 +165,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-3">Built for how families really work</h2>
-            <p className="text-gray-600">
+            <p className="text-slate-700">
               Whether you&apos;re coordinating with a spouse, a co-parent, a coach, or grandma.
             </p>
           </div>
@@ -177,7 +177,7 @@ export default function LandingPage() {
               <span className="text-3xl">👨‍👩‍👧‍👦</span>
               <div className="text-left">
                 <div className="font-semibold text-gray-900">Busy Families</div>
-                <div className="text-sm text-gray-600">School, sports, carpools</div>
+                <div className="text-sm text-slate-700">School, sports, carpools</div>
               </div>
             </button>
             <button
@@ -187,7 +187,7 @@ export default function LandingPage() {
               <span className="text-3xl">⚖️</span>
               <div className="text-left">
                 <div className="font-semibold text-gray-900">Co-Parents</div>
-                <div className="text-sm text-gray-600">Custody schedules, documentation</div>
+                <div className="text-sm text-slate-700">Custody schedules, documentation</div>
               </div>
             </button>
             <button
@@ -197,7 +197,7 @@ export default function LandingPage() {
               <span className="text-3xl">⚽</span>
               <div className="text-left">
                 <div className="font-semibold text-gray-900">Teams &amp; Clubs</div>
-                <div className="text-sm text-gray-600">One calendar for everyone</div>
+                <div className="text-sm text-slate-700">One calendar for everyone</div>
               </div>
             </button>
             <button
@@ -207,7 +207,7 @@ export default function LandingPage() {
               <span className="text-3xl">🏫</span>
               <div className="text-left">
                 <div className="font-semibold text-gray-900">PTAs &amp; Schools</div>
-                <div className="text-sm text-gray-600">Member directory, events</div>
+                <div className="text-sm text-slate-700">Member directory, events</div>
               </div>
             </button>
           </div>
@@ -221,7 +221,7 @@ export default function LandingPage() {
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
               Features that save you time
             </h2>
-            <p className="text-xl text-gray-600">
+            <p className="text-xl text-slate-700">
               No more juggling apps, spreadsheets, and group texts.
             </p>
           </div>
@@ -232,7 +232,7 @@ export default function LandingPage() {
                 <span className="material-symbols-outlined text-primary text-2xl">school</span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">School Calendar Sync</h3>
-              <p className="text-gray-600">
+              <p className="text-slate-700">
                 45,000+ school districts. Import your school&apos;s calendar with one click —
                 holidays, early dismissals, conferences.
               </p>
@@ -246,7 +246,7 @@ export default function LandingPage() {
                 </span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Calendar Import</h3>
-              <p className="text-gray-600">
+              <p className="text-slate-700">
                 Snap a photo of any schedule — sports, camp, activities. AI extracts dates and adds
                 them automatically. Magic.
               </p>
@@ -258,7 +258,7 @@ export default function LandingPage() {
                 <span className="material-symbols-outlined text-primary text-2xl">sync</span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Syncs Everywhere</h3>
-              <p className="text-gray-600">
+              <p className="text-slate-700">
                 Subscribe in Google Calendar, Apple, or Outlook. Changes sync automatically. One
                 source of truth.
               </p>
@@ -272,7 +272,7 @@ export default function LandingPage() {
                 </span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Child-by-Child View</h3>
-              <p className="text-gray-600">
+              <p className="text-slate-700">
                 Each kid gets their own color and schedule. See Emma&apos;s soccer and Jake&apos;s
                 piano without the visual chaos.
               </p>
@@ -286,7 +286,7 @@ export default function LandingPage() {
                 </span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Share with Caregivers</h3>
-              <p className="text-gray-600">
+              <p className="text-slate-700">
                 Grandparents, nannies, babysitters — give them view-only access to the schedule.
                 Revoke anytime.
               </p>
@@ -300,7 +300,7 @@ export default function LandingPage() {
                 </span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Smart Reminders</h3>
-              <p className="text-gray-600">
+              <p className="text-slate-700">
                 Morning digest of the day ahead. Alerts when things change. Quiet hours so you&apos;re
                 not pinged at midnight.
               </p>
@@ -312,7 +312,7 @@ export default function LandingPage() {
                 <span className="material-symbols-outlined text-primary text-2xl">gavel</span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Custody Calendar</h3>
-              <p className="text-gray-600">
+              <p className="text-slate-700">
                 7-7, 2-2-3, 2-2-5-5, EOW — all patterns built in. Visual color-coded calendar shows
                 who has the kids.
               </p>
@@ -324,7 +324,7 @@ export default function LandingPage() {
                 <span className="material-symbols-outlined text-primary text-2xl">lock</span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Tamper-Proof Messaging</h3>
-              <p className="text-gray-600">
+              <p className="text-slate-700">
                 Messages can&apos;t be edited or deleted. SHA256 hash chains prove nothing was
                 changed. Court-ready exports.
               </p>
@@ -338,7 +338,7 @@ export default function LandingPage() {
                 </span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Expense Tracking</h3>
-              <p className="text-gray-600">
+              <p className="text-slate-700">
                 Log shared expenses with receipts. Medical, school, activities. Running balance
                 shows who owes what.
               </p>
@@ -351,11 +351,11 @@ export default function LandingPage() {
       <section className="py-16 bg-gradient-to-br from-primary/5 to-accent/5">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="text-5xl mb-6">&ldquo;</div>
-          <p className="text-2xl text-gray-900 mb-6 leading-relaxed font-medium">
+          <p className="text-2xl mb-6 leading-relaxed font-medium">
             Finally, one app that handles our crazy schedule. Three kids, two sports each, plus
             school stuff — and I can actually see it all without losing my mind.
           </p>
-          <div className="text-gray-600 font-semibold">— Michelle R., mom of 3</div>
+          <div className=" font-semibold">— Michelle R., mom of 3</div>
         </div>
       </section>
 
@@ -364,7 +364,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Simple, affordable plans</h2>
-            <p className="text-xl text-gray-600 mb-6">Start free for 60 days. No credit card required. Cancel anytime.</p>
+            <p className="text-xl text-slate-700 mb-6">Start free for 60 days. No credit card required. Cancel anytime.</p>
             <div className="inline-flex items-center space-x-3 bg-gray-100 p-1 rounded-lg">
               <button
                 className="pricing-toggle-btn px-4 py-2 bg-white rounded-md font-semibold text-gray-900 shadow-sm transition-colors"
@@ -373,7 +373,7 @@ export default function LandingPage() {
                 Per Parent
               </button>
               <button
-                className="pricing-toggle-btn px-4 py-2 text-gray-600 hover:text-gray-900 font-semibold transition-colors"
+                className="pricing-toggle-btn px-4 py-2 text-slate-700 hover:text-gray-900 font-semibold transition-colors"
                 data-mode="full-family"
               >
                 Full Family
@@ -386,12 +386,12 @@ export default function LandingPage() {
             <div className="bg-white border-2 border-gray-200 rounded-xl p-8 hover:border-primary transition-colors">
               <div className="mb-6">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Essential</h3>
-                <p className="text-gray-600 mb-4">For everyday families</p>
+                <p className="text-slate-700 mb-4">For everyday families</p>
                 <div className="flex items-baseline">
                   <span className="text-4xl font-bold text-gray-900" data-price="$5.99" data-price-full-family="$8.99">
                     $5.99
                   </span>
-                  <span className="text-gray-600 ml-2">/month</span>
+                  <span className="text-slate-700 ml-2">/month</span>
                 </div>
               </div>
               <ul className="space-y-3 mb-8">
@@ -431,12 +431,12 @@ export default function LandingPage() {
               </div>
               <div className="mb-6">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Plus</h3>
-                <p className="text-gray-600 mb-4">For active families</p>
+                <p className="text-slate-700 mb-4">For active families</p>
                 <div className="flex items-baseline">
                   <span className="text-4xl font-bold text-gray-900" data-price="$8.99" data-price-full-family="$13.99">
                     $8.99
                   </span>
-                  <span className="text-gray-600 ml-2">/month</span>
+                  <span className="text-slate-700 ml-2">/month</span>
                 </div>
               </div>
               <ul className="space-y-3 mb-8">
@@ -477,12 +477,12 @@ export default function LandingPage() {
             <div className="bg-white border-2 border-gray-200 rounded-xl p-8 hover:border-primary transition-colors">
               <div className="mb-6">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Complete</h3>
-                <p className="text-gray-600 mb-4">For complex situations</p>
+                <p className="text-slate-700 mb-4">For complex situations</p>
                 <div className="flex items-baseline">
                   <span className="text-4xl font-bold text-gray-900" data-price="$11.99" data-price-full-family="$17.99">
                     $11.99
                   </span>
-                  <span className="text-gray-600 ml-2">/month</span>
+                  <span className="text-slate-700 ml-2">/month</span>
                 </div>
               </div>
               <ul className="space-y-3 mb-8">
@@ -520,7 +520,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <p id="pricing-note" className="text-center text-gray-600 mt-8">
+          <p id="pricing-note" className="text-center text-slate-700 mt-8">
             Per parent pricing shown. Toggle to Full Family to include both parents. Cancel anytime.
           </p>
         </div>

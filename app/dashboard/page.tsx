@@ -1,15 +1,14 @@
 /**
  * KidSchedule – Parent Dashboard
  */
-
-import { aggregateDashboard } from "@/lib/dashboard-aggregator";
-import { requireAuth } from "@/lib";
-import { ensureParentExists } from "@/lib/parent-setup-engine";
-import { db } from "@/lib/persistence";
 import { SchedulePresets } from "@/lib/custody-engine";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
+import { requireAuth } from "@/lib";
+import { ensureParentExists } from "@/lib/parent-setup-engine";
+import { db } from "@/lib/persistence";
+import { aggregateDashboard } from "@/lib/dashboard-aggregator";
 import type {
   ActivityItem,
   CalendarEvent,
@@ -95,8 +94,8 @@ function Sidebar({
   ] as const;
 
   const settingLinks = [
-    { href: "/settings/profile",      icon: "manage_accounts", label: "Profile" },
-    { href: "/settings/preferences",  icon: "settings",        label: "Preferences" },
+    { href: "/settings",             icon: "manage_accounts", label: "Profile" },
+    { href: "/settings#notifications", icon: "settings",        label: "Preferences" },
   ] as const;
 
   return (
@@ -638,7 +637,7 @@ function PendingActionsCard({
               </div>
             </div>
             <Link
-              href="/calendar/change-requests"
+              href="/calendar/change-request"
               className="shrink-0 ml-2 px-3 py-1 bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold shadow-sm hover:border-[#6BCABD] hover:text-primary transition-colors"
             >
               View
