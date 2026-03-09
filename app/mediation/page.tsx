@@ -10,6 +10,7 @@
 import { db } from "@/lib/persistence";
 import { requireAuth } from "@/lib";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { ConflictClimateAnalyzer } from "@/lib/conflict-analyzer";
 import { MediationAnalyzer, type WarningSignal } from "@/lib/mediation-analyzer";
 import type { Message, Parent } from "@/types";
@@ -608,10 +609,18 @@ export default async function MediationPage({
               Manage disputes and monitor communication health.
             </p>
           </div>
-          <button className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 px-4 py-2 rounded-lg font-semibold text-sm transition-colors">
-            <span className="material-symbols-outlined text-lg">gavel</span>
-            Escalate to Professional
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/mediation/warnings"
+              className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
+            >
+              View All Warnings →
+            </Link>
+            <button className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 px-4 py-2 rounded-lg font-semibold text-sm transition-colors">
+              <span className="material-symbols-outlined text-lg">gavel</span>
+              Escalate to Professional
+            </button>
+          </div>
         </header>
 
         {/* Content */}
