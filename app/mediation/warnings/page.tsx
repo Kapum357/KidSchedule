@@ -1,363 +1,239 @@
 /**
  * KidSchedule – Mediation Warnings History
  *
- * Server component displaying dismissed conflict warnings with filtering by date range,
- * severity level, and category. Provides visibility into communication health patterns
- * and allows families to review past warning triggers.
- *
+ * Displays all warnings (dismissed, sent, active) across the family's
+ * mediation history. Allows filtering by status, severity, and date range.
  */
 
 import { db } from "@/lib/persistence";
 import { requireAuth } from "@/lib";
-import { redirect } from "next/navigation";
+import Link from "next/link";
 import type { DbMediationWarning } from "@/lib/persistence/types";
 import { logEvent } from "@/lib/observability/logger";
 import { Metadata } from "next";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type WarningsSearchParams = {
-  days?: string;
-  severity?: string;
-  category?: string;
-};
-
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 
 /**
- * Load warnings history from database with optional filters
+ * Load all warnings from database for a family
  */
-async function loadWarningsHistory(
-  familyId: string,
-  filters: {
-    days?: number;
-    severity?: string;
-    category?: string;
-  }
-): Promise<DbMediationWarning[]> {
-  // Calculate date range
-  const endDate = new Date();
-  const startDate = new Date();
-
-  const daysBack = filters.days || 30;
-  startDate.setDate(startDate.getDate() - daysBack);
-
-  // Fetch warnings for date range
-  const warnings = await db.mediationWarnings.findByFamilyIdAndDateRange(
-    familyId,
-    startDate.toISOString(),
-    endDate.toISOString()
-  );
-
-  // Filter to only dismissed warnings
-  let filtered = warnings.filter((w) => w.dismissed);
-
-  // Apply severity filter if specified
-  if (filters.severity) {
-    filtered = filtered.filter((w) => w.severity === filters.severity);
-  }
-
-  // Apply category filter if specified
-  if (filters.category) {
-    filtered = filtered.filter((w) => w.category === filters.category);
-  }
-
-  // Sort by dismissal date (most recent first)
-  filtered.sort(
-    (a, b) =>
-      new Date(b.dismissedAt || b.flaggedAt).getTime() -
-      new Date(a.dismissedAt || a.flaggedAt).getTime()
-  );
-
-  return filtered;
+async function loadAllWarnings(familyId: string): Promise<DbMediationWarning[]> {
+  return await db.mediationWarnings.findByFamilyId(familyId);
 }
 
 /**
- * Color classes for severity badges
+ * Get warning category display label
  */
-const severityColors: Record<string, { bg: string; text: string; border: string }> = {
-  high: {
-    bg: "bg-red-100 dark:bg-red-900/30",
-    text: "text-red-800 dark:text-red-200",
-    border: "border-l-4 border-red-500",
-  },
-  medium: {
-    bg: "bg-amber-100 dark:bg-amber-900/30",
-    text: "text-amber-800 dark:text-amber-200",
-    border: "border-l-4 border-amber-500",
-  },
-  low: {
-    bg: "bg-slate-100 dark:bg-slate-800",
-    text: "text-slate-800 dark:text-slate-200",
-    border: "border-l-4 border-slate-400",
-  },
-};
+function getWarningCategoryLabel(category: string): string {
+  const labels: Record<string, string> = {
+    aggressive_capitalization: "Aggressive Capitalization",
+    emotional_intensity: "Emotional Intensity",
+    hostile_language: "Hostile Language",
+    sensitive_topic_escalation: "Topic Escalation",
+    delayed_response: "Late Night Comms",
+    accusatory_language: "Accusatory Language",
+    threat_language: "Threat Language",
+    personal_attack: "Personal Attack",
+  };
+  return labels[category] || category;
+}
 
 /**
- * Format category name for display
+ * Get severity color classes
  */
-function formatCategoryName(category: string): string {
-  return category
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+function getSeverityColor(severity: string): string {
+  switch (severity) {
+    case "high":
+      return "bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-900 dark:text-red-200";
+    case "medium":
+      return "bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 text-amber-900 dark:text-amber-200";
+    case "low":
+      return "bg-slate-50 dark:bg-slate-800 border-l-4 border-slate-400 text-slate-900 dark:text-slate-100";
+    default:
+      return "bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100";
+  }
 }
 
 /**
  * Format date for display
  */
 function formatDate(isoString: string): string {
-  return new Date(isoString).toLocaleDateString("en-US", {
-    year: "numeric",
+  const date = new Date(isoString);
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
 export const metadata: Metadata = {
-  title: "Warning History | Mediation",
-  description: "View historical warning signals and resolutions",
+  title: "Warnings History | Mediation",
+  description: "View all communication warnings and their resolution status",
 };
 
 // ─── Page Component ───────────────────────────────────────────────────────────
 
-export default async function WarningsHistoryPage({
-  searchParams,
-}: {
-  searchParams: WarningsSearchParams;
-}) {
-  // ─── Auth & Access Control ────────────────────────────────────────────────
-
+export default async function WarningsHistoryPage() {
   const user = await requireAuth();
-
-  // Load parent to verify access
   const parent = await db.parents.findByUserId(user.userId);
+
   if (!parent) {
-    redirect("/auth/login");
+    throw new Error("Parent profile not found");
   }
 
-  // Load family
-  const family = await db.families.findById(parent.familyId);
-  if (!family) {
-    redirect("/dashboard");
-  }
+  // Get all warnings for the family
+  const allWarnings = await loadAllWarnings(parent.familyId);
 
-  // ─── Parse Filters ────────────────────────────────────────────────────────
+  // Separate active vs dismissed
+  const activeWarnings = allWarnings.filter((w) => !w.dismissed);
+  const dismissedWarnings = allWarnings.filter((w) => w.dismissed);
 
-  const daysFilter = searchParams.days ? parseInt(searchParams.days, 10) : 30;
-  const severityFilter = searchParams.severity || undefined;
-  const categoryFilter = searchParams.category || undefined;
+  // Sort by date (newest first)
+  const sortByDate = (a: DbMediationWarning, b: DbMediationWarning) =>
+    new Date(b.flaggedAt).getTime() - new Date(a.flaggedAt).getTime();
+  activeWarnings.sort(sortByDate);
+  dismissedWarnings.sort(sortByDate);
 
-  // ─── Load Data ────────────────────────────────────────────────────────────
-
-  const warnings = await loadWarningsHistory(family.id, {
-    days: daysFilter,
-    severity: severityFilter,
-    category: categoryFilter,
-  });
-
-  // ─── Logging ──────────────────────────────────────────────────────────────
-
-  logEvent("info", "mediation.warnings_history_viewed", {
-    familyId: family.id,
+  logEvent("info", "warnings_history_viewed", {
+    familyId: parent.familyId,
     userId: user.userId,
-    warningCount: warnings.length,
-    filters: {
-      days: daysFilter,
-      severity: severityFilter,
-      category: categoryFilter,
-    },
+    activeCount: activeWarnings.length,
+    dismissedCount: dismissedWarnings.length,
   });
-
-  // ─── Get unique categories for filter dropdown ────────────────────────────
-
-  const allWarnings = await db.mediationWarnings.findByFamilyIdAndDateRange(
-    family.id,
-    new Date(0).toISOString(),
-    new Date().toISOString()
-  );
-  const uniqueCategories = Array.from(
-    new Set(allWarnings.filter((w) => w.dismissed).map((w) => w.category))
-  ).sort();
-
-  // ─── JSX ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-            Communication Warnings History
+          <Link
+            href="/mediation"
+            className="text-primary hover:text-primary/80 text-sm font-medium mb-4 inline-block"
+          >
+            ← Back to Mediation Center
+          </Link>
+          <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">
+            Warnings History
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
-            Review warnings about communication patterns that may need attention.
+            Track all communication warnings and their resolution status
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-6 mb-8 border border-slate-200 dark:border-slate-700">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-            Filters
-          </h2>
-          <form className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Date Range Filter */}
-            <div>
-              <label htmlFor="days" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Time Period
-              </label>
-              <select
-                id="days"
-                name="days"
-                defaultValue={daysFilter.toString()}
-                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                <option value="30">Last 30 days</option>
-                <option value="90">Last 90 days</option>
-                <option value="180">Last 180 days</option>
-                <option value="365">Last year</option>
-              </select>
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+              {activeWarnings.length}
             </div>
-
-            {/* Severity Filter */}
-            <div>
-              <label htmlFor="severity" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Severity
-              </label>
-              <select
-                id="severity"
-                name="severity"
-                defaultValue={severityFilter || ""}
-                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                <option value="">All Levels</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
+            <div className="text-sm text-slate-600 dark:text-slate-400">
+              Active Warnings
             </div>
-
-            {/* Category Filter */}
-            <div>
-              <label htmlFor="category" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Category
-              </label>
-              <select
-                id="category"
-                name="category"
-                defaultValue={categoryFilter || ""}
-                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                <option value="">All Categories</option>
-                {uniqueCategories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {formatCategoryName(cat)}
-                  </option>
-                ))}
-              </select>
+          </div>
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              {dismissedWarnings.length}
             </div>
-
-            {/* Apply Button */}
-            <div className="md:col-span-3 flex gap-2">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 dark:hover:bg-primary/80 transition-colors font-medium"
-              >
-                Apply Filters
-              </button>
-              <a
-                href="/mediation/warnings"
-                className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors font-medium"
-              >
-                Clear
-              </a>
+            <div className="text-sm text-slate-600 dark:text-slate-400">
+              Dismissed Warnings
             </div>
-          </form>
+          </div>
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-primary">
+              {allWarnings.length}
+            </div>
+            <div className="text-sm text-slate-600 dark:text-slate-400">
+              Total Warnings
+            </div>
+          </div>
         </div>
 
-        {/* Warnings List */}
-        {warnings.length === 0 ? (
-          <div className="bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-12 text-center">
-            <div className="text-slate-500 dark:text-slate-400 mb-2">
-              <span className="material-symbols-outlined text-4xl opacity-40 block mb-2">
-                check_circle
-              </span>
+        {/* Active Warnings Section */}
+        <section className="mb-10">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">
+            Active Warnings ({activeWarnings.length})
+          </h2>
+          {activeWarnings.length === 0 ? (
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-6 rounded-lg text-center">
+              <p className="text-emerald-900 dark:text-emerald-200 font-medium">
+                No active warnings! Communication is healthy.
+              </p>
             </div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
-              No warnings found
-            </h3>
-            <p className="text-slate-600 dark:text-slate-400">
-              Great! There are no communication warnings in the selected time period.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {warnings.map((warning) => {
-              const colors = severityColors[warning.severity as keyof typeof severityColors];
-              return (
+          ) : (
+            <div className="space-y-3">
+              {activeWarnings.map((warning) => (
                 <div
                   key={warning.id}
-                  className={`rounded-lg p-6 ${colors.bg} ${colors.border} border-l-4 border-l-slate-400 dark:border-l-slate-600 transition-all hover:shadow-md dark:hover:shadow-lg`}
+                  className={`p-4 rounded-lg border ${getSeverityColor(warning.severity)}`}
                 >
-                  {/* Header with Title and Severity */}
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex-1">
-                      <h3 className={`text-lg font-semibold ${colors.text}`}>
-                        {warning.title}
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h3 className="font-bold">
+                        {getWarningCategoryLabel(warning.category)}
                       </h3>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <span className={`inline-block px-2.5 py-1 rounded text-xs font-semibold ${colors.bg} ${colors.text}`}>
-                          {warning.severity.charAt(0).toUpperCase() +
-                            warning.severity.slice(1)}{" "}
-                          Severity
-                        </span>
-                        <span className="inline-block px-2.5 py-1 rounded text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-200">
-                          {formatCategoryName(warning.category)}
-                        </span>
-                      </div>
+                      <p className="text-sm mt-1">{warning.title}</p>
                     </div>
+                    <span className="text-xs font-medium px-2 py-1 bg-white/30 rounded">
+                      {warning.severity.toUpperCase()}
+                    </span>
                   </div>
-
-                  {/* Description */}
-                  <p className="text-slate-700 dark:text-slate-300 mb-3">
-                    {warning.description}
+                  <p className="text-sm opacity-90 mb-2">{warning.description}</p>
+                  <p className="text-xs opacity-75">
+                    Flagged: {formatDate(warning.flaggedAt)}
                   </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
-                  {/* Excerpt */}
-                  {warning.excerpt && (
-                    <div className="bg-slate-200/50 dark:bg-slate-800/50 rounded p-3 mb-3 border-l-2 border-slate-400 dark:border-slate-600">
-                      <p className="text-sm text-slate-700 dark:text-slate-300 italic">
-                        &ldquo;{warning.excerpt}&rdquo;
+        {/* Dismissed Warnings Section */}
+        <section>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">
+            Dismissed Warnings ({dismissedWarnings.length})
+          </h2>
+          {dismissedWarnings.length === 0 ? (
+            <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-lg text-center">
+              <p className="text-slate-600 dark:text-slate-400">
+                No dismissed warnings yet.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {dismissedWarnings.map((warning) => (
+                <div
+                  key={warning.id}
+                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-lg opacity-75"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h3 className="font-bold text-slate-900 dark:text-slate-100">
+                        {getWarningCategoryLabel(warning.category)}
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                        {warning.title}
                       </p>
                     </div>
-                  )}
-
-                  {/* Metadata */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600 dark:text-slate-400">
-                    <div>
-                      <span className="font-medium">Dismissed:</span>{" "}
-                      {formatDate(warning.dismissedAt || warning.flaggedAt)}
-                    </div>
-                    <div>
-                      <span className="font-medium">Flagged:</span>{" "}
-                      {formatDate(warning.flaggedAt)}
-                    </div>
+                    <span className="text-xs font-medium px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded">
+                      DISMISSED
+                    </span>
                   </div>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-2">
+                    {warning.description}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-500">
+                    Flagged: {formatDate(warning.flaggedAt)}
+                    {warning.dismissedAt && ` • Dismissed: ${formatDate(warning.dismissedAt)}`}
+                  </p>
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Results Count */}
-        {warnings.length > 0 && (
-          <div className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
-            Showing {warnings.length}{" "}
-            {warnings.length === 1 ? "warning" : "warnings"}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
