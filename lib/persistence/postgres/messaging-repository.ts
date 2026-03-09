@@ -38,6 +38,27 @@ export function createMessageThreadRepository(): MessageThreadRepository {
       `) as DbMessageThread[];
     },
 
+    async findByParticipantsAndSubject(
+      familyId: string,
+      participantIds: [string, string],
+      subjectKeyword: string
+    ): Promise<DbMessageThread | null> {
+      const [p1, p2] = participantIds;
+      const result = (await sql`
+        SELECT t.id, t.family_id, t.subject, t.created_at, t.last_message_at
+        FROM message_threads t
+        INNER JOIN messages m ON m.thread_id = t.id
+        WHERE t.family_id = ${familyId}
+          AND t.subject ILIKE ${'%' + subjectKeyword + '%'}
+          AND m.sender_id IN (${p1}, ${p2})
+        GROUP BY t.id, t.family_id, t.subject, t.created_at, t.last_message_at
+        HAVING COUNT(DISTINCT m.sender_id) >= 2
+        ORDER BY t.last_message_at DESC
+        LIMIT 1
+      `) as DbMessageThread[];
+      return result[0] || null;
+    },
+
     async create(data: Omit<DbMessageThread, "id" | "createdAt" | "lastMessageAt">): Promise<DbMessageThread> {
       const result = (await sql`
         INSERT INTO message_threads (family_id, subject)

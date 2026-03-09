@@ -28,6 +28,8 @@ import type {
   CalendarMonthData,
   TransitionListItem,
 } from "@/lib/calendar-engine";
+import type { CalendarWeekData } from "@/lib/calendar-week-engine";
+import type { CalendarListData } from "@/lib/calendar-list-engine";
 import type {
   CalendarEvent,
   Child,
@@ -689,57 +691,64 @@ export default async function CalendarPage({
   const engine = new CalendarMonthEngine(family);
   const mappedOverrides = dbOverrides.map(mapScheduleOverride);
 
-  // Generate view-specific data
-  // For now, all views use month data (week/list views to be implemented)
-  let data: CalendarMonthData;
-  switch (viewMode) {
-    case "month":
-      data = engine.getMonthDataFromEvents(
-        year,
-        month,
-        custodyEvents,
-        events,
-        changeRequests,
-        mappedOverrides,
-        now,
-      );
-      break;
-    case "week":
-      // TODO: Implement week view data generation
-      // For now, fallback to month view
-      data = engine.getMonthDataFromEvents(
-        year,
-        month,
-        custodyEvents,
-        events,
-        changeRequests,
-        mappedOverrides,
-        now,
-      );
-      break;
-    case "list":
-      // TODO: Implement list view data generation
-      // For now, fallback to month view
-      data = engine.getMonthDataFromEvents(
-        year,
-        month,
-        custodyEvents,
-        events,
-        changeRequests,
-        mappedOverrides,
-        now,
-      );
-      break;
-    default:
-      data = engine.getMonthDataFromEvents(
-        year,
-        month,
-        custodyEvents,
-        events,
-        changeRequests,
-        mappedOverrides,
-        now,
-      );
+  // Always compute month data – needed by the sidebar (transitions, currentParent)
+  // and by the month grid view.
+  const data: CalendarMonthData = engine.getMonthDataFromEvents(
+    year,
+    month,
+    custodyEvents,
+    events,
+    changeRequests,
+    mappedOverrides,
+    now,
+  );
+
+  // ── Week view data ─────────────────────────────────────────────────────────
+  // Use the first day of the displayed month as the anchor week.
+  let weekData: CalendarWeekData | null = null;
+  if (viewMode === "week") {
+    const referenceDate = new Date(Date.UTC(year, month - 1, 1));
+    weekData = CalendarWeekEngine.getWeekDataFromEvents(
+      year,
+      month,
+      referenceDate,
+      custodyEvents,
+      events,
+      changeRequests,
+      mappedParents,
+      mappedOverrides,
+      now,
+    );
+  }
+
+  // ── List view data ─────────────────────────────────────────────────────────
+  let listData: CalendarListData | null = null;
+  if (viewMode === "list") {
+    const monthPad = String(month).padStart(2, "0");
+    const lastDay = new Date(year, month, 0).getDate();
+    const monthStart = `${year}-${monthPad}-01`;
+    const monthEnd = `${year}-${monthPad}-${String(lastDay).padStart(2, "0")}`;
+
+    const streamEvents = CalendarListEngine.buildEventStream(
+      events,
+      [],
+      changeRequests,
+      now,
+      monthStart,
+      monthEnd,
+    );
+    const dateGrouping = CalendarListEngine.groupEventsByDate(streamEvents);
+    listData = {
+      year,
+      month,
+      events: streamEvents,
+      dateGrouping,
+      filters: {},
+      totalEventCount: streamEvents.length,
+      filteredEventCount: streamEvents.length,
+      currentParent: mappedParents[0],
+      otherParent: mappedParents[1],
+    };
   }
 
   const monthName = new Date(year, month - 1).toLocaleDateString([], {
@@ -907,8 +916,8 @@ export default async function CalendarPage({
 
           {/* Calendar grid - render based on view mode */}
           {viewMode === 'month' && <CalendarGrid data={data} year={year} month={month} />}
-          {viewMode === 'week' && <CalendarWeekGrid data={data} year={year} month={month} />}
-          {viewMode === 'list' && <CalendarListView data={data} year={year} month={month} />}
+          {viewMode === 'week' && weekData && <CalendarWeekGrid data={weekData} year={year} month={month} />}
+          {viewMode === 'list' && listData && <CalendarListView data={listData} year={year} month={month} />}
 
           {/* Mobile FAB */}
           <Link

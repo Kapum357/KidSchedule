@@ -327,6 +327,12 @@ export interface ExpenseRepository {
 export interface MessageThreadRepository {
   findById(id: string): Promise<DbMessageThread | null>;
   findByFamilyId(familyId: string): Promise<DbMessageThread[]>;
+  /** Find a thread containing both participant IDs whose subject includes the keyword. */
+  findByParticipantsAndSubject(
+    familyId: string,
+    participantIds: [string, string],
+    subjectKeyword: string
+  ): Promise<DbMessageThread | null>;
   create(thread: Omit<DbMessageThread, "id" | "createdAt" | "lastMessageAt">): Promise<DbMessageThread>;
   update(id: string, data: Partial<DbMessageThread>): Promise<DbMessageThread | null>;
 }

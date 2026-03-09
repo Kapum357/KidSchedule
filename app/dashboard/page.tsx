@@ -183,13 +183,17 @@ function Sidebar({
               {currentParent.name.charAt(0)}
             </div>
           )}
-          <div className="flex-1 min-w-0">
+
+          {/* Text hidden on small screens to make button compact; aria-label preserves accessibility */}
+          <div className="flex-1 min-w-0 hidden sm:block">
             <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
               {currentParent.name}
             </p>
             <p className="text-xs text-slate-500 truncate">Free Plan</p>
           </div>
-          <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-lg">
+
+          {/* Chevron only shown on >=sm */}
+          <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-lg hidden sm:inline">
             expand_more
           </span>
         </button>

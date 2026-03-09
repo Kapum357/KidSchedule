@@ -271,7 +271,7 @@ function LoginForm({ authResult }: Readonly<{ authResult?: AuthResult }>) {
 
       {/* Submit */}
       <button
-        className="group relative flex w-full justify-center rounded-lg bg-teal-soft px-4 py-3 text-sm font-semibold text-white hover:bg-teal-dark focus:outline-none focus:ring-2 focus:ring-teal-soft focus:ring-offset-2 shadow-sm transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+        className="group relative flex w-full justify-center rounded-lg bg-teal-700 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-700/40 focus:ring-offset-2 shadow-sm transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
         type="submit"
       >
         Log In

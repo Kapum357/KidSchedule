@@ -57,7 +57,7 @@ function getWarningCreatedAt(warning: WarningSignal): string {
 
 interface WarningCardProps {
   warning: WarningSignal;
-  onDismiss: (warningId: string) => Promise<void>;
+  onDismiss: (warningId: string, sendAck: boolean) => Promise<void>;
 }
 
 function WarningCard({ warning, onDismiss }: WarningCardProps) {
@@ -72,8 +72,7 @@ function WarningCard({ warning, onDismiss }: WarningCardProps) {
     setSuccess(false);
 
     try {
-      // TODO: Implement sendAck logic when API is updated
-      await onDismiss(warning.id);
+      await onDismiss(warning.id, sendAck);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
@@ -137,8 +136,8 @@ export function WarningsPanel({ warnings }: Readonly<WarningsPanelProps>) {
   const [allWarnings, setAllWarnings] = useState(warnings);
   const displayedWarnings = allWarnings.slice(0, 3);
 
-  const handleDismiss = async (warningId: string) => {
-    await dismissWarning(warningId);
+  const handleDismiss = async (warningId: string, sendAck: boolean) => {
+    await dismissWarning(warningId, sendAck);
     setAllWarnings(allWarnings.filter((w) => w.id !== warningId));
   };
 

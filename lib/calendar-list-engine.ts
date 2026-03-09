@@ -298,6 +298,16 @@ export class CalendarListEngine {
   }
 
   /**
+   * Group events by date string for UI rendering.
+   * Exposed as public static so callers (e.g. page.tsx) can build CalendarListData.
+   */
+  static groupEventsByDate(
+    events: ListViewEvent[]
+  ): Map<string, ListViewEvent[]> {
+    return groupEventsByDate(events);
+  }
+
+  /**
    * Apply filters to event stream.
    */
   static filterEvents(events: ListViewEvent[], filters: ListViewFilter): ListViewEvent[] {

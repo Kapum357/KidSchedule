@@ -1,9 +1,9 @@
 'use client';
 
-import type { CalendarMonthData } from '@/lib/calendar-engine';
+import type { CalendarWeekData } from '@/lib/calendar-week-engine';
 
 interface CalendarWeekGridProps {
-  readonly data: CalendarMonthData;
+  readonly data: CalendarWeekData;
   readonly year: number;
   readonly month: number;
 }
@@ -17,8 +17,7 @@ const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
  * Basic implementation - ready for enhancement.
  */
 export function CalendarWeekGrid({ data }: CalendarWeekGridProps) {
-  // Get first 7 days from the month data (or whatever days we have)
-  const weekDays = data.days.slice(0, 7);
+  const weekDays = data.days;
 
   if (weekDays.length === 0) {
     return (
@@ -69,9 +68,9 @@ export function CalendarWeekGrid({ data }: CalendarWeekGridProps) {
               className="flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 last:border-r-0"
             >
               {/* All-day events section */}
-              {day.events.length > 0 && (
+              {day.allDayEvents.length > 0 && (
                 <div className="border-b border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50">
-                  {day.events.slice(0, 2).map((event) => (
+                  {day.allDayEvents.slice(0, 2).map((event) => (
                     <div
                       key={event.id}
                       className="text-[10px] font-medium px-1 py-0.5 mb-0.5 bg-primary/20 dark:bg-primary/10 text-primary rounded truncate"
@@ -80,9 +79,9 @@ export function CalendarWeekGrid({ data }: CalendarWeekGridProps) {
                       {event.title}
                     </div>
                   ))}
-                  {day.events.length > 2 && (
+                  {day.allDayEvents.length > 2 && (
                     <div className="text-[9px] text-slate-500 px-1">
-                      +{day.events.length - 2} more
+                      +{day.allDayEvents.length - 2} more
                     </div>
                   )}
                 </div>
