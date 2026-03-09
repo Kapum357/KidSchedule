@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 // Nonce-based CSP requires dynamic rendering so each request can receive
@@ -65,6 +66,7 @@ export default function RootLayout({
           Skip to main content
         </a>
         {children}
+        <Toaster position="bottom-right" theme="system" richColors closeButton />
       </body>
     </html>
   );
