@@ -149,10 +149,33 @@ export async function saveMediationDraft(
   revalidatePath("/mediation");
 }
 
+const ACKNOWLEDGMENT_MESSAGE =
+  "I've reviewed your message and I'm working to ensure our communication stays constructive. Let's focus on what's best for our child.";
+
 /**
- * Dismiss a warning signal
+ * Check if there are active high-severity warnings for the family
+ * (used to warn user before sending suggestion)
  */
-export async function dismissWarning(warningId: string): Promise<void> {
+async function checkActiveConflicts(familyId: string): Promise<{
+  hasHighSeverity: boolean;
+  count: number;
+}> {
+  const warnings = await db.mediationWarnings.findByFamilyId(familyId);
+  const highSeverity = warnings.filter(w => w.severity === 'high' && !w.dismissed);
+  return {
+    hasHighSeverity: highSeverity.length > 0,
+    count: highSeverity.length,
+  };
+}
+
+/**
+ * Dismiss a warning signal.
+ * When sendAck is true, also sends an acknowledgment message to the other parent.
+ */
+export async function dismissWarning(
+  warningId: string,
+  sendAck?: boolean
+): Promise<void> {
   const user = await requireAuth();
   const parent = await db.parents.findByUserId(user.userId);
 
@@ -167,9 +190,41 @@ export async function dismissWarning(warningId: string): Promise<void> {
 
   await db.mediationWarnings.dismiss(warningId, parent.id);
 
+  // Optionally send acknowledgment message to other parent
+  if (sendAck && warning.messageId) {
+    try {
+      const familyParents = await db.parents.findByFamilyId(parent.familyId);
+      const otherParent = familyParents.find((p) => p.id !== parent.id);
+      if (otherParent) {
+        await db.messages.create({
+          threadId: warning.messageId,
+          familyId: parent.familyId,
+          senderId: parent.id,
+          body: ACKNOWLEDGMENT_MESSAGE,
+          sentAt: new Date().toISOString(),
+          attachmentIds: [],
+          messageHash: "",
+          chainIndex: 0,
+        });
+        logEvent("info", "mediation.warning_acknowledged", {
+          warningId,
+          familyId: parent.familyId,
+        });
+      }
+    } catch (ackError) {
+      // Acknowledgment is best-effort; warning dismissal still succeeds
+      logEvent("error", "mediation.acknowledgment_failed", {
+        warningId,
+        errorMessage:
+          ackError instanceof Error ? ackError.message : String(ackError),
+      });
+    }
+  }
+
   logEvent("info", "mediation.warning_dismissed", {
     warningId,
     familyId: parent.familyId,
+    withAcknowledgment: sendAck ?? false,
   });
 
   revalidatePath("/mediation");
@@ -222,32 +277,11 @@ export async function sendMediationSuggestion(
     }
 
     // Find or create message thread for this mediation topic
-    // NOTE: This uses an O(n×m) pattern where we fetch all threads and then for each thread
-    // fetch all messages to check participants. This is necessary because the repository
-    // doesn't currently support a "find thread by participants + subject" query.
-    // TODO: For better performance, consider extracting this into a dedicated repository
-    // method like `db.messageThreads.findByParticipantsAndSubject()` if this becomes a bottleneck.
-    let thread = null;
-    const existingThreads = await db.messageThreads.findByFamilyId(
-      parent.familyId
+    let thread = await db.messageThreads.findByParticipantsAndSubject(
+      parent.familyId,
+      [parent.id, recipientParentId],
+      topic.title
     );
-
-    // Look for thread that includes both parents and is for this topic
-    for (const existingThread of existingThreads) {
-      const messages = await db.messages.findByThreadId(existingThread.id);
-      const participants = new Set<string>();
-      messages.forEach((msg) => participants.add(msg.senderId));
-
-      // Check if thread has both parents and matches topic
-      if (
-        participants.has(parent.id) &&
-        participants.has(recipientParentId) &&
-        existingThread.subject?.includes(topic.title)
-      ) {
-        thread = existingThread;
-        break;
-      }
-    }
 
     // Create new thread if not found
     if (!thread) {
@@ -274,12 +308,17 @@ export async function sendMediationSuggestion(
     // Update topic status to "in_progress"
     await db.mediationTopics.update(topicId, { status: "in_progress" });
 
+    // Check for active conflicts before logging
+    const conflicts = await checkActiveConflicts(parent.familyId);
+
     // Log the event
     logEvent("info", "mediation.suggestion_sent", {
       topicId,
       messageId: message.id,
       familyId: parent.familyId,
       threadId: thread.id,
+      activeConflictCount: conflicts.count,
+      hasHighSeverityConflict: conflicts.hasHighSeverity,
     });
 
     revalidatePath("/mediation");
@@ -377,16 +416,16 @@ export async function adjustSuggestionTone(
     throw new Error("Parent profile not found");
   }
 
-  // Validate input
-  if (!originalText || !originalText.trim()) {
-    throw new Error("Original text cannot be empty");
+  // Validate input early
+  const trimmed = originalText.trim();
+  if (!trimmed) {
+    throw new Error("Text cannot be empty");
   }
-  if (originalText.length > 2000) {
-    throw new Error("Original text must be under 2,000 characters");
+  if (trimmed.length > 2000) {
+    throw new Error("Text must be under 2,000 characters");
   }
-
   if (!["gentler", "shorter", "more_formal", "warmer"].includes(adjustment)) {
-    throw new Error(`Invalid adjustment type: ${adjustment}`);
+    throw new Error(`Invalid adjustment: ${adjustment}`);
   }
 
   try {
