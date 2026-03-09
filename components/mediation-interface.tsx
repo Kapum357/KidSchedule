@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { sendMediationSuggestion, adjustSuggestionTone } from '@/app/mediation/page-actions';
 
 interface MediationInterfaceProps {
@@ -19,27 +20,26 @@ export function MediationInterface({
   const [draftText, setDraftText] = useState(draftSuggestion);
   const [isSending, setIsSending] = useState(false);
   const [isAdjusting, setIsAdjusting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const handleSendSuggestion = async () => {
     if (!draftText.trim()) {
-      setError('Draft suggestion cannot be empty');
+      toast.error('Draft suggestion cannot be empty');
       return;
     }
 
     setIsSending(true);
-    setError(null);
-    setSuccess(null);
 
     try {
       const result = await sendMediationSuggestion(topicId, draftText, recipientParentId);
       if (result.success) {
-        setSuccess('Suggestion sent successfully!');
+        toast.success('Suggestion sent successfully! 🎉', {
+          description: `Message sent to co-parent about "${topicTitle}"`,
+        });
         setDraftText('');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send suggestion');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to send suggestion';
+      toast.error('Failed to send', { description: errorMsg });
     } finally {
       setIsSending(false);
     }
@@ -47,20 +47,22 @@ export function MediationInterface({
 
   const handleAdjustTone = async (adjustment: 'gentler' | 'shorter' | 'more_formal' | 'warmer') => {
     if (!draftText.trim()) {
-      setError('No draft text to adjust');
+      toast.error('No draft text to adjust');
       return;
     }
 
     setIsAdjusting(true);
-    setError(null);
-    setSuccess(null);
 
     try {
       const result = await adjustSuggestionTone(draftText, adjustment);
       setDraftText(result.adjustedText);
-      setSuccess(`Adjusted to be ${adjustment.replace('_', ' ')}!`);
+      const adjustmentLabel = adjustment.replace('_', ' ');
+      toast.success(`Adjusted to be ${adjustmentLabel}!`, {
+        description: `Text rewritten with "${adjustmentLabel}" tone`,
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to adjust tone to ${adjustment}`);
+      const errorMsg = err instanceof Error ? err.message : `Failed to adjust tone`;
+      toast.error('Could not adjust tone', { description: errorMsg });
     } finally {
       setIsAdjusting(false);
     }
@@ -79,7 +81,6 @@ export function MediationInterface({
           placeholder="Type your mediation suggestion here..."
           className="w-full p-3 border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none"
           rows={4}
-          maxLength={2000}
         />
         <div className="text-xs text-slate-500 text-right mt-1">
           {draftText.length}/2000 characters
@@ -120,18 +121,6 @@ export function MediationInterface({
         <span className="material-symbols-outlined text-lg">send</span>
         {isSending ? 'Sending...' : 'Send Suggestion'}
       </button>
-
-      {/* Messages */}
-      {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-700 dark:text-emerald-300 text-sm">
-          {success}
-        </div>
-      )}
     </div>
   );
 }
