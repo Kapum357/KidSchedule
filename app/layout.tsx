@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { ToastProvider } from "@/components/toast-notification";
 import "./globals.css";
 
 // Nonce-based CSP requires dynamic rendering so each request can receive
@@ -65,7 +66,9 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
         <Toaster position="bottom-right" theme="system" richColors closeButton />
       </body>
     </html>

@@ -112,7 +112,7 @@ export function TemplateForm({
                       <div
                         className={`w-12 h-12 rounded-lg flex items-center justify-center ${template.iconTheme}`}
                       >
-                        <span aria-hidden="true" className="material-symbols-outlined text-2xl">
+                        <span aria-hidden="true" className="material-symbols-outlined">
                           {template.icon}
                         </span>
                       </div>
@@ -185,7 +185,7 @@ export function TemplateForm({
             <div className="w-6 h-6 rounded-full border-2 border-slate-300 dark:border-slate-600 peer-checked:border-primary peer-checked:bg-primary flex items-center justify-center">
               <span
                 aria-hidden="true"
-                className="material-symbols-outlined text-white text-sm opacity-0 peer-checked:opacity-100"
+                className="material-symbols-outlined"
               >
                 check
               </span>
@@ -195,18 +195,20 @@ export function TemplateForm({
       </div>
 
       <div className="bg-surface dark:bg-surface border-t border-slate-200 dark:border-slate-800 p-4 sm:px-8 mt-8">
-        <div className="max-w-5xl mx-auto flex justify-end gap-3">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3">
           <button
             type="button"
             onClick={handleCancel}
-            className="px-6 py-2.5 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            className="px-4 sm:px-6 py-2.5 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
             Cancel
           </button>
 
           <button
             type="submit"
-            className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-white font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors"
+            className={`px-4 sm:px-6 py-2.5 bg-primary hover:bg-primary-hover text-white font-semibold
+              rounded-lg shadow-sm flex items-center justify-center sm:justify-start gap-2
+              transition-colors`}
           >
             <span>Next Step</span>
             <span aria-hidden="true" className="material-symbols-outlined text-sm">

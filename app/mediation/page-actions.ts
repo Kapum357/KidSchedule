@@ -404,11 +404,14 @@ export async function analyzeAndStoreWarnings(): Promise<number> {
 /**
  * Adjust a suggestion's tone using Claude
  * Supported adjustments: gentler, shorter, more_formal, warmer
+ * Returns: { adjustedText, isFallback: true if using original text due to API error }
  */
+type ToneAdjustmentType = "gentler" | "shorter" | "more_formal" | "warmer";
+
 export async function adjustSuggestionTone(
   originalText: string,
-  adjustment: "gentler" | "shorter" | "more_formal" | "warmer"
-): Promise<{ adjustedText: string }> {
+  adjustment: ToneAdjustmentType,
+): Promise<{ adjustedText: string; isFallback: boolean }> {
   const user = await requireAuth();
   const parent = await db.parents.findByUserId(user.userId);
 
@@ -421,31 +424,48 @@ export async function adjustSuggestionTone(
   if (!trimmed) {
     throw new Error("Text cannot be empty");
   }
-  if (trimmed.length > 2000) {
-    throw new Error("Text must be under 2,000 characters");
+  const maxLength = 2000;
+  if (trimmed.length > maxLength) {
+    throw new Error(`Text must be under ${maxLength} characters`);
   }
-  if (!["gentler", "shorter", "more_formal", "warmer"].includes(adjustment)) {
+  const validAdjustments: readonly ToneAdjustmentType[] = [
+    "gentler",
+    "shorter",
+    "more_formal",
+    "warmer",
+  ];
+  if (!validAdjustments.includes(adjustment)) {
     throw new Error(`Invalid adjustment: ${adjustment}`);
   }
 
   try {
-    const adjustedText = await adjustSuggestion(user.userId, originalText, adjustment);
+    const result = await adjustSuggestion(user.userId, originalText, adjustment);
 
-    logEvent("info", "mediation.suggestion_adjusted", {
-      familyId: parent.familyId,
-      adjustment,
-      originalLength: originalText.length,
-      adjustedLength: adjustedText.length,
-    });
+    if (!result.isFallback) {
+      logEvent("info", "mediation.suggestion_adjusted", {
+        familyId: parent.familyId,
+        adjustment,
+        originalLength: originalText.length,
+        adjustedLength: result.adjustedText.length,
+      });
+    } else {
+      logEvent("warn", "mediation.suggestion_adjustment_fallback", {
+        familyId: parent.familyId,
+        adjustment,
+        reason: "Claude API error - using original text",
+      });
+    }
 
-    return { adjustedText };
+    return result;
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
     logEvent("error", "mediation.suggestion_adjustment_failed", {
       familyId: parent.familyId,
       adjustment,
-      errorMessage: error instanceof Error ? error.message : String(error),
+      errorMessage: errorMsg,
     });
-    throw error;
+    // Return original text as fallback with flag
+    return { adjustedText: originalText, isFallback: true };
   }
 }
 

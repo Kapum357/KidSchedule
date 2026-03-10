@@ -56,13 +56,39 @@ export function MediationInterface({
     try {
       const result = await adjustSuggestionTone(draftText, adjustment);
       setDraftText(result.adjustedText);
+      
       const adjustmentLabel = adjustment.replace('_', ' ');
-      toast.success(`Adjusted to be ${adjustmentLabel}!`, {
-        description: `Text rewritten with "${adjustmentLabel}" tone`,
-      });
+      
+      if (result.isFallback) {
+        // Claude API failed (timeout/network), but we have the original text
+        toast.error('Could not adjust tone', {
+          description: 'API request failed. Your original text is shown. Try again in a moment.',
+          action: {
+            label: 'Retry',
+            onClick: () => {
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises
+              handleAdjustTone(adjustment);
+            },
+          },
+        });
+      } else {
+        // Successfully adjusted
+        toast.success(`Adjusted to be ${adjustmentLabel}!`, {
+          description: `Text rewritten with "${adjustmentLabel}" tone`,
+        });
+      }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : `Failed to adjust tone`;
-      toast.error('Could not adjust tone', { description: errorMsg });
+      const errorMsg = err instanceof Error ? err.message : 'Failed to adjust tone';
+      toast.error('Could not adjust tone', {
+        description: errorMsg,
+        action: {
+          label: 'Retry',
+          onClick: () => {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            handleAdjustTone(adjustment);
+          },
+        },
+      });
     } finally {
       setIsAdjusting(false);
     }

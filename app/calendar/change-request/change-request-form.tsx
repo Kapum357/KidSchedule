@@ -401,7 +401,7 @@ export function ChangeRequestForm({
                       className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                         checked
                           ? "border-primary bg-primary/10 text-primary"
-                          : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                          : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                       }`}
                     >
                       <input
@@ -456,7 +456,7 @@ export function ChangeRequestForm({
               value={notes}
               onChange={(e) => handleFieldChange("notes", e.target.value)}
               placeholder="e.g. I have a business trip and need to switch weekends..."
-              className={`block w-full rounded-lg border-slate-300 bg-slate-50 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-800/50 dark:text-white ${
+              className={`block w-full rounded-lg border-slate-300 bg-slate-50 text-sm text-slate-900 shadow-sm placeholder:text-slate-500 focus:border-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-800/50 dark:text-white ${
                 fieldErrors.notes ? "border-red-500 dark:border-red-500" : ""
               }`}
             />
@@ -486,7 +486,7 @@ export function ChangeRequestForm({
                   <span className="material-symbols-outlined">chevron_left</span>
                 </button>
 
-                <span className="font-bold text-slate-800 dark:text-white text-center min-w-[160px]">
+                <span className="font-bold text-slate-800 text-center min-w-[160px]">
                   {monthYearLabel(calendarMonth)}
                 </span>
 
@@ -504,17 +504,17 @@ export function ChangeRequestForm({
               <div className="flex gap-4 border-b border-slate-100 px-4 py-3 text-xs dark:border-slate-700">
                 <div className="flex items-center gap-1">
                   <span className="h-2 w-2 rounded-full bg-slate-200" />
-                  <span>Current</span>
+                  <span className="text-slate-700 dark:text-slate-300">Current</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="h-2 w-2 rounded-full bg-primary" />
-                  <span>Proposed</span>
+                  <span className="text-slate-700 dark:text-slate-300">Proposed</span>
                 </div>
               </div>
 
               {/* Calendar grid */}
               <div className="p-4">
-                <div className="mb-2 grid grid-cols-7 gap-1 text-center text-xs font-medium text-slate-400">
+                <div className="mb-2 grid grid-cols-7 gap-1 text-center text-xs font-medium text-slate-600 dark:text-slate-400">
                   <span>S</span>
                   <span>M</span>
                   <span>T</span>
@@ -538,7 +538,7 @@ export function ChangeRequestForm({
 
                     const chipClasses = proposed
                       ? ["bg-primary", "text-white", "shadow-sm", "font-bold"]
-                      : ["text-slate-800", "dark:text-slate-300"];
+                      : ["text-slate-800", "dark:text-slate-800"];
 
                     if (roundedLeft) {
                       chipClasses.push("rounded-l-md");
@@ -589,7 +589,7 @@ export function ChangeRequestForm({
       <footer className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-8 py-5 dark:border-slate-800 dark:bg-surface-dark">
         <a
           href="/calendar"
-          className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 transition-all hover:bg-white focus:outline-none focus:ring-2 focus:ring-slate-200 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+          className="rounded-lg border border-slate-400 px-5 py-2.5 text-sm font-medium text-slate-700 transition-all hover:bg-white focus:outline-none focus:ring-2 focus:ring-slate-200 dark:border-slate-500 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           Cancel
         </a>

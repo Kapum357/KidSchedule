@@ -121,14 +121,17 @@ export async function getDeescalationTips(
 /**
  * Adjust a suggestion's tone using Claude
  * Supported adjustments: gentler, shorter, more_formal, warmer
+ * Returns: { adjustedText, isFallback: true if using original text due to error }
  */
+type AdjustmentType = "gentler" | "shorter" | "more_formal" | "warmer";
+
 export async function adjustSuggestion(
   userId: string,
   text: string,
-  adjustment: "gentler" | "shorter" | "more_formal" | "warmer"
-): Promise<string> {
-  if (!text || !text.trim()) {
-    return text;
+  adjustment: AdjustmentType,
+): Promise<{ adjustedText: string; isFallback: boolean }> {
+  if (!text?.trim()) {
+    return { adjustedText: text, isFallback: false };
   }
 
   const adjustmentPrompts: Record<string, string> = {
@@ -166,19 +169,30 @@ export async function adjustSuggestion(
       validate: parseAdjustmentResult,
     });
 
-    logEvent("info", "mediation.suggestion_adjusted", {
-      adjustment,
-      originalLength: text.length,
-      adjustedLength: adjustedText.length,
-    });
+    /**
+     * Note: runClaudeJsonWithGuardrails returns fallback on error,
+     * so if we got here, we have either adjusted text or the fallback
+     * was already applied automatically. We need to detect which.
+     */
+    const isFallback = adjustedText === text;
 
-    return adjustedText;
+    if (!isFallback) {
+      logEvent("info", "mediation.suggestion_adjusted", {
+        adjustment,
+        originalLength: text.length,
+        adjustedLength: adjustedText.length,
+      });
+    }
+
+    return { adjustedText, isFallback };
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
     logEvent("error", "Failed to adjust suggestion tone", {
       userId,
       adjustment,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMsg,
     });
-    return text;
+    // Return fallback with flag
+    return { adjustedText: text, isFallback: true };
   }
 }

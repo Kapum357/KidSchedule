@@ -14,6 +14,7 @@ import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
+import { SettleBalanceButton } from "@/components/settle-balance-button";
 import type { Expense, Parent, Child } from "@/types";
 import type { DbExpense, DbParent, DbChild } from "@/lib/persistence/types";
 
@@ -745,10 +746,7 @@ export default async function ExpensesPage({
           </h1>
 
           <div className="flex items-center gap-3">
-            <button className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm">
-              <span className="material-symbols-outlined text-[20px]">payments</span>
-              Settle Balance
-            </button>
+            <SettleBalanceButton />
             <Link
               href="/expenses/add"
               className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:opacity-90 shadow-sm transition-colors"

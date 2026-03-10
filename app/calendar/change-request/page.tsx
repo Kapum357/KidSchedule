@@ -244,7 +244,7 @@ export default async function NewScheduleChangeRequestPage({
       <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-surface-light shadow-2xl dark:bg-surface-dark">
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-8 py-5 dark:border-slate-800 dark:bg-surface-dark">
           <div>
-            <h1 className="flex items-center gap-2 text-xl font-bold text-slate-800 dark:text-white">
+            <h1 className="flex items-center gap-2 text-xl font-bold text-slate-800">
               <span className="material-symbols-outlined text-primary">edit_calendar</span>
               <span>New Schedule Change Request</span>
             </h1>
