@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { OptimizedImage } from "@/components/optimized-image";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -208,11 +209,12 @@ function MemoryCard({
   return (
     <article className="group break-inside-avoid mb-6 overflow-hidden rounded-xl border border-slate-100 bg-surface-light shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-surface-dark">
       <div className="relative overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <OptimizedImage
           src={item.imageUrl!}
           alt={item.title}
-          className="h-auto w-full object-cover"
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover"
         />
 
         {item.videoLength && (
