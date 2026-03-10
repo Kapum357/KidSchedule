@@ -20,6 +20,8 @@ import { OptimizedImage } from "@/components/optimized-image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+export const revalidate = 1800; // 30 minutes
+
 const NOW_MS = Date.now();
 
 // ─── Featured Post Section ────────────────────────────────────────────────────
