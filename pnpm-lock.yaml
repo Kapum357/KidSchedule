@@ -80,9 +80,6 @@ importers:
       stripe:
         specifier: ^20.4.0
         version: 20.4.0(@types/node@20.19.33)
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@20.0.3)(lightningcss@1.31.1)
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -144,6 +141,9 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@20.0.3)(lightningcss@1.31.1)
 
 packages:
 
