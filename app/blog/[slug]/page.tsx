@@ -25,6 +25,8 @@ import Link from "next/link";
 import { OptimizedImage } from "@/components/optimized-image";
 import { ArticleContent, ARTICLE_CONTENT_CLASSNAMES } from "@/components/article-content";
 
+export const revalidate = 3600; // 1 hour
+
 // Data is fetched from database in the async component below.
 
 const BLOG_CATEGORIES = new Set<BlogCategory>([
@@ -367,6 +369,11 @@ function CTASection() {
       <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-blue-600/20 rounded-full blur-[100px] -z-10"></div>
     </div>
   );
+}
+
+export async function generateStaticParams() {
+  const { posts } = await db.blogPosts.findPublished({ limit: 1000, offset: 0 });
+  return posts.map((post) => ({ slug: post.slug }));
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
