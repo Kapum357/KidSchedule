@@ -1,6 +1,7 @@
 /**
  * KidSchedule – Parent Dashboard
  */
+import { OptimizedImage } from "@/components/optimized-image";
 import { SchedulePresets } from "@/lib/custody-engine";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -172,11 +173,13 @@ function Sidebar({
           aria-label="Account menu"
         >
           {currentParent.avatarUrl ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              alt={currentParent.name}
-              className="w-9 h-9 rounded-full object-cover shrink-0"
+            <OptimizedImage
               src={currentParent.avatarUrl}
+              alt={currentParent.name}
+              width={36}
+              height={36}
+              className="rounded-full object-cover shrink-0"
+              priority
             />
           ) : (
             <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
