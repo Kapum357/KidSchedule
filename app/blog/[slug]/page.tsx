@@ -24,6 +24,7 @@ import { getCurrentUser } from "@/lib/auth";
 import Link from "next/link";
 import { OptimizedImage } from "@/components/optimized-image";
 import { ArticleContent, ARTICLE_CONTENT_CLASSNAMES } from "@/components/article-content";
+import { unstable_cache } from "next/cache";
 
 export const revalidate = 3600; // 1 hour
 
@@ -376,6 +377,12 @@ export async function generateStaticParams() {
   return posts.map((post) => ({ slug: post.slug }));
 }
 
+const getCachedPublishedPosts = unstable_cache(
+  async () => db.blogPosts.findPublished({ limit: 100, offset: 0 }),
+  ["blog-published-posts"],
+  { revalidate: 3600, tags: ["blog-posts"] }
+);
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 /**
@@ -397,7 +404,7 @@ export default async function BlogArticlePage({
   // Fetch article and all posts from database (in parallel)
   const [dbBasePost, dbAllPostsResult, currentUser] = await Promise.all([
     db.blogPosts.findBySlug(slug),
-    db.blogPosts.findPublished({ limit: 100, offset: 0 }),
+    getCachedPublishedPosts(),
     getCurrentUser(),
   ]);
 
