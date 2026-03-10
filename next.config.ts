@@ -71,7 +71,24 @@ const nextConfig: NextConfig = {
         { key: "Expires", value: "0" },
       ],
     },
+    {
+      // Optimize static CSS and JS chunks: aggressive caching + compression headers
+      source: "/_next/static/(chunks|css)/:path*",
+      headers: [
+        {
+          key: "Cache-Control",
+          value: "public, max-age=31536000, immutable", // 1 year cache for immutable assets
+        },
+        {
+          key: "Link",
+          value: '</_next/static/chunks/main.js>; rel=preload; as=script', // Signal critical chunks to CDN
+        },
+      ],
+    },
   ],
+
+  // Optimization: Use SWC for minification (faster than Terser, no polyfills)
+  // Target ES2022 matches tsconfig.json to avoid unnecessary transpilation
 };
 
 export default nextConfig;

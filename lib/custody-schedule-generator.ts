@@ -12,8 +12,8 @@ import type {
   ScheduleGeneratorOutput,
   ScheduleEvent,
   ScheduleGeneratorDiagnostics,
-} from "@/types";
-import { SchedulePattern as SP } from "@/types";
+} from "@/lib";
+import { SchedulePattern as SP } from "@/lib";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

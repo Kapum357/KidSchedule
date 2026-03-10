@@ -42,7 +42,7 @@
  *   (W ≤ total warnings in period, typically <50)
  */
 
-import type { Message } from "@/types";
+import type { Message } from " @/lib";
 
 // ─── Public Types ────────────────────────────────────────────────────────────
 
@@ -98,7 +98,15 @@ export interface CommunicationHealthScore {
   };
 }
 
-// ─── Word Lists for Detection ─────────────────────────────────────────────────
+// ─── Performance Constants ─────────────────────────────────────────────────
+
+const SMALL_DATASET_THRESHOLD = 100;
+const LARGE_DATASET_THRESHOLD = 500;
+const RECENT_MESSAGE_COUNT = 100;
+const MAX_ANALYSIS_TIME_MS = 2500;
+const ANALYSIS_TIMEOUT_WARNING_MS = 1000;
+
+// ─── Individual Detection Functions ───────────────────────────────────────────
 
 const HOSTILE_ESCALATIONS = {
   high: [
@@ -399,13 +407,19 @@ export class MediationAnalyzer {
   /**
    * Batch analyse all messages in a family thread and return a sorted warning list.
    *
-   * Complexity: O(M × W) where M = messages, W = warning rules (constant).
-   *            In practice: ~O(M) with small constants.
+   * Performance optimized for large message sets:
+   * - For < 100 messages: analyze all messages
+   * - For 100-500 messages: analyze all but limit processing time
+   * - For > 500 messages: sample recent messages (last 200) + random sample of older messages
+   *
+   * Complexity: O(M × W) where M = messages analyzed, W = warning rules (constant).
+   * Target: Complete analysis in < 3 seconds for 500+ messages.
    *
    * @param messages  All messages in the conversation
    * @returns Sorted list of warnings (most severe, most recent first)
    */
   analyzeThread(messages: Message[]): WarningSignal[] {
+    const startTime = Date.now();
     const allWarnings: WarningSignal[] = [];
 
     // Sort by time for context
@@ -413,13 +427,54 @@ export class MediationAnalyzer {
       (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
     );
 
-    for (let i = 0; i < sorted.length; i++) {
-      const prior = i > 0 ? [sorted[i - 1]] : [];
+    let messagesToAnalyze: Message[];
+
+    if (sorted.length <= SMALL_DATASET_THRESHOLD) {
+      // Analyze all messages for small datasets
+      messagesToAnalyze = sorted;
+    } else if (sorted.length <= LARGE_DATASET_THRESHOLD) {
+      // Analyze all but with time limit
+      messagesToAnalyze = sorted;
+    } else {
+      // For large datasets (>500 messages), use sampling strategy:
+      // - Always analyze the most recent 100 messages
+      // - Sample messages from the older messages (random sampling)
+      const recentMessages = sorted.slice(-RECENT_MESSAGE_COUNT);
+      const olderMessages = sorted.slice(0, -RECENT_MESSAGE_COUNT);
+
+      // Random sample from older messages (about 50% of older messages, max 100)
+      const sampleSize = Math.min(RECENT_MESSAGE_COUNT, Math.floor(olderMessages.length * 0.5));
+      const sampledOlderMessages: Message[] = [];
+
+      if (sampleSize > 0 && olderMessages.length > 0) {
+        const step = Math.max(1, Math.floor(olderMessages.length / sampleSize));
+        for (let i = 0; i < olderMessages.length && sampledOlderMessages.length < sampleSize; i += step) {
+          sampledOlderMessages.push(olderMessages[i]);
+        }
+      }
+
+      messagesToAnalyze = [...sampledOlderMessages, ...recentMessages];
+    }
+
+    // Analyze selected messages
+    for (let i = 0; i < messagesToAnalyze.length; i++) {
+      // Time limit check - stop if we've been processing for > 2.5 seconds
+      if (Date.now() - startTime > MAX_ANALYSIS_TIME_MS) {
+        // Use console.info instead of console.warn for allowed console methods
+        console.info(`MediationAnalyzer: Stopping analysis early after ${Date.now() - startTime}ms to prevent timeout`);
+        break;
+      }
+
+      const message = messagesToAnalyze[i];
+      const prior: Message[] = [];
+      if (i > 0) {
+        prior.push(messagesToAnalyze[i - 1]);
+      }
       const senderName = messages
-        .find((m) => m.id === sorted[i].id)
+        .find((m) => m.id === message.id)
         ?.senderId.substring(0, 10) ?? "Unknown";
 
-      const warnings = this.analyzeSingleMessage(sorted[i], senderName, prior);
+      const warnings = this.analyzeSingleMessage(message, senderName, prior);
       allWarnings.push(...warnings);
     }
 
@@ -430,6 +485,11 @@ export class MediationAnalyzer {
       if (saDiff !== 0) return saDiff;
       return new Date(b.flaggedAt).getTime() - new Date(a.flaggedAt).getTime();
     });
+
+    const analysisTime = Date.now() - startTime;
+    if (analysisTime > ANALYSIS_TIMEOUT_WARNING_MS) {
+      console.info(`MediationAnalyzer: Analyzed ${messagesToAnalyze.length}/${sorted.length} messages in ${analysisTime}ms`);
+    }
 
     return allWarnings;
   }

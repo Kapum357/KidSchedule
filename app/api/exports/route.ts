@@ -7,7 +7,7 @@
 
 import { getDb } from "@/lib/persistence";
 import { enqueueExport } from "@/lib/export-queue";
-import type { ExportType } from "@/types";
+import type { ExportType } from " @/lib";
 import { getAuthenticatedUser, badRequest, unauthorized } from "@/app/api/calendar/utils";
 
 /**

@@ -5,7 +5,7 @@
  * Generates 24-hour advance alerts and same-day notifications.
  */
 
-import type { Parent, CalendarEvent } from "@/types";
+import type { Parent, CalendarEvent } from " @/lib";
 
 export interface ScheduledNotification {
   id: string;

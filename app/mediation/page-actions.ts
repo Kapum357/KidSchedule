@@ -9,12 +9,13 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/persistence";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
+import { ValidationError, ServerError } from "@/lib";
 import { MediationAnalyzer } from "@/lib/mediation-analyzer";
 import { logEvent } from "@/lib/observability/logger";
 import { adjustSuggestion } from "@/lib/providers/ai";
 import { getDeescalationTips as getDeescalationTipsFromAssistant } from "@/lib/providers/ai/mediation-assistant";
-import type { Message } from "@/types/index";
+import type { Message } from "@/lib/index";
 
 export interface MediationPageData {
   topics: Array<{
@@ -57,6 +58,14 @@ export async function loadMediationData(): Promise<MediationPageData> {
     db.mediationWarnings.findUndismissedByFamilyId(parent.familyId),
     db.mediationWarnings.getStats(parent.familyId),
   ]);
+
+  // If no warnings exist but there are messages, trigger background analysis
+  if (warnings.length === 0) {
+    // Fire-and-forget: analyze warnings in background without blocking page load
+    analyzeAndStoreWarnings().catch((error) => {
+      console.info("Background warning analysis failed:", error);
+    });
+  }
 
   logEvent("info", "mediation.page_loaded", {
     familyId: parent.familyId,
@@ -247,33 +256,33 @@ export async function sendMediationSuggestion(
 
   // Validate draft text
   if (!draftText?.trim()) {
-    throw new Error("Draft suggestion cannot be empty");
+    throw new ValidationError("cannot be empty");
   }
   if (draftText.length > 2000) {
-    throw new Error("Draft suggestion must be under 2,000 characters");
+    throw new ValidationError("must be under 2,000 characters");
   }
 
   try {
     // Get the mediation topic
     const topic = await db.mediationTopics.findById(topicId);
     if (!topic) {
-      throw new Error("Topic not found");
+      throw new ValidationError("Topic not found");
     }
 
     // Verify topic belongs to parent's family
     if (topic.familyId !== parent.familyId) {
-      throw new Error("Topic not found or access denied");
+      throw new ValidationError("Topic not found or access denied");
     }
 
     // Get the recipient parent
     const recipient = await db.parents.findById(recipientParentId);
     if (!recipient) {
-      throw new Error("Recipient parent not found");
+      throw new ValidationError("Recipient parent not found");
     }
 
     // Verify recipient is in same family
     if (recipient.familyId !== parent.familyId) {
-      throw new Error("Recipient not found or access denied");
+      throw new ValidationError("Recipient not found or access denied");
     }
 
     // Find or create message thread for this mediation topic
@@ -325,12 +334,18 @@ export async function sendMediationSuggestion(
 
     return { success: true, messageId: message.id };
   } catch (error) {
+    // Re-throw validation errors as-is
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    
+    // Wrap other errors as server errors
     logEvent("error", "mediation.suggestion_send_failed", {
       topicId,
       recipientParentId,
       errorMessage: error instanceof Error ? error.message : String(error),
     });
-    throw error;
+    throw new ServerError();
   }
 }
 
@@ -422,11 +437,11 @@ export async function adjustSuggestionTone(
   // Validate input early
   const trimmed = originalText.trim();
   if (!trimmed) {
-    throw new Error("Text cannot be empty");
+    throw new ValidationError("Text cannot be empty");
   }
   const maxLength = 2000;
   if (trimmed.length > maxLength) {
-    throw new Error(`Text must be under ${maxLength} characters`);
+    throw new ValidationError(`Text must be under ${maxLength} characters`);
   }
   const validAdjustments: readonly ToneAdjustmentType[] = [
     "gentler",
@@ -435,7 +450,7 @@ export async function adjustSuggestionTone(
     "warmer",
   ];
   if (!validAdjustments.includes(adjustment)) {
-    throw new Error(`Invalid adjustment: ${adjustment}`);
+    throw new ValidationError(`Invalid adjustment: ${adjustment}`);
   }
 
   try {

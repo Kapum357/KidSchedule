@@ -1,4 +1,4 @@
-import type { SearchBackend } from "@/types";
+import type { SearchBackend } from " @/lib";
 
 const DEFAULT_BACKEND: SearchBackend = "fuse";
 

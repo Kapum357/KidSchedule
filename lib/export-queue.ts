@@ -7,7 +7,7 @@
 
 import { Redis as UpstashRedis } from "@upstash/redis";
 import { createClient as createRedisClient } from "redis";
-import type { ExportJobRecord } from "@/types";
+import type { ExportJobRecord } from " @/lib";
 
 const QUEUE_KEY = "export:queue";
 const QUEUE_TIMEOUT_SECONDS = 30; // Block for up to 30 seconds waiting for jobs

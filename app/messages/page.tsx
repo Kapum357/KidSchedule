@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { db } from "@/lib/persistence";
 import { getMediationAssistantTips } from "@/lib/providers/ai";
 import { sendMessage } from "./actions";
 import { SmsRelaySetup } from "@/components/messages/SmsRelaySetup";
-import type { Message } from "@/types";
+import type { Message } from " @/lib";
 
 type MessageSearchParams = {
   success?: string;

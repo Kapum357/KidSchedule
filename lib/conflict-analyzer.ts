@@ -60,7 +60,7 @@
  *   A/B experimentation.
  */
 
-import type { ClimateLevel, ConflictClimate, Message } from "@/types";
+import type { ClimateLevel, ConflictClimate, Message } from " @/lib";
 
 // ─── Word Lists ───────────────────────────────────────────────────────────────
 

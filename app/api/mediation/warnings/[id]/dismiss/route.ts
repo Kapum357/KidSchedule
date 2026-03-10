@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/persistence";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { logEvent } from "@/lib/observability/logger";
 import { observeApiRequest } from "@/lib/observability/api-observability";
 

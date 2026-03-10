@@ -11,7 +11,7 @@
 import { db } from "@/lib/persistence";
 import { ensureParentExists } from "@/lib/parent-setup-engine";
 import type { DbScheduleChangeRequest } from "@/lib/persistence/types";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { verifyOrigin } from "@/lib/security/csrf";
 import { ChangeRequestForm } from "./change-request-form";

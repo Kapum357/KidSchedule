@@ -1,540 +1,1020 @@
 /**
- * KidSchedule – Audit Logger
- * KidSchedule – Session Management
+ * KidSchedule – Client-Safe Utilities
+ * These functions can be used in both client and server components.
  */
 
-import type { AuditAction, DbAuditLog } from "./persistence/types";
-import { db } from "./persistence";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { getRequestContext } from "./security/csrf";
 import { isFeatureEnabled, getFeatureConfig, getAllFeatureFlags, type FeatureFlagConfig } from "./feature-flags";
-
-// ─── Audit Event Types ────────────────────────────────────────────────────────
-
-export interface AuditContext {
-  userId?: string;
-  ip?: string;
-  userAgent?: string;
-}
-
-export interface AuditMetadata {
-  [key: string]: string | number | boolean | null | undefined;
-}
-
-// ─── PII Sanitization ─────────────────────────────────────────────────────────
-
-/**
- * Masks email address for logging.
- * user@example.com → u***@example.com
- */
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!domain) return "***";
-  const maskedLocal = local.length > 1 ? local[0] + "***" : "***";
-  return `${maskedLocal}@${domain}`;
-}
-
-/**
- * Masks phone number for logging.
- * +12345678901 → +1****8901
- */
-function maskPhone(phone: string): string {
-  const trimmed = phone.trim();
-  if (trimmed.length < 4) return "***";
-
-  const last4 = trimmed.slice(-4);
-  const prefix = trimmed.startsWith("+") && trimmed.length >= 2
-    ? trimmed.slice(0, 2)
-    : "+*";
-
-  return `${prefix}****${last4}`;
-}
-
-/**
- * Truncates token to safe prefix for logging.
- * abc123xyz789... → abc123...
- */
-function truncateToken(token: string, prefixLength = 8): string {
-  if (token.length <= prefixLength) return "***";
-  return token.slice(0, prefixLength) + "...";
-}
-
-/**
- * Sanitizes metadata to remove or mask sensitive values.
- */
-function sanitizeMetadata(metadata: AuditMetadata): Record<string, unknown> {
-  const sanitized: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(metadata)) {
-    if (value === undefined || value === null) continue;
-
-    // Mask known sensitive keys
-    if (/email/i.test(key) && typeof value === "string") {
-      sanitized[key] = maskEmail(value);
-    } else if (/phone/i.test(key) && typeof value === "string") {
-      sanitized[key] = maskPhone(value);
-    } else if (/token|secret|password|otp/i.test(key) && typeof value === "string") {
-      sanitized[key] = truncateToken(value);
-    } else {
-      sanitized[key] = value;
-    }
-  }
-
-  return sanitized;
-}
-
-// ─── Audit Logger Class ───────────────────────────────────────────────────────
-
-class AuditLogger {
-  private readonly enableConsole: boolean;
-
-  constructor() {
-    // Enable console logging in all environments for log aggregation
-    this.enableConsole = true;
-  }
-
-  /**
-   * Log an audit event.
-   * Writes to both database and console (for log aggregation).
-   */
-  async log(
-    action: AuditAction,
-    context: AuditContext,
-    metadata: AuditMetadata = {}
-  ): Promise<DbAuditLog | null> {
-    const sanitizedMetadata = sanitizeMetadata(metadata);
-    const timestamp = new Date().toISOString();
-
-    // Console log (structured JSON for log aggregation)
-    if (this.enableConsole) {
-      const logEntry = {
-        level: "audit",
-        action,
-        userId: context.userId,
-        ip: context.ip,
-        // Truncate user agent for log brevity
-        ua: context.userAgent?.slice(0, 100),
-        metadata: sanitizedMetadata,
-        timestamp,
-      };
-
-      // Use JSON format for machine parsing
-      console.log(JSON.stringify(logEntry));
-    }
-
-    // Database log (async, non-blocking)
-    try {
-      return await db.auditLogs.create({
-        userId: context.userId,
-        action,
-        metadata: sanitizedMetadata,
-        ip: context.ip,
-        userAgent: context.userAgent,
-      });
-    } catch (error) {
-      // Log database failures but don't throw – audit should never break the flow
-      console.error("[AuditLogger] Database write failed:", error);
-      return null;
-    }
-  }
-
-  // ─── Convenience Methods ──────────────────────────────────────────────────
-
-  async loginSuccess(context: AuditContext, email: string): Promise<void> {
-    await this.log("user.login", context, { email, success: true });
-  }
-
-  async loginFailed(context: AuditContext, email: string, reason: string): Promise<void> {
-    await this.log("user.login_failed", context, { email, reason });
-  }
-
-  async logout(context: AuditContext): Promise<void> {
-    await this.log("user.logout", context);
-  }
-
-  async register(context: AuditContext, email: string): Promise<void> {
-    await this.log("user.register", context, { email });
-  }
-
-  async passwordResetRequest(context: AuditContext, email: string): Promise<void> {
-    await this.log("user.password_reset_request", context, { email });
-  }
-
-  async passwordResetComplete(context: AuditContext, email: string): Promise<void> {
-    await this.log("user.password_reset_complete", context, { email });
-  }
-
-  async phoneVerifyRequest(context: AuditContext, phone: string): Promise<void> {
-    await this.log("user.phone_verify_request", context, { phone });
-  }
-
-  async phoneVerifySuccess(context: AuditContext, phone: string): Promise<void> {
-    await this.log("user.phone_verify_success", context, { phone });
-  }
-
-  async phoneVerifyFailed(
-    context: AuditContext,
-    phone: string,
-    attemptsRemaining: number
-  ): Promise<void> {
-    await this.log("user.phone_verify_failed", context, { phone, attemptsRemaining });
-  }
-
-  async sessionCreate(context: AuditContext, sessionId: string): Promise<void> {
-    await this.log("session.create", context, { sessionId: truncateToken(sessionId) });
-  }
-
-  async sessionRefresh(context: AuditContext, sessionId: string): Promise<void> {
-    await this.log("session.refresh", context, { sessionId: truncateToken(sessionId) });
-  }
-
-  async sessionRevoke(context: AuditContext, sessionId: string, reason?: string): Promise<void> {
-    await this.log("session.revoke", context, { sessionId: truncateToken(sessionId), reason });
-  }
-
-  async sessionRevokeAll(context: AuditContext, reason?: string): Promise<void> {
-    await this.log("session.revoke_all", context, { reason });
-  }
-
-  async rateLimitTriggered(context: AuditContext, key: string, type: string): Promise<void> {
-    // Don't log the full key (may contain email)
-    const sanitizedKey = key.split(":")[0] + ":***";
-    await this.log("rate_limit.triggered", context, { keyType: sanitizedKey, limitType: type });
-  }
-
-  async suspiciousActivity(
-    context: AuditContext,
-    reason: string,
-    details: AuditMetadata = {}
-  ): Promise<void> {
-    await this.log("security.suspicious_activity", context, { reason, ...details });
-  }
-}
-
-// ─── Singleton Export ─────────────────────────────────────────────────────────
-
-export const audit = new AuditLogger();
-
-// ─── Configuration ────────────────────────────────────────────────────────────
-
-const ACCESS_TOKEN_COOKIE = "access_token";
-const REFRESH_TOKEN_COOKIE = "refresh_token";
-const ACCESS_TOKEN_MAX_AGE = 15 * 60; // 15 minutes
-const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60; // 7 days
-const REFRESH_TOKEN_REMEMBER_ME_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
-
-// ─── JWT Utilities ────────────────────────────────────────────────────────────
-
-interface JWTPayload {
-  sub: string;
-  email: string;
-  sid: string;
-  iat: number;
-  exp: number;
-}
-
-/**
- * Decode JWT payload without verification.
- * In production, verify signature with jose or jsonwebtoken.
- */
-function decodeJWT(token: string): JWTPayload | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
-    return payload as JWTPayload;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Generate a signed JWT access token.
- * 
- * Production implementation:
- * import { SignJWT } from "jose";
- * const secret = new TextEncoder().encode(process.env.AUTH_JWT_SECRET);
- * return await new SignJWT({ email, sid: sessionId })
- *   .setProtectedHeader({ alg: "HS256" })
- *   .setSubject(userId)
- *   .setIssuedAt()
- *   .setExpirationTime("15m")
- *   .sign(secret);
- */
-function generateAccessToken(
-  userId: string,
-  email: string,
-  sessionId: string,
-  expiresAt: Date
-): string {
-  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-  const payload = Buffer.from(
-    JSON.stringify({
-      sub: userId,
-      email,
-      sid: sessionId,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(expiresAt.getTime() / 1000),
-    })
-  ).toString("base64url");
-  
-  // Mock signature – replace with actual signing in production
-  const signature = Buffer.from(`sig_${userId}_${sessionId}`).toString("base64url");
-  
-  return `${header}.${payload}.${signature}`;
-}
-
-/**
- * Generate a secure refresh token.
- */
-function generateRefreshToken(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Buffer.from(bytes).toString("base64url");
-}
-
-/**
- * Hash refresh token for storage.
- * Uses SHA-256 for fast lookups (refresh tokens are already high-entropy).
- */
-async function hashRefreshToken(token: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(token);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return Buffer.from(hashBuffer).toString("hex");
-}
-
-// ─── Session Context ──────────────────────────────────────────────────────────
-
-export interface SessionUser {
-  userId: string;
-  email: string;
-  sessionId: string;
-}
-
-/**
- * Get current user from session.
- * Returns null if not authenticated.
- */
-export async function getCurrentUser(): Promise<SessionUser | null> {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
-  
-  if (!accessToken) return null;
-  
-  const payload = decodeJWT(accessToken);
-  if (!payload) return null;
-  
-  // Check expiration
-  if (payload.exp < Math.floor(Date.now() / 1000)) {
-    return null;
-  }
-  
-  return {
-    userId: payload.sub,
-    email: payload.email,
-    sessionId: payload.sid,
-  };
-}
-
-/**
- * Require authentication – redirects to login if not authenticated.
- * Use at the start of protected Server Actions or page components.
- */
-export async function requireAuth(): Promise<SessionUser> {
-  const user = await getCurrentUser();
-  if (!user) {
-    redirect("/login");
-  }
-  return user;
-}
-
-// ─── Session Operations ───────────────────────────────────────────────────────
-
-/**
- * Create a new session and set cookies.
- * Called after successful authentication.
- */
-export async function createSession(
-  userId: string,
-  email: string,
-  rememberMe: boolean = false
-): Promise<void> {
-  const now = new Date();
-  const sessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  
-  // Generate tokens
-  const accessExpiresAt = new Date(now.getTime() + ACCESS_TOKEN_MAX_AGE * 1000);
-  const refreshExpiresAt = new Date(
-    now.getTime() + (rememberMe ? REFRESH_TOKEN_REMEMBER_ME_MAX_AGE : REFRESH_TOKEN_MAX_AGE) * 1000
-  );
-  
-  const accessToken = generateAccessToken(userId, email, sessionId, accessExpiresAt);
-  const refreshToken = generateRefreshToken();
-  const refreshTokenHash = await hashRefreshToken(refreshToken);
-  
-  // Get request context for audit
-  const ctx = await getRequestContext();
-  
-  // Store session in database
-  await db.sessions.create({
-    userId,
-    refreshTokenHash,
-    expiresAt: refreshExpiresAt.toISOString(),
-    ip: ctx.ip,
-    userAgent: ctx.userAgent,
-    isRevoked: false,
-  });
-  
-  // Set cookies
-  const cookieStore = await cookies();
-  const isProduction = process.env.NODE_ENV === "production";
-  
-  cookieStore.set(ACCESS_TOKEN_COOKIE, accessToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
-    maxAge: ACCESS_TOKEN_MAX_AGE,
-    path: "/",
-  });
-  
-  cookieStore.set(REFRESH_TOKEN_COOKIE, refreshToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
-    maxAge: rememberMe ? REFRESH_TOKEN_REMEMBER_ME_MAX_AGE : REFRESH_TOKEN_MAX_AGE,
-    path: "/",
-  });
-  
-  // Audit log
-  await audit.sessionCreate({ userId, ip: ctx.ip, userAgent: ctx.userAgent }, sessionId);
-}
-
-/**
- * Refresh the session using the refresh token.
- * Returns true if refresh succeeded, false otherwise.
- */
-export async function refreshSession(): Promise<boolean> {
-  const cookieStore = await cookies();
-  const refreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value;
-  
-  if (!refreshToken) return false;
-  
-  const refreshTokenHash = await hashRefreshToken(refreshToken);
-  const session = await db.sessions.findByRefreshTokenHash(refreshTokenHash);
-  
-  if (!session || session.isRevoked) {
-    // Clear cookies
-    cookieStore.delete(ACCESS_TOKEN_COOKIE);
-    cookieStore.delete(REFRESH_TOKEN_COOKIE);
-    return false;
-  }
-  
-  // Check expiration
-  if (new Date(session.expiresAt) < new Date()) {
-    await db.sessions.revoke(session.id, "expired");
-    cookieStore.delete(ACCESS_TOKEN_COOKIE);
-    cookieStore.delete(REFRESH_TOKEN_COOKIE);
-    return false;
-  }
-  
-  // Get user
-  const user = await db.users.findById(session.userId);
-  if (!user || user.isDisabled) {
-    await db.sessions.revoke(session.id, "user_disabled");
-    cookieStore.delete(ACCESS_TOKEN_COOKIE);
-    cookieStore.delete(REFRESH_TOKEN_COOKIE);
-    return false;
-  }
-  
-  // Rotate refresh token
-  const newRefreshToken = generateRefreshToken();
-  const newRefreshTokenHash = await hashRefreshToken(newRefreshToken);
-  const newExpiresAt = new Date(
-    Date.now() + REFRESH_TOKEN_MAX_AGE * 1000
-  ).toISOString();
-  
-  await db.sessions.rotate(session.id, newRefreshTokenHash, newExpiresAt);
-  
-  // Generate new access token
-  const accessExpiresAt = new Date(Date.now() + ACCESS_TOKEN_MAX_AGE * 1000);
-  const accessToken = generateAccessToken(
-    user.id,
-    user.email,
-    session.id,
-    accessExpiresAt
-  );
-  
-  // Update cookies
-  const isProduction = process.env.NODE_ENV === "production";
-  
-  cookieStore.set(ACCESS_TOKEN_COOKIE, accessToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
-    maxAge: ACCESS_TOKEN_MAX_AGE,
-    path: "/",
-  });
-  
-  cookieStore.set(REFRESH_TOKEN_COOKIE, newRefreshToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
-    maxAge: REFRESH_TOKEN_MAX_AGE,
-    path: "/",
-  });
-  
-  // Audit log
-  const ctx = await getRequestContext();
-  await audit.sessionRefresh({ userId: user.id, ip: ctx.ip, userAgent: ctx.userAgent }, session.id);
-  
-  return true;
-}
-
-/**
- * End the current session.
- */
-export async function endSession(): Promise<void> {
-  const user = await getCurrentUser();
-  const cookieStore = await cookies();
-  const refreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value;
-  
-  if (refreshToken) {
-    const refreshTokenHash = await hashRefreshToken(refreshToken);
-    const session = await db.sessions.findByRefreshTokenHash(refreshTokenHash);
-    
-    if (session) {
-      await db.sessions.revoke(session.id, "logout");
-      
-      // Audit log
-      const ctx = await getRequestContext();
-      await audit.sessionRevoke(
-        { userId: user?.userId, ip: ctx.ip, userAgent: ctx.userAgent },
-        session.id,
-        "logout"
-      );
-    }
-  }
-  
-  // Clear cookies
-  cookieStore.delete(ACCESS_TOKEN_COOKIE);
-  cookieStore.delete(REFRESH_TOKEN_COOKIE);
-}
-
-/**
- * Revoke all sessions for a user.
- * Used after password reset or security events.
- */
-export async function revokeAllSessions(userId: string, reason: string): Promise<void> {
-  await db.sessions.revokeAllForUser(userId, reason);
-  
-  // Audit log
-  const ctx = await getRequestContext();
-  await audit.sessionRevokeAll({ userId, ip: ctx.ip, userAgent: ctx.userAgent }, reason);
-}
 
 // ─── Feature Flags ───────────────────────────────────────────────────────────
 
 export { isFeatureEnabled, getFeatureConfig, getAllFeatureFlags };
 export type { FeatureFlagConfig };
+
+// ─── Custom Error Classes ────────────────────────────────────────────────────
+
+/**
+ * Validation error (400) - client error, show message and preserve draft
+ */
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+/**
+ * Authentication error (401) - redirect to login
+ */
+export class AuthError extends Error {
+  constructor(message: string = 'Authentication required') {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
+/**
+ * Server error (500) - show friendly message
+ */
+export class ServerError extends Error {
+  constructor(message: string = 'Something went wrong. Please try again later.') {
+    super(message);
+    this.name = 'ServerError';
+  }
+}
+
+// Kidschedule core domain types
+
+// ─── Identity ────────────────────────────────────────────────────────────────
+
+export type ParentId = string; // opaque UUID
+
+export interface Parent {
+  id: ParentId;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  /** Phone number used for SMS verification */
+  phone?: string;
+}
+
+export interface Child {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string; // ISO-8601 date string "YYYY-MM-DD"
+  avatarUrl?: string;
+}
+
+export interface Family {
+  id: string;
+  parents: [Parent, Parent];
+  children: Child[];
+  /** The ISO-8601 date that the custody arrangement started for cycle math */
+  custodyAnchorDate: string;
+  schedule: CustodySchedule;
+}
+
+// ─── Custody Schedule ─────────────────────────────────────────────────────────
+
+/**
+ * A schedule is composed of an ordered list of blocks.  The engine repeats
+ * this list cyclically starting from `Family.custodyAnchorDate`.
+ *
+ * The engine loops through these blocks indefinitely from the anchor date.
+ */
+export interface ScheduleBlock {
+  parentId: ParentId;
+  days: number; // number of 24-hour calendar days in this continuous block
+  /** Optional label shown in the calendar (e.g. "Weekend", "Weekday") */
+  label?: string;
+}
+
+export interface CustodySchedule {
+  id: string;
+  name: string; // e.g. "2-2-3 Rotation", "Alternating Weeks"
+  blocks: ScheduleBlock[];
+  /**
+   * Hour of day (0-23) at which transitions occur.
+   * Default is 17 (5 PM – school pickup).
+   */
+  transitionHour: number;
+}
+
+// ─── Schedule Generation Engine (CAL-003) ────────────────────────────────────
+
+/**
+ * Pattern enum for schedule generation.
+ */
+export enum SchedulePattern {
+  SEVEN_SEVEN = "SEVEN_SEVEN",        // 7-7 alternating weeks
+  TWO_TWO_THREE = "TWO_TWO_THREE",    // 2-2-3 rotation
+  FIVE_TWO_TWO_FIVE = "FIVE_TWO_TWO_FIVE", // 5-2-2-5 rotation
+  EOW = "EOW",                         // Every-Other-Weekend
+}
+
+/**
+ * Exchange times for custody transitions (not midnight).
+ * Used for patterns that transfer on specific times rather than day boundaries.
+ */
+export interface ExchangeTimes {
+  /** Hour (0-23) at which transfers occur (default: 17 for 5 PM) */
+  hour?: number;
+  /** Minute (0-59) at which transfers occur (default: 0) */
+  minute?: number;
+}
+
+/**
+ * Input to the custody schedule generator.
+ * Defines a date range and pattern to generate ownership events.
+ */
+export interface ScheduleGeneratorInput {
+  family_id: string;
+  child_id: string;
+  pattern: SchedulePattern;
+  /** IANA timezone (e.g., "America/New_York", "Europe/London") */
+  timezone: string;
+  date_range: {
+    /** Start date (YYYY-MM-DD), inclusive. */
+    start: string;
+    /** End date (YYYY-MM-DD), exclusive of this date at 00:00. */
+    end: string;
+  };
+  /** Anchor date and which parent owned cycle day 0. */
+  anchor: {
+    anchor_date: string;
+    anchor_parent_id: ParentId;
+    /** The other parent ID (required for pattern generation). */
+    other_parent_id: ParentId;
+  };
+  /** Custom exchange times (optional; defaults to transitionHour). */
+  exchange_times?: ExchangeTimes;
+  /** Whether to merge adjacent blocks with same parent (default: false). */
+  merge_adjacent_blocks?: boolean;
+}
+
+/**
+ * An override event that replaces base custody blocks.
+ * Used for holidays, swaps, or special arrangements.
+ */
+export interface ScheduleOverride {
+  id: string;
+  familyId: string;
+  type: "holiday" | "swap" | "mediation" | "manual";
+  title: string;
+  description?: string;
+  effectiveStart: string;
+  effectiveEnd: string;
+  custodianParentId: ParentId;
+  sourceEventId?: string;
+  sourceRequestId?: string;
+  sourceMediationId?: string;
+  priority: number;
+  status: "active" | "expired" | "superseded" | "cancelled";
+  createdAt: string;
+  createdBy: ParentId;
+  notes?: string;
+}
+
+/**
+ * A single custody ownership event generated by the engine.
+ */
+export interface ScheduleEvent {
+  start_at: string; // ISO 8601 with timezone
+  end_at: string;   // ISO 8601 with timezone
+  parent_id: ParentId;
+  custody_type: "base" | "override";
+  source_pattern: SchedulePattern | string; // Allow override strings
+  /** Stable ID for 14-day cycles or weekend blocks */
+  cycle_id: string;
+  child_id: string;
+  family_id: string;
+  /** Override information (when custody_type is "override") */
+  override_id?: string;
+  override_priority?: number;
+}
+
+/**
+ * Diagnostics output from the generator.
+ */
+export interface ScheduleGeneratorDiagnostics {
+  version: string;
+  pattern_summary: string;
+  total_events: number;
+  warnings: string[];
+}
+
+/**
+ * Complete output from the custody schedule generator.
+ */
+export interface ScheduleGeneratorOutput {
+  events: ScheduleEvent[];
+  diagnostics: ScheduleGeneratorDiagnostics;
+}
+
+// ─── Computed Custody State ───────────────────────────────────────────────────
+
+export interface CustodyStatus {
+  /** Parent who currently holds custody */
+  currentParent: Parent;
+  /** Exact moment custody began for this period */
+  periodStart: Date;
+  /** Exact moment this custody period ends (= next transition) */
+  periodEnd: Date;
+  /** Human-friendly label for where the transition happens */
+  transitionLocation?: string;
+  /** Minutes remaining until the next transition */
+  minutesUntilTransition: number;
+}
+
+export interface ScheduleTransition {
+  at: Date;
+  fromParent: Parent;
+  toParent: Parent;
+  location?: string;
+}
+
+// ─── Calendar Events ──────────────────────────────────────────────────────────
+
+export type EventCategory =
+  | "custody"      // auto-generated from schedule engine
+  | "school"
+  | "medical"
+  | "activity"     // sports, clubs, lessons
+  | "holiday"      // statutory holiday with special schedule rules
+  | "other";
+
+export type ConfirmationStatus = "confirmed" | "pending" | "declined";
+
+export interface CalendarEvent {
+  id: string;
+  familyId: string;
+  title: string;
+  description?: string;
+  category: EventCategory;
+  startAt: string; // ISO-8601 datetime
+  endAt: string;   // ISO-8601 datetime
+  allDay: boolean;
+  location?: string;
+  /** Which parent is responsible / present */
+  parentId?: ParentId;
+  confirmationStatus: ConfirmationStatus;
+  createdBy: ParentId;
+}
+
+// ─── Schedule Change Requests ─────────────────────────────────────────────────
+
+export type ChangeRequestStatus =
+  | "draft"
+  | "pending"    // submitted, awaiting other parent's response
+  | "accepted"
+  | "declined"
+  | "countered"  // other parent proposed a different swap
+  | "withdrawn"  // requester cancelled their own request
+  | "expired";   // no response within the deadline
+
+export interface ScheduleChangeRequest {
+  id: string;
+  familyId: string;
+  requestedBy: ParentId;
+  title: string;
+  description?: string;
+  /** The period the requesting parent wants to give up */
+  givingUpPeriodStart: string;
+  givingUpPeriodEnd: string;
+  /** The make-up period they want in return */
+  requestedMakeUpStart: string;
+  requestedMakeUpEnd: string;
+  status: ChangeRequestStatus;
+  createdAt: string;
+  respondedAt?: string;
+  responseNote?: string;
+}
+
+// ─── Schedule Overrides (CAL-008) ─────────────────────────────────────────────
+
+export type OverrideType =
+  | "holiday"      // Statutory holiday exception
+  | "swap"         // Approved change request
+  | "mediation"    // Court-ordered change
+  | "manual";      // One-time manual override
+
+export type OverrideStatus =
+  | "active"       // Currently in effect
+  | "expired"      // Past its effective period
+  | "superseded"   // Replaced by higher-priority override
+  | "cancelled";   // Explicitly cancelled
+
+export interface ScheduleOverride {
+  id: string;
+  familyId: string;
+  type: OverrideType;
+  title: string;
+  description?: string;
+
+  // Time period this override applies to
+  effectiveStart: string; // ISO datetime
+  effectiveEnd: string;   // ISO datetime
+
+  // Custody assignment during this period
+  custodianParentId: ParentId;
+
+  // Source information
+  sourceEventId?: string;     // For holiday/calendar events
+  sourceRequestId?: string;   // For approved swaps
+  sourceMediationId?: string; // For mediation decisions
+
+  // Metadata
+  priority: number; // Higher number = higher priority
+  status: OverrideStatus;
+  createdAt: string;
+  createdBy: ParentId;
+  notes?: string;
+}
+
+export interface OverrideConflict {
+  overrideId: string;
+  conflictingOverrideId: string;
+  timePeriod: {
+    start: string;
+    end: string;
+  };
+  severity: "warning" | "error";
+  message: string;
+  resolution?: "supersede" | "merge" | "cancel";
+}
+
+export interface HolidayDefinition {
+  id: string;
+  name: string;
+  date: string; // ISO date "YYYY-MM-DD"
+  type: "federal" | "state" | "religious" | "cultural";
+  jurisdiction: string; // e.g., "US", "US-CA", "US-NY"
+  description?: string;
+}
+
+export interface HolidayExceptionRule {
+  familyId: string;
+  holidayId: string;
+  custodianParentId: ParentId;
+  isEnabled: boolean;
+  notes?: string;
+}
+
+// ─── Expenses ─────────────────────────────────────────────────────────────────
+
+export type ExpenseCategory =
+  | "medical"
+  | "education"
+  | "clothing"
+  | "activity"
+  | "childcare"
+  | "other";
+
+export type SplitMethod = "50-50" | "custom" | "one-parent";
+
+export type PaymentStatus = "unpaid" | "paid" | "disputed";
+
+export interface Expense {
+  id: string;
+  familyId: string;
+  title: string;
+  description?: string;
+  category: ExpenseCategory;
+  totalAmount: number; // in cents to avoid float rounding
+  currency: string;   // ISO-4217, e.g. "USD"
+  splitMethod: SplitMethod;
+  /** Only used when splitMethod = "custom". Values sum to 1.0 */
+  splitRatio?: Record<ParentId, number>;
+  paidBy: ParentId;
+  paymentStatus: PaymentStatus;
+  receiptUrl?: string;
+  date: string; // ISO-8601 date
+  createdAt: string;
+}
+
+// ─── Messaging ────────────────────────────────────────────────────────────────
+
+export interface Message {
+  id: string;
+  familyId: string;
+  senderId: ParentId;
+  body: string;
+  sentAt: string; // ISO-8601 datetime
+  readAt?: string;
+  /** Optional attachment references (stored in Vault) */
+  attachmentIds?: string[];
+}
+
+// ─── Moments (Shared Photos / Videos) ────────────────────────────────────────
+
+export interface Moment {
+  id: string;
+  familyId: string;
+  uploadedBy: ParentId;
+  mediaUrl: string;
+  thumbnailUrl?: string;
+  caption?: string;
+  takenAt?: string; // ISO-8601 date
+  createdAt: string;
+  reactions: MomentReaction[];
+}
+
+export interface MomentReaction {
+  parentId: ParentId;
+  emoji: string; // e.g. "❤️"
+  reactedAt: string;
+}
+
+// ─── Activity Feed ────────────────────────────────────────────────────────────
+
+export type ActivityType =
+  | "expense_added"
+  | "expense_paid"
+  | "message_received"
+  | "schedule_change_requested"
+  | "schedule_change_accepted"
+  | "schedule_change_declined"
+  | "moment_uploaded"
+  | "event_added"
+  | "event_confirmed";
+
+export interface ActivityItem {
+  id: string;
+  type: ActivityType;
+  actorId: ParentId;
+  occurredAt: string; // ISO-8601 datetime
+  /** Polymorphic reference – the id of the relevant entity */
+  entityId: string;
+  /** Pre-rendered human description (for display) */
+  summary: string;
+  /** Extra data needed to render action buttons */
+  meta?: Record<string, unknown>;
+}
+
+// ─── Reminders ────────────────────────────────────────────────────────────────
+
+export interface Reminder {
+  id: string;
+  familyId: string;
+  parentId: ParentId;
+  text: string;
+  dueAt?: string; // ISO-8601 datetime – optional, some are undated
+  completed: boolean;
+  completedAt?: string;
+}
+
+// ─── Conflict Climate ─────────────────────────────────────────────────────────
+
+export type ClimateLevel = "low" | "medium" | "high";
+
+export interface ConflictClimate {
+  level: ClimateLevel;
+  /** 0 = perfectly calm · 100 = maximum tension */
+  tensionScore: number;
+  /** Short AI-generated coaching tip for the current user */
+  tip: string;
+  /** Number of messages analysed in the rolling window */
+  sampleSize: number;
+  /** ISO-8601 datetime of oldest message included in analysis */
+  windowStart: string;
+}
+
+// ─── Blog ────────────────────────────────────────────────────────────────────
+
+export type BlogCategory =
+  | "custody_tips"
+  | "legal_advice"
+  | "emotional_wellness"
+  | "communication"
+  | "financial_planning"
+  | "featured";
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  preview: string; // 150–200 char summary
+  content: string; // Full markdown or HTML
+  categories: BlogCategory[];
+  author: {
+    name: string;
+    title: string; // e.g. "Child Psychologist"
+    avatarUrl?: string;
+  };
+  featuredImageUrl: string;
+  publishedAt: string; // ISO-8601 datetime
+  updatedAt?: string;
+  readTimeMinutes: number;
+  /** Engagement metrics for ranking */
+  viewCount: number;
+  shareCount: number;
+  commentCount: number;
+  /** Set by editorial team to pin to featured section */
+  isFeatured?: boolean;
+}
+
+export interface BlogPage {
+  posts: BlogPost[];
+  pageNumber: number;
+  totalPages: number;
+  totalPostCount: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface SearchResult {
+  post: BlogPost;
+  /** 0–100 relevance score for this search query */
+  relevanceScore: number;
+  /** Highlighted preview showing matched terms */
+  highlightedPreview: string;
+}
+
+export type SearchDocType = "event" | "message" | "pta" | "blog";
+
+export type SearchDoc = {
+  id: string;
+  type: SearchDocType;
+  fields: Record<string, string>;
+  /** Optional recency tie-breaker; ISO-8601 string */
+  updatedAt?: string;
+};
+
+export type SearchOptions = {
+  limit?: number;
+  keys?: string[];
+  minMatchCharLength?: number;
+  threshold?: number;
+};
+
+export type SearchHit = {
+  id: string;
+  score: number;
+  type: SearchDocType;
+};
+
+export type SearchBackend = "trigram" | "fuse";
+
+export interface SearchAdapter {
+  index(docs: ReadonlyArray<SearchDoc>): void;
+  search(query: string, opts?: SearchOptions): ReadonlyArray<SearchHit>;
+}
+
+export type ConflictWindowSetting = {
+  windowMins: number;
+};
+
+export type FamilySettings = {
+  familyId: string;
+  conflictWindow: ConflictWindowSetting;
+  searchBackend: SearchBackend;
+};
+
+export interface CalendarConflict {
+  primaryEvent: CalendarEvent;
+  conflictingEvent: CalendarEvent;
+  minutesApart: number;
+  overlapType: "overlap" | "buffer_window";
+}
+
+export interface BlogRecommendation {
+  post: BlogPost;
+  reason: string; // e.g. "Similar to posts you've read", "Popular in Communication"
+  score: number;
+}
+
+// ─── Blog Article Reading ─────────────────────────────────────────────────────
+
+export interface ArticleReadingSession {
+  sessionId: string;
+  postId: string;
+  readerId?: string; // Anonymous if undefined
+  startedAt: Date;
+  lastActivityAt: Date;
+  scrollPercentage: number; // 0–100
+  isCompleted: boolean;
+  completedAt?: Date;
+  timeSpentSeconds: number;
+}
+
+export interface ArticleEngagementMetric {
+  postId: string;
+  viewCount: number;
+  uniqueViewers: number;
+  shareCount: number;
+  commentCount: number;
+  avgTimeSpentSeconds: number;
+  avgScrollPercentage: number;
+  completionRate: number; // 0–100 (% of readers who reached 90%+ scroll)
+}
+
+export type ArticleHeading = {
+  id: string;
+  text: string;
+  level: 2 | 3;
+};
+
+export type TableOfContents = ArticleHeading[];
+
+export interface ArticleWithMetadata extends BlogPost {
+  toc: TableOfContents; // Table of contents extracted from headings
+  relatedPosts: BlogRecommendation[];
+  estimatedReadTime: number;
+  keyTakeaways?: string[]; // Extracted or hardcoded key points
+}
+
+// ─── Authentication ───────────────────────────────────────────────────────────
+
+export type AuthProvider = "email" | "google" | "apple";
+
+export type AuthErrorCode =
+  | "invalid_credentials"
+  | "account_locked"         // Too many failed attempts
+  | "rate_limited"           // Too many requests from IP
+  | "email_not_verified"
+  | "account_disabled"
+  | "service_unavailable"
+  | "token_expired"
+  | "token_invalid"
+  | "oauth_failed";
+
+export interface AuthCredentials {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}
+
+export interface SignupCredentials {
+  fullName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  agreedToTerms: boolean;
+}
+
+export interface SignupResult {
+  success: boolean;
+  session?: AuthSession;
+  error?: AuthErrorCode;
+  errorMessage?: string;
+  /** Field-specific errors (e.g. { email: "Email already registered" }) */
+  fieldErrors?: Record<string, string>;
+}
+
+export interface OAuthCredentials {
+  provider: "google" | "apple";
+  idToken: string;           // Provider-issued ID token
+  accessToken?: string;
+}
+
+export interface AuthSession {
+  sessionId: string;
+  userId: string;
+  parentId: ParentId;
+  email: string;
+  accessToken: string;       // Short-lived JWT (15 min)
+  refreshToken: string;      // Long-lived opaque token (30 days)
+  expiresAt: Date;           // Access token expiry
+  refreshExpiresAt: Date;    // Refresh token expiry
+  createdAt: Date;
+  rememberMe: boolean;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface AuthResult {
+  success: boolean;
+  session?: AuthSession;
+  error?: AuthErrorCode;
+  errorMessage?: string;
+  /** Number of attempts remaining before lockout */
+  attemptsRemaining?: number;
+  /** ISO datetime when lockout expires (if locked) */
+  lockedUntil?: string;
+}
+
+export interface RateLimitState {
+  key: string;               // IP address or email
+  attempts: number;
+  firstAttemptAt: Date;
+  lastAttemptAt: Date;
+  lockedUntil?: Date;
+}
+
+export interface PasswordResetRequest {
+  id: string;
+  email: string;
+  token: string;             // Hashed reset token
+  expiresAt: Date;
+  usedAt?: Date;
+  createdAt: Date;
+  ipAddress?: string;
+}
+
+// ─── Phone Verification ────────────────────────────────────────────────────────
+
+export interface PhoneVerificationRequest {
+  id: string;
+  phone: string;               // Full phone number (E.164 format: +1234567890)
+  phoneDisplay: string;        // Masked display (e.g., "+1 (555) ***-88")
+  otp: string;                 // Hashed OTP code
+  otpAttempts: number;         // Failed verification attempts
+  expiresAt: Date;             // OTP expiry (usually 5-10 minutes)
+  verifiedAt?: Date;           // Marked verified after valid OTP entry
+  createdAt: Date;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface PhoneVerificationResult {
+  success: boolean;
+  error?: "invalid_otp" | "otp_expired" | "too_many_attempts" | "rate_limited" | "phone_not_found";
+  errorMessage?: string;
+  attemptsRemaining?: number;
+  lockedUntil?: string;        // ISO datetime when rate limit expires
+  verificationId?: string;
+}
+
+// ─── School / PTA Portal ──────────────────────────────────────────────────────
+
+export type SchoolEventType =
+  | "pta_meeting"
+  | "bake_sale"
+  | "conference"
+  | "rehearsal"
+  | "performance"
+  | "parade"
+  | "field_trip"
+  | "sports"
+  | "other";
+
+export type VolunteerStatus = "open" | "assigned" | "completed" | "cancelled";
+
+export type DocumentStatus =
+  | "available"
+  | "pending_signature"
+  | "signed"
+  | "expired";
+
+export type ContactRole =
+  | "teacher"
+  | "principal"
+  | "vice_principal"
+  | "nurse"
+  | "counselor"
+  | "pta_board"
+  | "coach"
+  | "staff";
+
+export interface SchoolEvent {
+  id: string;
+  familyId: string;
+  title: string;
+  description?: string;
+  eventType: SchoolEventType;
+  startAt: string;              // ISO-8601 datetime
+  endAt: string;                // ISO-8601 datetime
+  location?: string;
+  isAllDay: boolean;
+  /** IDs of parents confirmed as attending */
+  attendingParentIds: ParentId[];
+  /** Requires user action (RSVP, sign permission slip, etc.) */
+  actionRequired: boolean;
+  actionDeadline?: string;      // ISO-8601 datetime
+  actionDescription?: string;
+  /** Volunteer task IDs nested under this event */
+  volunteerTaskIds: string[];
+  /** UI accent: teal = volunteering, amber = action required */
+  accentColor?: "teal" | "amber" | "blue" | "rose" | "purple";
+  /** Material symbols icon name */
+  icon?: string;
+}
+
+export interface VolunteerTask {
+  id: string;
+  familyId: string;
+  eventId: string;
+  title: string;
+  description?: string;
+  /** Undefined = open/unassigned */
+  assignedParentId?: ParentId;
+  status: VolunteerStatus;
+  /** Estimated commitment in hours */
+  estimatedHours: number;
+  scheduledFor: string;         // ISO-8601 datetime
+  completedAt?: string;
+  /** Material symbols icon name */
+  icon?: string;
+  /** Tailwind color class segment, e.g. "teal", "blue", "purple" */
+  iconColor?: string;
+}
+
+export interface SchoolContact {
+  id: string;
+  name: string;
+  /** 2–3 character avatar fallback */
+  initials: string;
+  role: ContactRole;
+  roleLabel: string;
+  email?: string;
+  phone?: string;
+  /** Tailwind color segment for avatar: "indigo", "rose", "emerald", "slate" */
+  avatarColor: string;
+}
+
+export interface SchoolVaultDocument {
+  id: string;
+  familyId: string;
+  title: string;
+  fileType: "pdf" | "image" | "archive" | "document" | "spreadsheet";
+  status: DocumentStatus;
+  /** Human-readable label e.g. "Added 2 days ago", "Pending Signature" */
+  statusLabel: string;
+  addedAt: string;              // ISO-8601 datetime
+  addedBy: ParentId;
+  sizeBytes?: number;
+  url?: string;
+  actionDeadline?: string;      // ISO-8601 datetime; set when signature required
+}
+
+export interface LunchMenuItem {
+  name: string;
+  description?: string;
+  isVegetarian?: boolean;
+  isGlutenFree?: boolean;
+}
+
+export interface LunchMenu {
+  date: string;                 // ISO-8601 date "YYYY-MM-DD"
+  mainOption: LunchMenuItem;
+  alternativeOption?: LunchMenuItem;
+  side?: string;
+  accountBalance: number;       // USD
+}
+
+/**
+ * Volunteer hour commitment per parent, used for fairness balancing.
+ * When suggesting who should take an open task, the engine prefers the
+ * parent with fewer totalHoursCommitted.
+ */
+export interface VolunteerBalance {
+  parentId: ParentId;
+  totalHoursCommitted: number;
+  completedHours: number;
+  upcomingHours: number;
+  taskCount: number;
+}
+
+/** Contact search result with relevance score */
+export interface ContactSearchResult {
+  contact: SchoolContact;
+  /** 0–100 relevance score */
+  score: number;
+}
+
+// ─── Dashboard Aggregate ──────────────────────────────────────────────────────
+
+export interface DashboardData {
+  family: Family;
+  currentParent: Parent;
+  custody: CustodyStatus;
+  upcomingTransitions: ScheduleTransition[];
+  monthlyOwnership: { [parentId: string]: number }; // Percentage ownership for current month
+  upcomingEvents: CalendarEvent[];
+  calendarConflicts: CalendarConflict[];
+  pendingChangeRequests: ScheduleChangeRequest[];
+  recentActivity: ActivityItem[];
+  unreadMessageCount: number;
+  climate: ConflictClimate;
+  moments: Moment[];
+  reminders: Reminder[];
+}
+
+// ─── Observability ────────────────────────────────────────────────────────────
+
+export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface ErrorEvent {
+  /** ISO-8601 timestamp */
+  timestamp: string;
+  /** Coarse severity level */
+  severity: ErrorSeverity;
+  /** Error message (safe to display; no stack traces or internal details) */
+  message: string;
+  /** Unique error digest from Next.js error boundary, if available */
+  digest?: string;
+  /** Current pathname when error occurred */
+  pathname?: string;
+  /** Anonymized family ID, if authenticated */
+  familyId?: string;
+  /** Anonymized parent ID, if authenticated */
+  parentId?: string;
+}
+
+// ─── Legal Documents ──────────────────────────────────────────────────────────
+
+/**
+ * Version metadata for legal documents (Terms of Service, Privacy Policy)
+ */
+export interface LegalVersion {
+  /** Semantic version number (e.g., "1.0", "1.1") */
+  version: string;
+  /** ISO-8601 date when this version became effective */
+  effectiveDate: string;
+  /** Human-readable description of changes in this version */
+  description: string;
+}
+
+/**
+ * A single section within a legal document
+ */
+export interface LegalSection {
+  /** URL-safe ID for anchor links */
+  id: string;
+  /** Section title */
+  title: string;
+  /** Material Symbols icon name */
+  icon: string;
+  /** Plain-English summary for quick understanding */
+  summary: string;
+  /** Full HTML content for the section */
+  content: string;
+}
+
+/**
+ * A complete legal document with versioning
+ */
+export interface LegalDocument {
+  /** Document type */
+  type: "terms" | "privacy";
+  /** Version metadata */
+  version: LegalVersion;
+  /** Ordered list of sections */
+  sections: LegalSection[];
+}
+
+// ─── Export & Job Queue ──────────────────────────────────────────────────────
+
+/**
+ * Export job status
+ */
+export type ExportJobStatus = "queued" | "processing" | "complete" | "failed";
+
+/**
+ * Supported export types
+ */
+export type ExportType =
+  | "schedule-pdf"
+  | "invoices-pdf"
+  | "messages-csv"
+  | "moments-archive"
+  | "custody-compliance-pdf"
+  | "message-transcript-pdf"
+  | "communication-report";
+
+/**
+ * Parameters for export requests (varies by export type)
+ */
+export interface ExportRequest {
+  type: ExportType;
+  /** Type-specific parameters (e.g. date range, filters) */
+  params: Record<string, unknown>;
+}
+
+/**
+ * Result of a completed export job
+ */
+export interface ExportResult {
+  /** URL where the file can be downloaded */
+  resultUrl: string;
+  /** MIME type of the exported file */
+  mimeType: string;
+  /** Size in bytes */
+  sizeBytes: number;
+  /** Timestamp when the export was generated */
+  generatedAt: string;
+}
+
+/**
+ * Database record for an export job
+ */
+export interface ExportJobRecord {
+  id: string;
+  familyId: string;
+  userId: string;
+  type: ExportType;
+  params: Record<string, unknown>;
+  status: ExportJobStatus;
+  resultUrl?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  error?: string;
+  retryCount: number;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+// ─── Communication Report (EXP-003) ───────────────────────────────────────────
+
+export type { CommunicationReport } from "@/lib/communication-report";

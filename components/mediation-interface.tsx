@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { sendMediationSuggestion, adjustSuggestionTone } from '@/app/mediation/page-actions';
+import { ValidationError, AuthError, ServerError } from '@/lib';
 
 interface MediationInterfaceProps {
   topicId: string;
@@ -38,8 +39,23 @@ export function MediationInterface({
         setDraftText('');
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to send suggestion';
-      toast.error('Failed to send', { description: errorMsg });
+      if (err instanceof AuthError) {
+        // Redirect to login for auth errors
+        window.location.href = '/login';
+        return;
+      }
+
+      if (err instanceof ValidationError) {
+        // Show validation error message, draft preserved
+        toast.error('Validation Error', { description: err.message });
+      } else if (err instanceof ServerError) {
+        // Show friendly server error message
+        toast.error('Something went wrong', { description: err.message });
+      } else {
+        // Fallback for unexpected errors
+        const errorMsg = err instanceof Error ? err.message : 'Failed to send suggestion';
+        toast.error('Failed to send', { description: errorMsg });
+      }
     } finally {
       setIsSending(false);
     }
@@ -60,9 +76,9 @@ export function MediationInterface({
       const adjustmentLabel = adjustment.replace('_', ' ');
       
       if (result.isFallback) {
-        // Claude API failed (timeout/network), but we have the original text
+        // API failed, but we have the original text
         toast.error('Could not adjust tone', {
-          description: 'API request failed. Your original text is shown. Try again in a moment.',
+          description: 'API request failed. Your original text is shown.',
           action: {
             label: 'Retry',
             onClick: () => {
@@ -78,17 +94,23 @@ export function MediationInterface({
         });
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to adjust tone';
-      toast.error('Could not adjust tone', {
-        description: errorMsg,
-        action: {
-          label: 'Retry',
-          onClick: () => {
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            handleAdjustTone(adjustment);
+      if (err instanceof ValidationError) {
+        // Show validation error, draft preserved
+        toast.error('Validation Error', { description: err.message });
+      } else {
+        // Fallback for unexpected errors
+        const errorMsg = err instanceof Error ? err.message : 'Failed to adjust tone';
+        toast.error('Could not adjust tone', {
+          description: errorMsg,
+          action: {
+            label: 'Retry',
+            onClick: () => {
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises
+              handleAdjustTone(adjustment);
+            },
           },
-        },
-      });
+        });
+      }
     } finally {
       setIsAdjusting(false);
     }

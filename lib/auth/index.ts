@@ -12,8 +12,9 @@
  */
 
 import { AuthEngine, validatePasswordStrength } from "../auth-engine";
-import { createSession, revokeAllSessions } from "..";
-import { audit } from "..";
+import { createSession, revokeAllSessions } from "../auth";
+// Dynamic import for audit to avoid circular dependency
+const getAudit = () => import("../auth").then(m => m.audit);
 import { getRequestContext } from "../security/csrf";
 import { verifyRecaptchaToken } from "../security/recaptcha";
 import { getEmailSender } from "../providers/email";

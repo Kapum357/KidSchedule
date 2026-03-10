@@ -11,7 +11,7 @@
 import { redirect } from "next/navigation";
 import { requestPhoneVerification, verifyPhoneOTP } from "@/lib/auth";
 import { db } from "@/lib/persistence";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
 

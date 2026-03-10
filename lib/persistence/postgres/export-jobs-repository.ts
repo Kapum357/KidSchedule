@@ -5,7 +5,7 @@
  * Tracks job status, results, and errors for auditing and monitoring.
  */
 
-import type { ExportJobRecord } from "@/types";
+import type { ExportJobRecord } from " @/lib";
 import { sql, type SqlClient } from "./client";
 
 type ExportJobRow = {

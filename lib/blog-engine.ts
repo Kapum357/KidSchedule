@@ -56,7 +56,7 @@ import type {
   SearchResult,
   BlogRecommendation,
   SearchDoc,
-} from "@/types";
+} from " @/lib";
 import { createSearchAdapter } from "@/lib/search-adapter";
 
 // ─── Scoring Constants ─────────────────────────────────────────────────────────

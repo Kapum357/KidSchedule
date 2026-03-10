@@ -11,7 +11,7 @@ import {
   type ExpenseSplitType,
   validateAddExpenseInput,
 } from "@/lib/expense-engine";
-import type { ExpenseCategory } from "@/types";
+import type { ExpenseCategory } from " @/lib";
 
 type ExpenseSearchParams = {
   name?: string;
@@ -247,7 +247,10 @@ export default async function AddExpensePage({
                     type="text"
                     defaultValue={state.expenseName}
                     placeholder="e.g. Fall Semester Soccer Cleats"
-                    className="block w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                    className={`block w-full rounded-lg border border-slate-300 dark:border-slate-600
+                      bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900
+                      dark:text-white placeholder-slate-500 dark:placeholder-slate-400
+                      shadow-sm focus:border-primary focus:ring-primary sm:text-sm`}
                     required
                   />
                 </div>
@@ -268,7 +271,10 @@ export default async function AddExpensePage({
                       min="0.01"
                       defaultValue={state.amountText}
                       placeholder="0.00"
-                      className="block w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-background-dark py-2.5 pl-7 pr-12 text-slate-900 dark:text-white focus:border-primary focus:ring-primary sm:text-sm"
+                      className={`block w-full rounded-lg border border-slate-400 dark:border-slate-600
+                        bg-white dark:bg-background-dark py-2.5 pl-7 pr-12 text-slate-900
+                        dark:text-white placeholder-slate-500 dark:placeholder-slate-400
+                        focus:border-primary focus:ring-primary sm:text-sm`}
                       required
                     />
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
@@ -285,7 +291,9 @@ export default async function AddExpensePage({
                     id="category"
                     name="category"
                     defaultValue={state.category}
-                    className="block w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                    className={`block w-full rounded-lg border border-slate-400 dark:border-slate-600
+                      bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900
+                      dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm`}
                   >
                     {EXPENSE_CATEGORY_OPTIONS.map((category) => (
                       <option key={category.value} value={category.value}>
@@ -306,7 +314,9 @@ export default async function AddExpensePage({
                       type="date"
                       defaultValue={state.dateIncurred}
                       max={getTodayIsoDate()}
-                      className="block w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                      className={`block w-full rounded-lg border border-slate-400 dark:border-slate-600
+                        bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900
+                        dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm`}
                       required
                     />
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
@@ -325,31 +335,33 @@ export default async function AddExpensePage({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {SPLIT_PRESETS.map((preset) => {
-                    const checked = state.splitType === preset.id;
-                    const selectedStyle = checked
-                      ? "bg-primary/5 border-primary"
-                      : "border-slate-200 dark:border-slate-700 hover:border-primary/50";
-
-                    return (
-                      <label key={preset.id} className={`relative flex cursor-pointer rounded-lg border p-4 shadow-sm focus:outline-none ${selectedStyle}`}>
-                        <input
-                          className="sr-only"
-                          name="splitType"
-                          type="radio"
-                          value={preset.id}
-                          defaultChecked={checked}
-                        />
-                        <span className="flex flex-1">
-                          <span className="flex flex-col">
-                            <span className="block text-sm font-medium text-slate-900 dark:text-white">{preset.label}</span>
-                            <span className="mt-1 flex items-center text-xs text-slate-500 dark:text-slate-400">{preset.subtitle}</span>
+                  {SPLIT_PRESETS.map((preset) => (
+                    <label
+                      key={preset.id}
+                      className="split-preset-option relative flex cursor-pointer rounded-lg border p-4 shadow-sm focus:outline-none"
+                    >
+                      <input
+                        className="sr-only"
+                        name="splitType"
+                        type="radio"
+                        value={preset.id}
+                        defaultChecked={state.splitType === preset.id}
+                      />
+                      <span className="flex flex-1">
+                        <span className="flex flex-col">
+                          <span className="block text-sm font-medium text-slate-900 dark:text-white">
+                            {preset.label}
+                          </span>
+                          <span className="mt-1 flex items-center text-xs text-slate-500 dark:text-slate-400">
+                            {preset.subtitle}
                           </span>
                         </span>
-                        <span className={`material-symbols-outlined ${checked ? "text-primary" : "text-transparent"}`}>check_circle</span>
-                      </label>
-                    );
-                  })}
+                      </span>
+                      <span className="split-preset-icon material-symbols-outlined">
+                        check_circle
+                      </span>
+                    </label>
+                  ))}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -365,7 +377,10 @@ export default async function AddExpensePage({
                       max={99}
                       step={1}
                       defaultValue={state.splitType === "custom" ? normalizedCustom : 50}
-                      className="block w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900 dark:text-white focus:border-primary focus:ring-primary sm:text-sm"
+                      className={`block w-full rounded-lg border border-slate-400 dark:border-slate-600
+                        bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900
+                        dark:text-white placeholder-slate-500 dark:placeholder-slate-400
+                        focus:border-primary focus:ring-primary sm:text-sm`}
                     />
                   </div>
                 </div>

@@ -11,7 +11,7 @@ import type {
   Parent,
   ScheduleChangeRequest,
   ScheduleTransition,
-} from "@/types";
+} from " @/lib";
 
 // ─── Public Types ────────────────────────────────────────────────────────────
 

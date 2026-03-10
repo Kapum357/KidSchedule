@@ -1,5 +1,5 @@
 import { MediationSuggestionEngine } from "@/lib/mediation-suggestion-engine";
-import type { Message } from "@/types";
+import type { Message } from " @/lib";
 import { redactPIIForClaude, runClaudeJsonWithGuardrails } from "./claude-adapter";
 import { logEvent } from "@/lib/observability/logger";
 

@@ -6,7 +6,7 @@
  */
 
 import { Server } from "socket.io";
-import type { Message } from "@/types";
+import type { Message } from " @/lib";
 
 /** Global reference to socket server instance (populated by pages/api/socket.ts) */
 let globalSocketServer: Server | null = null;

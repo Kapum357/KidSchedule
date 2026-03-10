@@ -71,7 +71,7 @@ import type {
   LunchMenu,
   ScheduleTransition,
   SearchDoc,
-} from "@/types";
+} from " @/lib";
 import { createSearchAdapter } from "@/lib/search-adapter";
 
 // ─── Configuration ─────────────────────────────────────────────────────────────

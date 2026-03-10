@@ -1,5 +1,5 @@
 import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
-import type { ScheduleEvent, ScheduleOverride, Family, Parent } from "@/types";
+import type { ScheduleEvent, ScheduleOverride, Family, Parent } from " @/lib";
 
 describe("ScheduleOverrideEngine", () => {
   const mockFamily: Family = {

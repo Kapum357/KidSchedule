@@ -16,11 +16,11 @@
  *
  */
 
-import type { ArticleReadingSession, BlogCategory, BlogPost } from "@/types";
+import type { ArticleReadingSession, BlogCategory, BlogPost } from " @/lib";
 import { BlogArticleEngine } from "@/lib/blog-article-engine";
 import { db } from "@/lib/persistence";
 import type { DbBlogPost } from "@/lib/persistence/types";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/auth";
 import Link from "next/link";
 import { OptimizedImage } from "@/components/optimized-image";
 import { ArticleContent, ARTICLE_CONTENT_CLASSNAMES } from "@/components/article-content";

@@ -6,7 +6,7 @@
  */
 
 import { db } from "@/lib/persistence";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
 import type { DbMediationWarning } from "@/lib/persistence/types";
 import { logEvent } from "@/lib/observability/logger";

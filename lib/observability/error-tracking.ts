@@ -8,7 +8,7 @@
  * This is a client-side utility used by the error boundary and error handlers.
  */
 
-import type { ErrorEvent, ErrorSeverity } from "@/types";
+import type { ErrorEvent, ErrorSeverity } from " @/lib";
 import { incrementCounter } from "@/lib/observability/metrics";
 import { logEvent } from "@/lib/observability/logger";
 

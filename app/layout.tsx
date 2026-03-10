@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Nunito_Sans, Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import { ToastProvider } from "@/components/toast-notification";
+import { FontLoader } from "@/components/font-loader";
+import { CriticalCSSOptimizer } from "@/components/critical-css-optimizer";
 import "./globals.css";
 
 // Nonce-based CSP requires dynamic rendering so each request can receive
@@ -18,6 +20,20 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
   display: "optional",
+});
+
+const nunitoSans = Nunito_Sans({
+  variable: "--font-nunito-sans",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -41,31 +57,65 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Preconnect to Google Fonts for faster loading */}
+        {/* Preconnect to Google Fonts for Material Symbols */}
+        {/* Establishes early connection to critical endpoints, reducing DNS lookup + TLS time */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        
+
+        {/* DNS prefetch as fallback for browsers without preconnect support */}
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+
         {/* Material Symbols – variable font used by the dashboard UI */}
+        {/* display=optional prevents render-blocking; font loads after first paint */}
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=optional"
         />
         
-        {/* Primary font: Nunito Sans (headings + body) with Inter fallback */}
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=optional"
-        />
-        
         {/* Theme color for browser chrome */}
         <meta name="theme-color" content="#6BCABD" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#0F172A" media="(prefers-color-scheme: dark)" />
+        
+        {/* Critical CSS: inline essential styles to prevent FOUC while CSS chunks load async */}
+        <style dangerouslySetInnerHTML={{__html: `
+          :root {
+            --color-primary: #6BCABD;
+            --color-text: #0F172A;
+            --color-surface: #FFFFFF;
+            --color-border: #E2E8F0;
+            --color-bg-app: #f6f8f7;
+            --font-sans: "Nunito Sans", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          }
+          html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+          body { 
+            margin: 0; 
+            font-family: var(--font-sans);
+            color: var(--color-text);
+            background: var(--color-surface);
+          }
+          a { color: var(--color-primary); text-decoration: none; }
+          button { font-family: inherit; }
+        `}} />
+        
+        {/* Preload LCP (Largest Contentful Paint) image for optimal performance */}
+        <link
+          rel="preload"
+          as="image"
+          href="/archive/family.png"
+          type="image/png"
+          fetchPriority="high"
+        />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${nunitoSans.variable} ${inter.variable} antialiased`}>
         {/* Skip link for keyboard users */}
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
+        {/* Optimize CSS: converts render-blocking to non-blocking */}
+        <CriticalCSSOptimizer />
+        {/* Load Google Fonts asynchronously to avoid render-blocking */}
+        <FontLoader />
         <ToastProvider>
           {children}
         </ToastProvider>

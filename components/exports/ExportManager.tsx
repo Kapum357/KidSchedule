@@ -7,7 +7,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { ExportType, ExportJobRecord } from "@/types";
+import type { ExportType, ExportJobRecord } from " @/lib";
 import { ExportCard } from "./ExportCard";
 
 export function ExportManager() {

@@ -9,13 +9,13 @@
  */
 
 import { db } from "@/lib/persistence";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { SettleBalanceButton } from "@/components/settle-balance-button";
-import type { Expense, Parent, Child } from "@/types";
+import type { Expense, Parent, Child } from " @/lib";
 import type { DbExpense, DbParent, DbChild } from "@/lib/persistence/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────

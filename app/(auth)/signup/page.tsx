@@ -8,7 +8,7 @@
 import { redirect } from "next/navigation";
 import Script from "next/script";
 import { register } from "@/lib/auth";
-import type { AuthResult } from "@/types";
+import type { AuthResult } from " @/lib";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
 

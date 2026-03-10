@@ -5,7 +5,7 @@
  */
 
 import { redirect } from "next/navigation";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { ExportManager } from "@/components/exports/ExportManager";
 
 export const metadata = {

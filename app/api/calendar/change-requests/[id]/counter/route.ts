@@ -5,7 +5,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/persistence";
 import { logEvent } from "@/lib/observability/logger";
 import { observeApiRequest } from "@/lib/observability/api-observability";

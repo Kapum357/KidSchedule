@@ -1,4 +1,4 @@
-import type { ConflictWindowSetting, FamilySettings } from "@/types";
+import type { ConflictWindowSetting, FamilySettings } from " @/lib";
 import { SEARCH_BACKEND } from "@/lib/search-config";
 
 const DEFAULT_CONFLICT_WINDOW_MINS = Number(process.env.CONFLICT_WINDOW_DEFAULT_MINS ?? 120);

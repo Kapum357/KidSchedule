@@ -81,12 +81,12 @@ export async function POST(request: NextRequest) {
 
     // convert DB events to domain CalendarEvent with proper typing
     const mappedEvents = calendarEvents.map(event => {
-      let category: import("@/types").EventCategory = "other";
+      let category: import(" @/lib").EventCategory = "other";
       if (isValidEventCategory(event.category)) {
         category = event.category;
       }
 
-      let confirmationStatus: import("@/types").ConfirmationStatus = "pending";
+      let confirmationStatus: import(" @/lib").ConfirmationStatus = "pending";
       if (isValidConfirmationStatus(event.confirmationStatus)) {
         confirmationStatus = event.confirmationStatus;
       }
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         ...event,
         category,
         confirmationStatus,
-      } as import("@/types").CalendarEvent;
+      } as import(" @/lib").CalendarEvent;
     });
 
     // Schedule notifications

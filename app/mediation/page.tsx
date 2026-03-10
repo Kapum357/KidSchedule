@@ -8,12 +8,12 @@
  */
 
 import { db } from "@/lib/persistence";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ConflictClimateAnalyzer } from "@/lib/conflict-analyzer";
 import { MediationAnalyzer, type WarningSignal } from "@/lib/mediation-analyzer";
-import type { Message, Parent } from "@/types";
+import type { Message, Parent } from " @/lib";
 import type { DbParent } from "@/lib/persistence/types";
 import { loadMediationData } from "./page-actions";
 import { WarningsPanel } from "@/components/warnings-panel";

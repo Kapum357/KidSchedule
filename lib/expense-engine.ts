@@ -8,7 +8,7 @@
  * - Split calculation is O(1).
  */
 
-import type { ExpenseCategory } from "@/types";
+import type { ExpenseCategory } from " @/lib";
 
 export type ExpenseSplitType = "equal" | "standard" | "custom";
 

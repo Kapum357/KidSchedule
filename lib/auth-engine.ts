@@ -1,67 +1,5 @@
 /**
  * KidSchedule – AuthEngine
- *
- * ALGORITHM OVERVIEW
- * ─────────────────────────────────────────────────────────────────────────────
- * The authentication system handles user login, session lifecycle, rate limiting,
- * OAuth exchange, and password reset via a layered defense model:
- *
- *  Layer 1 – Input Validation:  Email/password format checked before any DB query
- *  Layer 2 – Rate Limiting:     Exponential backoff per IP and per email
- *  Layer 3 – Credential Check:  Constant-time password hash comparison (no timing leaks)
- *  Layer 4 – Session Issuance:  Dual-token model (short-lived access + long-lived refresh)
- *  Layer 5 – Session Refresh:   Refresh token rotated on every use (prevents replay attacks)
- *
- * DUAL-TOKEN DESIGN
- * ─────────────────────────────────────────────────────────────────────────────
- * KidSchedule uses a dual-token model common in OAuth 2.0:
- *
- *   ┌─────────────────────────┐    ┌──────────────────────────────┐
- *   │  Access Token (JWT)     │    │  Refresh Token (opaque)      │
- *   │  • Signed + encoded     │    │  • Random, stored in DB      │
- *   │  • Expiry: 15 minutes   │    │  • Expiry: 7d or 30d         │
- *   │  • httpOnly cookie      │    │  • httpOnly cookie           │
- *   │  • Validated in-memory  │    │  • Rotated on every use      │
- *   └─────────────────────────┘    └──────────────────────────────┘
- *
- * On each request, the middleware verifies the access token. When it expires,
- * the client exchanges the refresh token for a new pair. If the refresh token
- * is invalid or expired, the user must log in again.
- *
- * RATE LIMITING
- * ─────────────────────────────────────────────────────────────────────────────
- * Two independent rate limits run in parallel to block brute-force attacks:
- *
- *   Per-email:  5 failures in 15 min → 15-min lockout
- *   Per-IP:     20 failures in 15 min → 30-min lockout
- *
- * Both use a sliding window that resets after the lockout period expires.
- * In production, replace the in-memory Map with Redis INCR + EXPIREAT for
- * horizontally-scaled deployments.
- *
- * COMPLEXITY
- * ─────────────────────────────────────────────────────────────────────────────
- *   • Rate-limit check:   O(1) lookup in Map (O(log N) in Redis sorted sets)
- *   • Input validation:   O(1) regex match
- *   • Token generation:   O(1) – crypto.randomUUID() + base64 encode
- *   • Token validation:   O(1) – constant-time string comparison
- *   • Session lookup:     O(1) – hash map / DB primary key
- *
- * SECURITY PROPERTIES
- * ─────────────────────────────────────────────────────────────────────────────
- *   ✓ Constant-time comparison prevents timing attacks on password checks
- *   ✓ Refresh token rotated on each use (detects stolen tokens via re-use)
- *   ✓ Access tokens are stateless JWTs; no round-trip to DB on every request
- *   ✓ IP-based rate limiting is independent of email (prevents enumeration)
- *   ✓ Error messages are intentionally vague to prevent user enumeration
- *   ✓ Lockout state does not reveal whether account exists
- *
- * TRADE-OFFS
- * ─────────────────────────────────────────────────────────────────────────────
- *   • In-memory rate-limit state is lost on server restart → use Redis at scale
- *   • Password hashing (bcrypt/argon2) is omitted; plug in via verifyPasswordHash()
- *   • OAuth token verification stubs require real provider SDKs in production
- *   • JWT signing uses a mock; replace with RS256 keypair in production
  */
 
 import type {
@@ -73,7 +11,7 @@ import type {
   PasswordResetRequest,
   PhoneVerificationRequest,
   PhoneVerificationResult,
-} from "@/types";
+} from " @/lib";
 
 // ─── Configuration ─────────────────────────────────────────────────────────────
 

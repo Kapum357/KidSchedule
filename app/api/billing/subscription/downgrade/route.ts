@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/auth";
 import { createProratedDowngrade } from "@/lib/stripe-billing";
 import { observeApiException, observeApiRequest } from "@/lib/observability/api-observability";
 

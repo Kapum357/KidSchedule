@@ -4,7 +4,7 @@
  * Displays the user's current subscription plan and allows plan management.
  */
 
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/persistence";
 import { BillingSection } from "@/components/billing-section";
 

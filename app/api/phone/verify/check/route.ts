@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/auth";
 import { checkPhoneVerification, isValidE164Phone } from "@/lib/providers/sms/twilio-verify";
 import { db } from "@/lib/persistence";
 import { observeApiRequest } from "@/lib/observability/api-observability";

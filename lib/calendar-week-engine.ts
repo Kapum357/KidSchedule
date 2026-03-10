@@ -13,7 +13,7 @@ import type {
   ScheduleEvent,
   ScheduleOverride,
   ScheduleTransition,
-} from "@/types";
+} from " @/lib";
 
 // ─── Public Types ────────────────────────────────────────────────────────────
 

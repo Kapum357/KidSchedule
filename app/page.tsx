@@ -76,6 +76,8 @@ export default function LandingPage() {
           className="absolute inset-0 w-full h-full object-cover"
           priority
           fill
+          fetchPriority="high"
+          loading="eager"
         />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-white/50 to-accent/25" />
         <div className="relative z-10 max-w-7xl mx-auto">

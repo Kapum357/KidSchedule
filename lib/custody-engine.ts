@@ -44,7 +44,7 @@ import type {
   Family,
   Parent,
   ScheduleTransition,
-} from "@/types";
+} from " @/lib";
 
 /** Milliseconds per calendar day – used throughout */
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

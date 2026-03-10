@@ -30,13 +30,15 @@ import type {
   SchoolVaultDocument,
   LunchMenu,
   VolunteerBalance,
-} from "@/types";
+} from " @/lib";
 import {
   PTAEngine,
 } from "@/lib/pta-engine";
 import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { ThemeToggle } from "@/app/theme-toggle";
-import { requireAuth } from "@/lib";
+import { LogoutButton } from "./logout-button";
+import { NotificationButton } from "./notification-button";
+import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/persistence";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -796,9 +798,7 @@ export default async function SchoolPortalPage({
               <span className="text-sm font-semibold text-slate-900 dark:text-white">
                 Alex M.
               </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Log Out
-              </span>
+              <LogoutButton />
             </div>
           </div>
         </div>
@@ -837,15 +837,7 @@ export default async function SchoolPortalPage({
               </span>
               <span>Sync School Calendar</span>
             </button>
-            <button
-              className="relative p-2.5 bg-white dark:bg-[#1A2633] text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors"
-              aria-label={`${pendingCount} pending notifications`}
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[24px]">notifications</span>
-              {pendingCount > 0 && (
-                <span className="absolute top-2 right-2.5 size-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#1A2633]" />
-              )}
-            </button>
+            <NotificationButton initialPendingCount={pendingCount} />
             <ThemeToggle />
           </div>
         </div>

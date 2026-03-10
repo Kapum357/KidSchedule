@@ -4,7 +4,7 @@
  * Main settings hub with profile, family, notifications, security, and billing sections.
  */
 
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { getDb } from "@/lib/persistence";
 import Link from "next/link";
 import type { DbParent, DbChild } from "@/lib/persistence/types";
@@ -90,10 +90,10 @@ export default async function SettingsPage() {
           <div className="flex max-w-3xl flex-1 flex-col gap-8">
             {/* Profile Settings Section */}
             <section
-              className="overflow-hidden rounded-xl border border-primary/10 bg-white shadow-sm dark:bg-neutral-dark"
+              className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white shadow-sm dark:bg-neutral-dark"
               id="profile"
             >
-              <div className="border-b border-primary/10 p-6">
+              <div className="border-b border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="text-lg font-bold">Profile Settings</h3>
                 <p className="text-sm text-slate-500">
                   Update your personal identification and contact details.
@@ -105,7 +105,9 @@ export default async function SettingsPage() {
                     <label className="text-sm font-semibold" htmlFor="fullName">Full Name</label>
                     <input
                       id="fullName"
-                      className="w-full rounded-lg border-primary/20 bg-background-light p-3 focus:border-primary focus:ring-primary dark:bg-background-dark"
+                      className={`w-full rounded-lg border border-slate-300 dark:border-slate-600
+                        bg-background-light p-3 focus:border-primary focus:ring-primary
+                        dark:bg-background-dark`}
                       type="text"
                       defaultValue={profile?.fullName ?? ""}
                     />
@@ -114,7 +116,9 @@ export default async function SettingsPage() {
                     <label className="text-sm font-semibold" htmlFor="emailAddress">Email Address</label>
                     <input
                       id="emailAddress"
-                      className="w-full rounded-lg border-primary/20 bg-background-light p-3 focus:border-primary focus:ring-primary dark:bg-background-dark"
+                      className={`w-full rounded-lg border border-slate-300 dark:border-slate-600
+                        bg-background-light p-3 focus:border-primary focus:ring-primary
+                        dark:bg-background-dark`}
                       type="email"
                       defaultValue={profile?.email ?? ""}
                     />
@@ -125,7 +129,9 @@ export default async function SettingsPage() {
                   <div className="flex gap-2">
                     <input
                       id="phoneNumber"
-                      className="flex-1 rounded-lg border-primary/20 bg-background-light p-3 focus:border-primary focus:ring-primary dark:bg-background-dark"
+                      className={`flex-1 rounded-lg border border-slate-300 dark:border-slate-600
+                        bg-background-light p-3 focus:border-primary focus:ring-primary
+                        dark:bg-background-dark`}
                       type="tel"
                       defaultValue={profile?.phone ?? ""}
                     />
@@ -147,10 +153,10 @@ export default async function SettingsPage() {
 
             {/* Family Management Section */}
             <section
-              className="overflow-hidden rounded-xl border border-primary/10 bg-white shadow-sm dark:bg-neutral-dark"
+              className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white shadow-sm dark:bg-neutral-dark"
               id="family"
             >
-              <div className="flex items-center justify-between border-b border-primary/10 p-6">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 p-6">
                 <div>
                   <h3 className="text-lg font-bold">Family Management</h3>
                   <p className="text-sm text-slate-500">Manage children and co-parent access.</p>
@@ -163,7 +169,7 @@ export default async function SettingsPage() {
                 {children.map((child) => (
                   <div
                     key={child.id}
-                    className="flex items-center justify-between rounded-xl border border-primary/5 bg-background-light p-4 dark:bg-background-dark"
+                    className="flex items-center justify-between rounded-xl border border-slate-300 dark:border-slate-600 bg-background-light p-4 dark:bg-background-dark"
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-primary">
@@ -180,7 +186,7 @@ export default async function SettingsPage() {
                         </p>
                       </div>
                     </div>
-                    <button className="text-slate-400 hover:text-slate-600">
+                    <button className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
                       <span className="material-symbols-outlined">edit</span>
                     </button>
                   </div>
@@ -196,7 +202,7 @@ export default async function SettingsPage() {
                   return (
                     <div
                       key={parent.id}
-                      className="flex items-center justify-between rounded-xl border border-primary/5 bg-background-light p-4 dark:bg-background-dark"
+                      className="flex items-center justify-between rounded-xl border border-slate-300 dark:border-slate-600 bg-background-light p-4 dark:bg-background-dark"
                     >
                       <div className="flex items-center gap-4">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-primary">
@@ -225,10 +231,10 @@ export default async function SettingsPage() {
 
             {/* Notification Preferences Section */}
             <section
-              className="overflow-hidden rounded-xl border border-primary/10 bg-white shadow-sm dark:bg-neutral-dark"
+              className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white shadow-sm dark:bg-neutral-dark"
               id="notifications"
             >
-              <div className="border-b border-primary/10 p-6">
+              <div className="border-b border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="text-lg font-bold">Notification Preferences</h3>
                 <p className="text-sm text-slate-500">Configure how and when you receive alerts.</p>
               </div>
@@ -246,7 +252,7 @@ export default async function SettingsPage() {
                           className="h-5 w-5 rounded text-primary focus:ring-primary"
                           type="checkbox"
                         />
-                        <span className="text-[10px] font-bold uppercase text-slate-400">Push</span>
+                        <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">Push</span>
                       </label>
                       <label className="flex flex-col items-center gap-1">
                         <input
@@ -254,11 +260,11 @@ export default async function SettingsPage() {
                           className="h-5 w-5 rounded text-primary focus:ring-primary"
                           type="checkbox"
                         />
-                        <span className="text-[10px] font-bold uppercase text-slate-400">SMS</span>
+                        <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">SMS</span>
                       </label>
                     </div>
                   </div>
-                  <hr className="border-primary/5" />
+                    <hr className="border-slate-200 dark:border-slate-700" />
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-semibold">Expense Entries</p>
@@ -271,18 +277,18 @@ export default async function SettingsPage() {
                           className="h-5 w-5 rounded text-primary focus:ring-primary"
                           type="checkbox"
                         />
-                        <span className="text-[10px] font-bold uppercase text-slate-400">Push</span>
+                        <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">Push</span>
                       </label>
                       <label className="flex flex-col items-center gap-1">
                         <input
                           className="h-5 w-5 rounded text-primary focus:ring-primary"
                           type="checkbox"
                         />
-                        <span className="text-[10px] font-bold uppercase text-slate-400">SMS</span>
+                        <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">SMS</span>
                       </label>
                     </div>
                   </div>
-                  <hr className="border-primary/5" />
+                  <hr className="border-slate-200 dark:border-slate-700" />
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-semibold text-red-500">Mediation Warnings</p>
@@ -295,7 +301,7 @@ export default async function SettingsPage() {
                           className="h-5 w-5 rounded text-primary focus:ring-primary"
                           type="checkbox"
                         />
-                        <span className="text-[10px] font-bold uppercase text-slate-400">Push</span>
+                        <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">Push</span>
                       </label>
                       <label className="flex flex-col items-center gap-1">
                         <input
@@ -303,7 +309,7 @@ export default async function SettingsPage() {
                           className="h-5 w-5 rounded text-primary focus:ring-primary"
                           type="checkbox"
                         />
-                        <span className="text-[10px] font-bold uppercase text-slate-400">SMS</span>
+                        <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">SMS</span>
                       </label>
                     </div>
                   </div>
@@ -313,17 +319,17 @@ export default async function SettingsPage() {
 
             {/* Security & Privacy Section */}
             <section
-              className="overflow-hidden rounded-xl border border-primary/10 bg-white shadow-sm dark:bg-neutral-dark"
+              className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white shadow-sm dark:bg-neutral-dark"
               id="security"
             >
-              <div className="border-b border-primary/10 p-6">
+              <div className="border-b border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="text-lg font-bold">Security &amp; Privacy</h3>
                 <p className="text-sm text-slate-500">Manage password and compliance settings.</p>
               </div>
               <div className="flex flex-col gap-6 p-6">
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-semibold" htmlFor="twoFactor">Two-Factor Authentication (FR-01)</label>
-                  <div className="flex items-center gap-3 rounded-xl border border-primary/10 bg-primary/5 p-4">
+                  <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-primary/5 p-4">
                     <span className="material-symbols-outlined text-primary">security</span>
                     <div className="flex-1">
                       <p className="text-sm font-bold">
@@ -367,10 +373,10 @@ export default async function SettingsPage() {
 
             {/* Billing & Subscription Section */}
             <section
-              className="mb-12 overflow-hidden rounded-xl border border-primary/10 bg-white shadow-sm dark:bg-neutral-dark"
+              className="mb-12 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white shadow-sm dark:bg-neutral-dark"
               id="subscription"
             >
-              <div className="border-b border-primary/10 p-6">
+              <div className="border-b border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="text-lg font-bold">Billing &amp; Subscription</h3>
                 <p className="text-sm text-slate-500">
                   Manage your Stripe-integrated subscription plan.
@@ -423,7 +429,7 @@ export default async function SettingsPage() {
                 {subscription && (
                   <div className="mt-8">
                     <h4 className="mb-4 text-sm font-bold">Payment Methods</h4>
-                    <div className="flex items-center gap-4 rounded-xl border border-primary/10 p-4">
+                    <div className="flex items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
                       <div className="flex h-8 w-12 items-center justify-center rounded bg-slate-200 dark:bg-neutral-800">
                         <span className="text-[10px] font-black italic">CARD</span>
                       </div>
@@ -432,7 +438,7 @@ export default async function SettingsPage() {
                         <p className="text-xs text-slate-500">Managed via Stripe</p>
                       </div>
                       <Link href="/settings/billing">
-                        <button className="text-xs font-bold text-slate-400">Edit</button>
+                        <button className="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">Edit</button>
                       </Link>
                     </div>
                   </div>

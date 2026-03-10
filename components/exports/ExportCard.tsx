@@ -7,7 +7,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ExportJobRecord } from "@/types";
+import type { ExportJobRecord } from " @/lib";
 
 interface ExportCardProps {
   job: ExportJobRecord;

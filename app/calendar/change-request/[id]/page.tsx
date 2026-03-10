@@ -8,11 +8,11 @@
 
 import { db } from "@/lib/persistence";
 import { ensureParentExists } from "@/lib/parent-setup-engine";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
-import type { Parent, ScheduleChangeRequest } from "@/types";
+import type { Parent, ScheduleChangeRequest } from " @/lib";
 import type { DbParent } from "@/lib/persistence/types";
 import { ActionButtons } from "./action-buttons";
 import { DiscussionThread } from "./discussion-thread";

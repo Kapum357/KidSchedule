@@ -4,7 +4,7 @@ import type {
   SignupCredentials,
   SignupResult,
   AuthProvider,
-} from "@/types";
+} from " @/lib";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 

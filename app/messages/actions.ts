@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { db } from "@/lib/persistence";
 import { analyzeMessageTone } from "@/lib/providers/ai";

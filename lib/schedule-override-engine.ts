@@ -37,7 +37,7 @@ import type {
   ScheduleChangeRequest,
   Family,
   ParentId,
-} from "@/types";
+} from " @/lib";
 
 // ─── Override Types ──────────────────────────────────────────────────────────
 

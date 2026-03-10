@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/persistence";
 import { createBillingPortalSession } from "@/lib/stripe-billing";
 import { observeApiException, observeApiRequest } from "@/lib/observability/api-observability";

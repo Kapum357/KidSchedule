@@ -1,7 +1,7 @@
 "use client";
 
 import type { CalendarDayState } from "@/lib/calendar-engine";
-import type { ScheduleOverride } from "@/types";
+import type { ScheduleOverride } from " @/lib";
 
 function getOverrideColorClasses(override: ScheduleOverride): string {
   switch (override.type) {

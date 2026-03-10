@@ -16,7 +16,7 @@
  */
 
 import { LegalEngine } from "@/lib/legal-engine";
-import type { LegalSection } from "@/types";
+import type { LegalSection } from " @/lib";
 import Link from "next/link";
 import { TableOfContents } from "./table-of-contents";
 

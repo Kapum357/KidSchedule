@@ -19,7 +19,7 @@
 
 import { redirect } from "next/navigation";
 import { login } from "@/lib/auth";
-import type { AuthResult } from "@/types";
+import type { AuthResult } from "@/lib";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
 

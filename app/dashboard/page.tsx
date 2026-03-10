@@ -5,7 +5,7 @@ import { SchedulePresets } from "@/lib/custody-engine";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { db } from "@/lib/persistence";
 import { aggregateDashboard } from "@/lib/dashboard-aggregator";
@@ -22,7 +22,7 @@ import type {
   Reminder,
   ScheduleChangeRequest,
   ScheduleTransition,
-} from "@/types";
+} from " @/lib";
 
 // ─── Formatting Helpers ───────────────────────────────────────────────────────
 

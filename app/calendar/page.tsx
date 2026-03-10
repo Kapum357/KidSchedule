@@ -21,7 +21,7 @@ import { CalendarDayCell } from "@/components/calendar-day-cell";
 import { CalendarViewSwitcher } from "@/components/calendar-view-switcher";
 import { CalendarWeekGrid } from "@/components/calendar-week-grid";
 import { CalendarListView } from "@/components/calendar-list-view";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type {
@@ -40,7 +40,7 @@ import type {
   Parent,
   ScheduleChangeRequest,
   ScheduleOverride,
-} from "@/types";
+} from " @/lib";
 import type {
   DbCalendarEvent,
   DbChild,
@@ -49,7 +49,7 @@ import type {
   DbScheduleChangeRequest,
   DbScheduleOverride,
 } from "@/lib/persistence/types";
-import { SchedulePattern } from "@/types";
+import { SchedulePattern } from "@/lib";
 
 // ─── Search Params ───────────────────────────────────────────────────────────
 

@@ -5,7 +5,7 @@
  * Mocks the engine so tests don't require real DB/filesystem.
  */
 
-import type { ExportJobRecord } from "@/types";
+import type { ExportJobRecord } from " @/lib";
 
 // ─── Mock the export engine ───────────────────────────────────────────────────
 

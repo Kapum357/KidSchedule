@@ -52,7 +52,7 @@ import type {
   DbMediationWarning,
   AuditAction,
 } from "./types";
-import type { ExportJobRecord } from "@/types";
+import type { ExportJobRecord } from " @/lib";
 
 // ─── User Repository ──────────────────────────────────────────────────────────
 

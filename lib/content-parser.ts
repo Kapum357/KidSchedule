@@ -10,7 +10,7 @@
 
 import { load } from "cheerio";
 import { marked } from "marked";
-import type { TableOfContents } from "@/types";
+import type { TableOfContents } from " @/lib";
 
 const HEADING_SELECTOR = "h2, h3";
 

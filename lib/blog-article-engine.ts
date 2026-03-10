@@ -28,7 +28,7 @@ import type {
   ArticleEngagementMetric,
   ArticleWithMetadata,
   BlogRecommendation,
-} from "@/types";
+} from " @/lib";
 import { parseArticleContent } from "@/lib/content-parser";
 import { load } from "cheerio";
 

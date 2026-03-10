@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { refreshSession } from "@/lib";
+import { refreshSession } from "@/lib/auth";
 import { observeApiRequest } from "@/lib/observability/api-observability";
 import { logEvent } from "@/lib/observability/logger";
 

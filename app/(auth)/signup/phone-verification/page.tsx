@@ -8,7 +8,7 @@
 
 import { redirect } from "next/navigation";
 import { verifyPhoneOTP } from "@/lib/auth";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/auth";
 import { OtpForm } from "./otp-form";
 
 // ─── Server Action ─────────────────────────────────────────────────────────────

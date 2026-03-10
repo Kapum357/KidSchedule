@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/persistence";
 import { createStripeCustomerForUser } from "@/lib/stripe-billing";
 import { observeApiRequest } from "@/lib/observability/api-observability";

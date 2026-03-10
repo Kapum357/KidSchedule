@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef, useCallback } from "react";
-import type { Message } from "@/types";
+import type { Message } from " @/lib";
 import { MessageItem } from "./MessageItem";
 
 interface MessageListProps {

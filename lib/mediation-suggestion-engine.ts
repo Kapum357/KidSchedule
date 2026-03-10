@@ -49,7 +49,7 @@
  * Only suggestions scoring ≥60 are shown.
  */
 
-import type { Message } from "@/types";
+import type { Message } from " @/lib";
 
 // ─── Public Types ────────────────────────────────────────────────────────────
 
