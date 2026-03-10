@@ -211,6 +211,10 @@ class AuditLogger {
   }
 }
 
+// ─── Audit Logger Instance ────────────────────────────────────────────────────
+
+export const audit = new AuditLogger();
+
 // ─── Re-export auth functions ──────────────────────────────────────────────────
 
 export {

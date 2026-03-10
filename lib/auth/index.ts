@@ -163,7 +163,7 @@ export async function login(params: LoginParams): Promise<LoginResult> {
     
     const ipCheck = await checkRateLimit(ipKey, IP_RATE_LIMIT);
     if (!ipCheck.allowed) {
-      await audit.rateLimitTriggered(ctx, ipKey, "ip");
+      await (await getAudit()).rateLimitTriggered(ctx, ipKey, "ip");
       return {
         success: false,
         error: "rate_limited",
@@ -174,7 +174,7 @@ export async function login(params: LoginParams): Promise<LoginResult> {
     
     const emailCheck = await checkRateLimit(emailKey, EMAIL_RATE_LIMIT);
     if (!emailCheck.allowed) {
-      await audit.rateLimitTriggered(ctx, emailKey, "email");
+      await (await getAudit()).rateLimitTriggered(ctx, emailKey, "email");
       return {
         success: false,
         error: "account_locked",
@@ -202,7 +202,7 @@ export async function login(params: LoginParams): Promise<LoginResult> {
         await applyLockout(emailKey, EMAIL_RATE_LIMIT.lockoutMs);
       }
       
-      await audit.loginFailed(ctx, normalizedEmail, "invalid_credentials");
+      await (await getAudit()).loginFailed(ctx, normalizedEmail, "invalid_credentials");
       
       return {
         success: false,
@@ -214,7 +214,7 @@ export async function login(params: LoginParams): Promise<LoginResult> {
     
     // Check if user is disabled
     if (user.isDisabled) {
-      await audit.loginFailed(ctx, normalizedEmail, "account_disabled");
+      await (await getAudit()).loginFailed(ctx, normalizedEmail, "account_disabled");
       return {
         success: false,
         error: "account_disabled",
@@ -224,7 +224,7 @@ export async function login(params: LoginParams): Promise<LoginResult> {
 /*
     // Require email verification before allowing login
     if (!user.emailVerified) {
-      await audit.loginFailed(ctx, normalizedEmail, "email_not_verified");
+      await (await getAudit()).loginFailed(ctx, normalizedEmail, "email_not_verified");
       return {
         success: false,
         error: "email_not_verified",
@@ -246,7 +246,7 @@ export async function login(params: LoginParams): Promise<LoginResult> {
     });
     
     // Audit log
-    await audit.loginSuccess(ctx, normalizedEmail);
+    await (await getAudit()).loginSuccess(ctx, normalizedEmail);
     
     return { success: true };
   } catch (error) {
@@ -287,7 +287,7 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
   // Verify reCAPTCHA token (required only when env vars are configured)
   const recaptchaCheck = await verifyRecaptchaToken(recaptchaToken ?? null, ctx.ip);
   if (!recaptchaCheck.success) {
-    await audit.suspiciousActivity(ctx, "signup_validation_failed", {
+    await (await getAudit()).suspiciousActivity(ctx, "signup_validation_failed", {
       failure: "recaptcha_failed",
       score: recaptchaCheck.score ?? 0,
     });
@@ -300,7 +300,7 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
   
   // Validate input
   if (!fullName || fullName.trim().length < 2) {
-    await audit.suspiciousActivity(ctx, "signup_validation_failed", {
+    await (await getAudit()).suspiciousActivity(ctx, "signup_validation_failed", {
       failure: "invalid_full_name",
     });
     return {
@@ -312,7 +312,7 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
   
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   if (!emailRegex.test(normalizedEmail)) {
-    await audit.suspiciousActivity(ctx, "signup_validation_failed", {
+    await (await getAudit()).suspiciousActivity(ctx, "signup_validation_failed", {
       failure: "invalid_email",
     });
     return {
@@ -324,7 +324,7 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
   
   const passwordCheck = validatePasswordStrength(password);
   if (!passwordCheck.isValid) {
-    await audit.suspiciousActivity(ctx, "signup_validation_failed", {
+    await (await getAudit()).suspiciousActivity(ctx, "signup_validation_failed", {
       failure: "weak_password",
     });
     return {
@@ -337,7 +337,7 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
   // Check for existing user
   const existingUser = await db.users.findByEmail(normalizedEmail);
   if (existingUser) {
-    await audit.suspiciousActivity(ctx, "signup_validation_failed", {
+    await (await getAudit()).suspiciousActivity(ctx, "signup_validation_failed", {
       failure: "email_exists",
     });
     return {
@@ -394,7 +394,7 @@ export async function register(params: RegisterParams): Promise<RegisterResult> 
   });
   
   // Audit log
-  await audit.register(ctx, normalizedEmail);
+  await (await getAudit()).register(ctx, normalizedEmail);
 
   return { success: true, requiresEmailVerification: true };
 }
@@ -483,7 +483,7 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
   
   if (recentCount >= PASSWORD_RESET_RATE_LIMIT.max) {
     // Still return success for privacy, but don't send email
-    await audit.passwordResetRequest(ctx, normalizedEmail);
+    await (await getAudit()).passwordResetRequest(ctx, normalizedEmail);
     return { success: true };
   }
   
@@ -511,7 +511,7 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
   });
   
   // Audit log
-  await audit.passwordResetRequest(ctx, normalizedEmail);
+  await (await getAudit()).passwordResetRequest(ctx, normalizedEmail);
   
   // Send email only if user exists
   if (user) {
@@ -620,7 +620,7 @@ export async function resetPassword(params: PasswordResetParams): Promise<Passwo
   await revokeAllSessions(user.id, "password_reset");
   
   // Audit log
-  await audit.passwordResetComplete({ userId: user.id, ip: ctx.ip, userAgent: ctx.userAgent }, user.email);
+  await (await getAudit()).passwordResetComplete({ userId: user.id, ip: ctx.ip, userAgent: ctx.userAgent }, user.email);
   
   // Send confirmation email
   const emailSender = getEmailSender();
@@ -739,7 +739,7 @@ export async function requestPhoneVerification(
   });
   
   // Audit log
-  await audit.phoneVerifyRequest({ userId, ip: ctx.ip, userAgent: ctx.userAgent }, normalizedPhone);
+  await (await getAudit()).phoneVerifyRequest({ userId, ip: ctx.ip, userAgent: ctx.userAgent }, normalizedPhone);
   
   // Send OTP via SMS
   const smsSender = getSmsSender();
@@ -838,7 +838,7 @@ export async function verifyPhoneOTP(
     await db.phoneVerifications.incrementAttempts(verification.id);
     const attemptsRemaining = 5 - verification.attemptCount - 1;
     
-    await audit.phoneVerifyFailed(
+    await (await getAudit()).phoneVerifyFailed(
       { userId, ip: ctx.ip, userAgent: ctx.userAgent },
       verification.phone,
       attemptsRemaining
@@ -857,7 +857,7 @@ export async function verifyPhoneOTP(
   await db.users.markPhoneVerified(userId, verification.phone);
   
   // Audit log
-  await audit.phoneVerifySuccess({ userId, ip: ctx.ip, userAgent: ctx.userAgent }, verification.phone);
+  await (await getAudit()).phoneVerifySuccess({ userId, ip: ctx.ip, userAgent: ctx.userAgent }, verification.phone);
   
   // Send confirmation SMS
   const smsSender = getSmsSender();

@@ -373,8 +373,15 @@ function CTASection() {
 }
 
 export async function generateStaticParams() {
-  const { posts } = await db.blogPosts.findPublished({ limit: 1000, offset: 0 });
-  return posts.map((post) => ({ slug: post.slug }));
+  try {
+    const { posts } = await db.blogPosts.findPublished({ limit: 1000, offset: 0 });
+    return posts.map((post) => ({ slug: post.slug }));
+  } catch (error) {
+    // If the database is unavailable during build (CI/local), avoid failing the build.
+    // Return an empty list of params so the build can continue; pages will render a not-found state.
+    console.warn("[build] Failed to generate blog static params, continuing without blog pages", { error });
+    return [];
+  }
 }
 
 const getCachedPublishedPosts = unstable_cache(
