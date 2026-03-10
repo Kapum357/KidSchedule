@@ -8,10 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "e2e": "playwright test",
-    "test": "jest",
-    "load-test": "artillery run load-test.yml",
-    "load-test-report": "artillery run --output load-test-results.json load-test.yml && artillery report load-test-results.json"
-  },
+    "test": "jest"
+    },
   "dependencies": {
     "@headlessui/react": "^2.1.0",
     "@types/archiver": "^7.0.0",

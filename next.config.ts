@@ -79,10 +79,6 @@ const nextConfig: NextConfig = {
           key: "Cache-Control",
           value: "public, max-age=31536000, immutable", // 1 year cache for immutable assets
         },
-        {
-          key: "Link",
-          value: '</_next/static/chunks/main.js>; rel=preload; as=script', // Signal critical chunks to CDN
-        },
       ],
     },
   ],

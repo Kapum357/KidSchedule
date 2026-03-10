@@ -235,7 +235,7 @@ export default async function AddExpensePage({
               </div>
             )}
 
-            <form action={handleAddExpense} className="space-y-8" encType="multipart/form-data">
+            <form action={handleAddExpense} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 col-span-1 md:col-span-2">
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200" htmlFor="expense-name">

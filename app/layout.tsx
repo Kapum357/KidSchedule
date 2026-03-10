@@ -78,35 +78,6 @@ export default function RootLayout({
         <meta name="theme-color" content="#6BCABD" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#0F172A" media="(prefers-color-scheme: dark)" />
         
-        {/* Critical CSS: inline essential styles to prevent FOUC while CSS chunks load async */}
-        <style dangerouslySetInnerHTML={{__html: `
-          :root {
-            --color-primary: #6BCABD;
-            --color-text: #0F172A;
-            --color-surface: #FFFFFF;
-            --color-border: #E2E8F0;
-            --color-bg-app: #f6f8f7;
-            --font-sans: "Nunito Sans", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-          }
-          html { font-size: 16px; -webkit-font-smoothing: antialiased; }
-          body { 
-            margin: 0; 
-            font-family: var(--font-sans);
-            color: var(--color-text);
-            background: var(--color-surface);
-          }
-          a { color: var(--color-primary); text-decoration: none; }
-          button { font-family: inherit; }
-        `}} />
-        
-        {/* Preload LCP (Largest Contentful Paint) image for optimal performance */}
-        <link
-          rel="preload"
-          as="image"
-          href="/archive/family.png"
-          type="image/png"
-          fetchPriority="high"
-        />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} ${nunitoSans.variable} ${inter.variable} antialiased`}>
         {/* Skip link for keyboard users */}

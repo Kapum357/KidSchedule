@@ -8,31 +8,24 @@ import { sql, type SqlClient } from "./client";
 
 type LunchMenuRow = {
   familyId: string;
-  date: Date;
-  mainOption: {
-    name: string;
-    description?: string;
-    isVegetarian?: boolean;
-    isGlutenFree?: boolean;
-  };
-  alternativeOption: {
-    name: string;
-    description?: string;
-    isVegetarian?: boolean;
-    isGlutenFree?: boolean;
-  } | null;
-  side: string | null;
-  accountBalance: number;
+  weekStart: Date;
+  dayOfWeek: string;
+  menuItem: string;
+  menuType: string;
+  priceCents: number;
 };
 
 function rowToDb(row: LunchMenuRow): DbLunchMenu {
   return {
     familyId: row.familyId,
-    date: row.date.toISOString().split("T")[0],
-    mainOption: row.mainOption,
-    alternativeOption: row.alternativeOption ?? undefined,
-    side: row.side ?? undefined,
-    accountBalance: row.accountBalance,
+    date: row.weekStart.toISOString().split("T")[0],
+    mainOption: {
+      name: row.menuItem,
+      description: `Type: ${row.menuType}`,
+    },
+    alternativeOption: undefined,
+    side: undefined,
+    accountBalance: 0,
   };
 }
 
@@ -43,15 +36,15 @@ export function createLunchMenuRepository(tx?: SqlClient): LunchMenuRepository {
     async findByFamilyIdSince(familyId: string, fromDate: string): Promise<DbLunchMenu[]> {
       const rows = await query<LunchMenuRow[]>`
         SELECT
-          family_id,
-          date,
-          main_option,
-          alternative_option,
-          side,
-          account_balance
+          family_id as "familyId",
+          week_start as "weekStart",
+          day_of_week as "dayOfWeek",
+          menu_item as "menuItem",
+          menu_type as "menuType",
+          price_cents as "priceCents"
         FROM lunch_menus
-        WHERE family_id = ${familyId} AND date >= ${fromDate}
-        ORDER BY date ASC
+        WHERE family_id = ${familyId} AND week_start >= ${fromDate}
+        ORDER BY week_start ASC, day_of_week ASC
       `;
       return rows.map(rowToDb);
     },
