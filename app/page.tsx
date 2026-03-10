@@ -3,6 +3,8 @@ import Image from "next/image";
 import { AudienceDetector } from "./landing-client";
 import { HERO_IMAGE_CONFIG } from "@/lib/image-optimization";
 
+export const revalidate = 86400; // 24 hours — landing page content changes rarely
+
 /**
  * Landing Page – Root Route
  */
