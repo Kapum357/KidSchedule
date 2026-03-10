@@ -114,7 +114,6 @@ export default function RootLayout({
         </a>
         {/* Optimize CSS: converts render-blocking to non-blocking */}
         <CriticalCSSOptimizer />
-        {/* Load Google Fonts asynchronously to avoid render-blocking */}
         <FontLoader />
         <ToastProvider>
           {children}
