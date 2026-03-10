@@ -9,7 +9,7 @@
  */
 
 import { ConflictClimateAnalyzer } from "@/lib/conflict-analyzer";
-import type { Message } from " @/lib";
+import type { Message } from "@/lib";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

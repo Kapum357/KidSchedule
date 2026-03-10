@@ -13,7 +13,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ConflictClimateAnalyzer } from "@/lib/conflict-analyzer";
 import { MediationAnalyzer, type WarningSignal } from "@/lib/mediation-analyzer";
-import type { Message, Parent } from " @/lib";
+import type { Message, Parent } from "@/lib";
 import type { DbParent } from "@/lib/persistence/types";
 import { loadMediationData } from "./page-actions";
 import { WarningsPanel } from "@/components/warnings-panel";
@@ -373,7 +373,7 @@ function HealthOverviewCard({
   );
 }
 
-// ─── Component: Warning Signals Panel is now a client component imported from @/components/warnings-panel
+// ─── Component: Warning Signals Panel is now a client component imported from@/components/warnings-panel
 
 // ─── Component: AI Mediator Interface ──────────────────────────────────────────
 

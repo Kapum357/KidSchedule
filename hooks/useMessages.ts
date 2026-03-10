@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback } from "react";
-import type { Message } from " @/lib";
+import type { Message } from "@/lib";
 
 interface UseMessagesProps {
   familyId: string;

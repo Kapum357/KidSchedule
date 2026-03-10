@@ -11,7 +11,7 @@ import {
   type ExpenseSplitType,
   validateAddExpenseInput,
 } from "@/lib/expense-engine";
-import type { ExpenseCategory } from " @/lib";
+import type { ExpenseCategory } from "@/lib";
 
 type ExpenseSearchParams = {
   name?: string;

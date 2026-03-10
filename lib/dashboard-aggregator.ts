@@ -39,7 +39,7 @@ import type {
   Parent,
   Reminder,
   ScheduleChangeRequest,
-} from " @/lib";
+} from "@/lib";
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 

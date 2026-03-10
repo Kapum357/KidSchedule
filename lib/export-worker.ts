@@ -13,7 +13,7 @@ import {
   incrementProcessed,
   incrementFailed,
 } from "./export-worker-state";
-import type { ExportJobStatus, ExportJobRecord } from " @/lib";
+import type { ExportJobStatus, ExportJobRecord } from "@/lib";
 
 // Worker configuration
 const WORKER_POLL_INTERVAL_MS = 1000; // Check queue every 1 second

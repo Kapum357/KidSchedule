@@ -9,7 +9,7 @@
  */
 
 import { MediationAnalyzer } from "@/lib/mediation-analyzer";
-import type { Message } from " @/lib";
+import type { Message } from "@/lib";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

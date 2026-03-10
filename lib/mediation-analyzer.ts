@@ -42,7 +42,7 @@
  *   (W ≤ total warnings in period, typically <50)
  */
 
-import type { Message } from " @/lib";
+import type { Message } from "@/lib";
 
 // ─── Public Types ────────────────────────────────────────────────────────────
 

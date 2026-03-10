@@ -9,7 +9,7 @@
  * - Type-safe content rendering
  */
 
-import type { LegalDocument, LegalSection, LegalVersion } from " @/lib";
+import type { LegalDocument, LegalSection, LegalVersion } from "@/lib";
 
 // ─── Version Registry ──────────────────────────────────────────────────────────
 

@@ -15,7 +15,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { SettleBalanceButton } from "@/components/settle-balance-button";
-import type { Expense, Parent, Child } from " @/lib";
+import type { Expense, Parent, Child } from "@/lib";
 import type { DbExpense, DbParent, DbChild } from "@/lib/persistence/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────

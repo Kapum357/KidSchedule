@@ -1,6 +1,6 @@
 'use server'
 
-import { requireAuth, type SessionUser } from '@/lib'
+import { requireAuth, type SessionUser } from '@/lib/auth'
 import { db } from '@/lib/persistence'
 import type { DbScheduleOverride } from '@/lib/persistence/types'
 import { revalidatePath } from 'next/cache'

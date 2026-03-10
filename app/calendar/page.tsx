@@ -40,7 +40,7 @@ import type {
   Parent,
   ScheduleChangeRequest,
   ScheduleOverride,
-} from " @/lib";
+} from "@/lib";
 import type {
   DbCalendarEvent,
   DbChild,

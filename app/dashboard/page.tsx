@@ -23,7 +23,7 @@ import type {
   Reminder,
   ScheduleChangeRequest,
   ScheduleTransition,
-} from " @/lib";
+} from "@/lib";
 
 // ─── Formatting Helpers ───────────────────────────────────────────────────────
 

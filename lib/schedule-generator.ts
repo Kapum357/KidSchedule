@@ -25,7 +25,7 @@ import type {
   ScheduleGeneratorOutput,
   ScheduleEvent,
   ScheduleOverride,
-} from " @/lib";
+} from "@/lib";
 
 /**
  * Generates a complete custody schedule with holiday overrides applied.

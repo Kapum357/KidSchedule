@@ -4,7 +4,7 @@
  * Displays a single message with sender info, timestamp, and read receipt indicator.
  */
 
-import type { Message } from " @/lib";
+import type { Message } from "@/lib";
 
 interface MessageItemProps {
   message: Message;

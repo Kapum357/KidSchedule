@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import type { AuthResult } from " @/lib";
+import type { AuthResult } from "@/lib";
 import Script from "next/script";
 
 export default function SignupForm({

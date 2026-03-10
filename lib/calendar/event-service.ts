@@ -6,7 +6,7 @@
  * for calendar events integrated with custody schedules.
  */
 
-import type { ConfirmationStatus, EventCategory } from " @/lib";
+import type { ConfirmationStatus, EventCategory } from "@/lib";
 import type { DbCalendarEvent } from "@/lib/persistence/types";
 import { db } from "@/lib/persistence";
 import { audit } from "@/lib/auth";

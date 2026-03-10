@@ -6,7 +6,7 @@
  */
 
 import PDFDocument from "pdfkit";
-import type { ExportJobRecord, ExportResult, ExportType, ExpenseCategory } from " @/lib";
+import type { ExportJobRecord, ExportResult, ExportType, ExpenseCategory } from "@/lib";
 import { getDb } from "@/lib/persistence";
 import type { DbMoment } from "@/lib/persistence/types";
 import { generateCustodyCompliancePdf } from "@/lib/pdf-generator";

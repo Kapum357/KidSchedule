@@ -30,7 +30,7 @@ import type {
   SchoolVaultDocument,
   LunchMenu,
   VolunteerBalance,
-} from " @/lib";
+} from "@/lib";
 import {
   PTAEngine,
 } from "@/lib/pta-engine";

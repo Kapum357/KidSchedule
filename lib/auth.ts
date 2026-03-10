@@ -221,6 +221,7 @@ export {
   verifyPhoneOTP,
   resetPassword,
   verifyEmailAddress,
+  validateResetToken,
 } from "./auth/index";
 
 // ─── Session Context ──────────────────────────────────────────────────────────

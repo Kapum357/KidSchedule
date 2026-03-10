@@ -11,7 +11,7 @@ import {
   getPasswordStrength,
 } from "@/lib/auth/signup-validator";
 
-import type { SignupCredentials } from " @/lib";
+import type { SignupCredentials } from "@/lib";
 
 // helper to create minimal valid credential object
 function makeCreds(overrides: Partial<SignupCredentials> = {}): SignupCredentials {

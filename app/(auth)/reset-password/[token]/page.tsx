@@ -17,7 +17,7 @@
  */
 
 import { redirect } from "next/navigation";
-import { resetPassword } from "@/lib/auth";
+import { resetPassword, validateResetToken } from "@/lib/auth";
 
 /**
  * Server Action: Performs the actual password reset.
@@ -204,7 +204,6 @@ export default async function ResetPasswordPage({
   const error = typeof queryParams.error === "string" ? queryParams.error : undefined;
 
   // Validate token before rendering the form
-  const { validateResetToken } = await import("@/lib/auth");
   const validation = await validateResetToken(token);
   
   if (!validation.valid) {

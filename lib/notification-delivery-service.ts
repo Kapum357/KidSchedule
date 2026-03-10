@@ -6,7 +6,7 @@
  */
 
 import { getDb } from "@/lib/persistence";
-import type { Parent } from " @/lib";
+import type { Parent } from "@/lib";
 import { getSmsSender } from "@/lib/providers/sms";
 import { getEmailSender } from "@/lib/providers/email";
 

@@ -21,7 +21,7 @@
 import { getDb } from "@/lib/persistence";
 import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
 import { logEvent } from "@/lib/observability/logger";
-import type { ScheduleOverride, Family, HolidayDefinition, Parent } from " @/lib";
+import type { ScheduleOverride, Family, HolidayDefinition, Parent } from "@/lib";
 import type { DbScheduleOverride } from "@/lib/persistence";
 
 /**

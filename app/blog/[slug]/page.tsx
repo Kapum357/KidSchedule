@@ -16,7 +16,7 @@
  *
  */
 
-import type { ArticleReadingSession, BlogCategory, BlogPost } from " @/lib";
+import type { ArticleReadingSession, BlogCategory, BlogPost } from "@/lib";
 import { BlogArticleEngine } from "@/lib/blog-article-engine";
 import { db } from "@/lib/persistence";
 import type { DbBlogPost } from "@/lib/persistence/types";

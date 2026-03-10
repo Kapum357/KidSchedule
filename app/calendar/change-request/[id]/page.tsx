@@ -12,7 +12,7 @@ import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
-import type { Parent, ScheduleChangeRequest } from " @/lib";
+import type { Parent, ScheduleChangeRequest } from "@/lib";
 import type { DbParent } from "@/lib/persistence/types";
 import { ActionButtons } from "./action-buttons";
 import { DiscussionThread } from "./discussion-thread";

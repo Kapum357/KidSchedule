@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import type { ScheduleOverride, ScheduleChangeRequest } from '@/types';
+import type { ScheduleOverride, ScheduleChangeRequest } from '@/lib';
 
 type CustodyPeriod = {
   startTime: string;

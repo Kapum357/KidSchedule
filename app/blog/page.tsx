@@ -14,7 +14,7 @@
 import { Suspense } from "react";
 import { BlogEngine } from "@/lib/blog-engine";
 import { db } from "@/lib/persistence";
-import type { BlogCategory, BlogPost } from " @/lib";
+import type { BlogCategory, BlogPost } from "@/lib";
 import { PaginationControls } from "./pagination-controls";
 import { OptimizedImage } from "@/components/optimized-image";
 import Link from "next/link";

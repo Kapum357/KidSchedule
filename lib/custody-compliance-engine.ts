@@ -18,7 +18,7 @@ import type {
   ChangeRequestStatus,
   ScheduleOverride,
   ScheduleChangeRequest,
-} from " @/lib";
+} from "@/lib";
 import { CustodyEngine } from "./custody-engine";
 import { getDb } from "@/lib/persistence";
 

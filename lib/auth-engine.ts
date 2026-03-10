@@ -11,7 +11,7 @@ import type {
   PasswordResetRequest,
   PhoneVerificationRequest,
   PhoneVerificationResult,
-} from " @/lib";
+} from "@/lib";
 
 // ─── Configuration ─────────────────────────────────────────────────────────────
 

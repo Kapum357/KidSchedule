@@ -15,8 +15,8 @@ import {
   generateCustodySchedule,
   validateScheduleInput,
 } from "@/lib/custody-schedule-generator";
-import type { ScheduleGeneratorInput } from " @/lib";
-import { SchedulePattern } from " @/lib";
+import type { ScheduleGeneratorInput } from "@/lib";
+import { SchedulePattern } from "@/lib";
 
 // ─── Test Fixtures ───────────────────────────────────────────────────────────
 
