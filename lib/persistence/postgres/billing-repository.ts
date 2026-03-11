@@ -3,6 +3,8 @@
  *
  * Manages Stripe customers, payment methods, subscriptions,
  * invoices, and webhook event processing.
+ *
+ * Interfaces are defined in ../repositories. This file contains only implementations.
  */
 
 import type {
@@ -15,66 +17,17 @@ import type {
   SubscriptionStatus,
   InvoiceStatus,
 } from "../types";
+import type {
+  StripeCustomerRepository,
+  PaymentMethodRepository,
+  SubscriptionRepository,
+  InvoiceRepository,
+  WebhookEventRepository,
+  PlanTierRepository,
+} from "../repositories";
 import { sql, type SqlClient } from "./client";
 
-// ─── Stripe Customer Repository ───────────────────────────────────────────────
-
-export interface StripeCustomerRepository {
-  findByUserId(userId: string): Promise<DbStripeCustomer | null>;
-  findByStripeId(stripeCustomerId: string): Promise<DbStripeCustomer | null>;
-  create(data: Omit<DbStripeCustomer, "id" | "createdAt" | "updatedAt">): Promise<DbStripeCustomer>;
-  update(id: string, data: Partial<DbStripeCustomer>): Promise<DbStripeCustomer | null>;
-}
-
-// ─── Payment Method Repository ────────────────────────────────────────────────
-
-export interface PaymentMethodRepository {
-  findByCustomer(stripeCustomerLocalId: string): Promise<DbPaymentMethod[]>;
-  findDefault(stripeCustomerLocalId: string): Promise<DbPaymentMethod | null>;
-  findByStripeId(stripePaymentMethodId: string): Promise<DbPaymentMethod | null>;
-  create(data: Omit<DbPaymentMethod, "id" | "createdAt" | "updatedAt">): Promise<DbPaymentMethod>;
-  setDefault(id: string, stripeCustomerLocalId: string): Promise<void>;
-  softDelete(id: string): Promise<void>;
-}
-
-// ─── Subscription Repository ──────────────────────────────────────────────────
-
-export interface SubscriptionRepository {
-  findByCustomer(stripeCustomerLocalId: string): Promise<DbSubscription | null>;
-  findByStripeId(stripeSubscriptionId: string): Promise<DbSubscription | null>;
-  findActive(stripeCustomerLocalId: string): Promise<DbSubscription | null>;
-  create(data: Omit<DbSubscription, "id" | "createdAt" | "updatedAt">): Promise<DbSubscription>;
-  update(id: string, data: Partial<DbSubscription>): Promise<DbSubscription | null>;
-}
-
-// ─── Invoice Repository ───────────────────────────────────────────────────────
-
-export interface InvoiceRepository {
-  findByCustomer(stripeCustomerLocalId: string, limit?: number): Promise<DbInvoice[]>;
-  findByStripeId(stripeInvoiceId: string): Promise<DbInvoice | null>;
-  findBySubscription(subscriptionId: string): Promise<DbInvoice[]>;
-  findOpen(stripeCustomerLocalId: string): Promise<DbInvoice[]>;
-  upsert(data: Omit<DbInvoice, "id" | "createdAt" | "updatedAt">): Promise<DbInvoice>;
-}
-
-// ─── Webhook Event Repository ─────────────────────────────────────────────────
-
-export interface WebhookEventRepository {
-  findByStripeEventId(stripeEventId: string): Promise<DbWebhookEvent | null>;
-  createIfNotExists(data: Omit<DbWebhookEvent, "id" | "createdAt">): Promise<{ event: DbWebhookEvent; alreadyProcessed: boolean }>;
-  markProcessed(id: string): Promise<void>;
-  markFailed(id: string, error: string): Promise<void>;
-  findUnprocessed(limit?: number): Promise<DbWebhookEvent[]>;
-}
-
-// ─── Plan Tier Repository ─────────────────────────────────────────────────────
-
-export interface PlanTierRepository {
-  findAll(): Promise<DbPlanTier[]>;
-  findById(id: string): Promise<DbPlanTier | null>;
-}
-
-// ─── Implementations ──────────────────────────────────────────────────────────
+// ─── Stripe Customer impl ─────────────────────────────────────────────────────
 
 type CustomerRow = {
   id: string; user_id: string; stripe_customer_id: string;
@@ -120,6 +73,99 @@ export function createStripeCustomerRepository(tx?: SqlClient): StripeCustomerRe
       }
       const rows = await q<CustomerRow[]>`SELECT * FROM stripe_customers WHERE id = ${id} LIMIT 1`;
       return rows[0] ? customerRowToDb(rows[0]) : null;
+    },
+  };
+}
+
+// ─── Payment Method impl ──────────────────────────────────────────────────────
+
+type PaymentMethodRow = {
+  id: string; stripe_customer_id: string; stripe_payment_method_id: string;
+  type: string; last4: string | null; brand: string | null;
+  exp_month: number | null; exp_year: number | null;
+  is_default: boolean; is_deleted: boolean; deleted_at: Date | null;
+  created_at: Date; updated_at: Date;
+};
+
+function paymentMethodRowToDb(r: PaymentMethodRow): DbPaymentMethod {
+  return {
+    id: r.id,
+    stripeCustomerId: r.stripe_customer_id,
+    stripePaymentMethodId: r.stripe_payment_method_id,
+    type: r.type,
+    last4: r.last4 ?? undefined,
+    brand: r.brand ?? undefined,
+    expMonth: r.exp_month ?? undefined,
+    expYear: r.exp_year ?? undefined,
+    isDefault: r.is_default,
+    isDeleted: r.is_deleted,
+    deletedAt: r.deleted_at?.toISOString(),
+    createdAt: r.created_at.toISOString(),
+    updatedAt: r.updated_at.toISOString(),
+  };
+}
+
+export function createPaymentMethodRepository(tx?: SqlClient): PaymentMethodRepository {
+  const q: SqlClient = tx ?? sql;
+
+  return {
+    async findByCustomer(stripeCustomerLocalId) {
+      const rows = await q<PaymentMethodRow[]>`
+        SELECT * FROM payment_methods
+        WHERE stripe_customer_id = ${stripeCustomerLocalId} AND is_deleted = false
+        ORDER BY is_default DESC, created_at DESC
+      `;
+      return rows.map(paymentMethodRowToDb);
+    },
+
+    async findDefault(stripeCustomerLocalId) {
+      const rows = await q<PaymentMethodRow[]>`
+        SELECT * FROM payment_methods
+        WHERE stripe_customer_id = ${stripeCustomerLocalId} AND is_default = true AND is_deleted = false
+        LIMIT 1
+      `;
+      return rows[0] ? paymentMethodRowToDb(rows[0]) : null;
+    },
+
+    async findByStripeId(stripePaymentMethodId) {
+      const rows = await q<PaymentMethodRow[]>`
+        SELECT * FROM payment_methods WHERE stripe_payment_method_id = ${stripePaymentMethodId} LIMIT 1
+      `;
+      return rows[0] ? paymentMethodRowToDb(rows[0]) : null;
+    },
+
+    async create(data) {
+      const rows = await q<PaymentMethodRow[]>`
+        INSERT INTO payment_methods (
+          stripe_customer_id, stripe_payment_method_id, type,
+          last4, brand, exp_month, exp_year, is_default, is_deleted
+        ) VALUES (
+          ${data.stripeCustomerId}, ${data.stripePaymentMethodId}, ${data.type},
+          ${data.last4 ?? null}, ${data.brand ?? null}, ${data.expMonth ?? null},
+          ${data.expYear ?? null}, ${data.isDefault}, ${data.isDeleted}
+        )
+        RETURNING *
+      `;
+      return paymentMethodRowToDb(rows[0]);
+    },
+
+    async setDefault(id, stripeCustomerLocalId) {
+      // Clear existing default, then set new one
+      await q`
+        UPDATE payment_methods SET is_default = false, updated_at = NOW()
+        WHERE stripe_customer_id = ${stripeCustomerLocalId} AND is_default = true
+      `;
+      await q`
+        UPDATE payment_methods SET is_default = true, updated_at = NOW()
+        WHERE id = ${id} AND stripe_customer_id = ${stripeCustomerLocalId}
+      `;
+    },
+
+    async softDelete(id) {
+      await q`
+        UPDATE payment_methods SET is_deleted = true, deleted_at = NOW(), is_default = false, updated_at = NOW()
+        WHERE id = ${id}
+      `;
     },
   };
 }
@@ -205,6 +251,121 @@ export function createSubscriptionRepository(tx?: SqlClient): SubscriptionReposi
   };
 }
 
+// ─── Invoice impl ─────────────────────────────────────────────────────────────
+
+type InvoiceRow = {
+  id: string; stripe_customer_id: string; subscription_id: string | null;
+  stripe_invoice_id: string; status: string; billing_reason: string | null;
+  currency: string; subtotal: number; total: number; amount_due: number;
+  amount_paid: number; amount_remaining: number; tax: number;
+  due_date: Date | null; paid_at: Date | null; voided_at: Date | null;
+  invoice_pdf: string | null; hosted_invoice_url: string | null;
+  metadata: Record<string, unknown>; created_at: Date; updated_at: Date;
+};
+
+function invoiceRowToDb(r: InvoiceRow): DbInvoice {
+  return {
+    id: r.id,
+    stripeCustomerId: r.stripe_customer_id,
+    subscriptionId: r.subscription_id ?? undefined,
+    stripeInvoiceId: r.stripe_invoice_id,
+    status: r.status as InvoiceStatus,
+    billingReason: r.billing_reason ?? undefined,
+    currency: r.currency,
+    subtotal: r.subtotal,
+    total: r.total,
+    amountDue: r.amount_due,
+    amountPaid: r.amount_paid,
+    amountRemaining: r.amount_remaining,
+    tax: r.tax,
+    dueDate: r.due_date?.toISOString(),
+    paidAt: r.paid_at?.toISOString(),
+    voidedAt: r.voided_at?.toISOString(),
+    invoicePdf: r.invoice_pdf ?? undefined,
+    hostedInvoiceUrl: r.hosted_invoice_url ?? undefined,
+    metadata: r.metadata,
+    createdAt: r.created_at.toISOString(),
+    updatedAt: r.updated_at.toISOString(),
+  };
+}
+
+export function createInvoiceRepository(tx?: SqlClient): InvoiceRepository {
+  const q: SqlClient = tx ?? sql;
+
+  return {
+    async findByCustomer(stripeCustomerLocalId, limit = 50) {
+      const rows = await q<InvoiceRow[]>`
+        SELECT * FROM invoices
+        WHERE stripe_customer_id = ${stripeCustomerLocalId}
+        ORDER BY created_at DESC
+        LIMIT ${limit}
+      `;
+      return rows.map(invoiceRowToDb);
+    },
+
+    async findByStripeId(stripeInvoiceId) {
+      const rows = await q<InvoiceRow[]>`
+        SELECT * FROM invoices WHERE stripe_invoice_id = ${stripeInvoiceId} LIMIT 1
+      `;
+      return rows[0] ? invoiceRowToDb(rows[0]) : null;
+    },
+
+    async findBySubscription(subscriptionId) {
+      const rows = await q<InvoiceRow[]>`
+        SELECT * FROM invoices WHERE subscription_id = ${subscriptionId} ORDER BY created_at DESC
+      `;
+      return rows.map(invoiceRowToDb);
+    },
+
+    async findOpen(stripeCustomerLocalId) {
+      const rows = await q<InvoiceRow[]>`
+        SELECT * FROM invoices
+        WHERE stripe_customer_id = ${stripeCustomerLocalId} AND status IN ('open', 'draft')
+        ORDER BY created_at DESC
+      `;
+      return rows.map(invoiceRowToDb);
+    },
+
+    async upsert(data) {
+      const rows = await q<InvoiceRow[]>`
+        INSERT INTO invoices (
+          stripe_customer_id, subscription_id, stripe_invoice_id, status, billing_reason,
+          currency, subtotal, total, amount_due, amount_paid, amount_remaining, tax,
+          due_date, paid_at, voided_at, invoice_pdf, hosted_invoice_url, metadata
+        ) VALUES (
+          ${data.stripeCustomerId}, ${data.subscriptionId ?? null}, ${data.stripeInvoiceId},
+          ${data.status}, ${data.billingReason ?? null},
+          ${data.currency}, ${data.subtotal}, ${data.total}, ${data.amountDue},
+          ${data.amountPaid}, ${data.amountRemaining}, ${data.tax},
+          ${data.dueDate ? new Date(data.dueDate) : null},
+          ${data.paidAt ? new Date(data.paidAt) : null},
+          ${data.voidedAt ? new Date(data.voidedAt) : null},
+          ${data.invoicePdf ?? null}, ${data.hostedInvoiceUrl ?? null},
+          ${JSON.stringify(data.metadata)}
+        )
+        ON CONFLICT (stripe_invoice_id) DO UPDATE SET
+          status           = EXCLUDED.status,
+          billing_reason   = EXCLUDED.billing_reason,
+          subtotal         = EXCLUDED.subtotal,
+          total            = EXCLUDED.total,
+          amount_due       = EXCLUDED.amount_due,
+          amount_paid      = EXCLUDED.amount_paid,
+          amount_remaining = EXCLUDED.amount_remaining,
+          tax              = EXCLUDED.tax,
+          due_date         = EXCLUDED.due_date,
+          paid_at          = EXCLUDED.paid_at,
+          voided_at        = EXCLUDED.voided_at,
+          invoice_pdf      = EXCLUDED.invoice_pdf,
+          hosted_invoice_url = EXCLUDED.hosted_invoice_url,
+          metadata         = EXCLUDED.metadata,
+          updated_at       = NOW()
+        RETURNING *
+      `;
+      return invoiceRowToDb(rows[0]);
+    },
+  };
+}
+
 // ─── Webhook Event impl ───────────────────────────────────────────────────────
 
 type WebhookRow = {
@@ -233,7 +394,6 @@ export function createWebhookEventRepository(tx?: SqlClient): WebhookEventReposi
       return rows[0] ? webhookRowToDb(rows[0]) : null;
     },
     async createIfNotExists(data) {
-      // Use INSERT ... ON CONFLICT DO NOTHING for idempotency
       const rows = await q<WebhookRow[]>`
         INSERT INTO webhook_events (stripe_event_id, type, api_version, payload, retry_count)
         VALUES (${data.stripeEventId}, ${data.type}, ${data.apiVersion || null}, ${JSON.stringify(data.payload)}, 0)
@@ -243,7 +403,6 @@ export function createWebhookEventRepository(tx?: SqlClient): WebhookEventReposi
       if (rows[0]) {
         return { event: webhookRowToDb(rows[0]), alreadyProcessed: false };
       }
-      // Already existed — fetch and return
       const existing = await q<WebhookRow[]>`
         SELECT * FROM webhook_events WHERE stripe_event_id = ${data.stripeEventId} LIMIT 1
       `;
