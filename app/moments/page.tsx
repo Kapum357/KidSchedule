@@ -1,4 +1,8 @@
 import { MomentsGallery } from "./moments-gallery";
+import { NotificationButton } from "@/components/notification-button";
+import { MobileNavOverlay } from "@/components/mobile-nav-overlay";
+import { ThemeToggle } from "@/app/theme-toggle";
+import Link from "next/link";
 
 export default function MomentsGalleryPage() {
   return (
@@ -6,6 +10,18 @@ export default function MomentsGalleryPage() {
       <header className="sticky top-0 z-30 border-b border-gray-200 bg-surface-light dark:border-gray-800 dark:bg-surface-dark">
         <div className="mx-auto flex h-16 max-w-[96rem] items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
+            <MobileNavOverlay
+              navItems={[
+                { href: "/dashboard", icon: "grid_view", label: "Dashboard" },
+                { href: "/calendar", icon: "calendar_month", label: "Calendar" },
+                { href: "/expenses", icon: "receipt_long", label: "Expenses" },
+                { href: "/messages", icon: "chat", label: "Messages" },
+                { href: "/school", icon: "school", label: "School" },
+                { href: "/moments", icon: "photo_library", label: "Moments", active: true },
+              ]}
+              userName="Parent"
+              userInitials="JD"
+            />
             <div className="rounded-lg bg-primary/20 p-2 text-primary">
               <span className="material-symbols-outlined text-2xl">family_restroom</span>
             </div>
@@ -31,9 +47,15 @@ export default function MomentsGalleryPage() {
               <span>Log New Moment</span>
             </a>
 
-            <div className="ml-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-indigo-200 bg-indigo-100 text-xs font-bold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
+            <NotificationButton initialPendingCount={0} />
+            <ThemeToggle />
+            <Link
+              href="/settings"
+              aria-label="Go to settings"
+              className="ml-1 flex h-8 w-8 items-center justify-center rounded-full border border-indigo-200 bg-indigo-100 text-xs font-bold text-indigo-700 hover:opacity-80 transition-opacity dark:border-indigo-800 dark:bg-indigo-900 dark:text-indigo-300"
+            >
               JD
-            </div>
+            </Link>
           </div>
         </div>
       </header>

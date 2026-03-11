@@ -16,6 +16,9 @@ import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
 import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
+import { NotificationButton } from "@/components/notification-button";
+import { MobileNavOverlay } from "@/components/mobile-nav-overlay";
+import { AppNavSidebar } from "@/components/app-nav-sidebar";
 import { CalendarFeedSubscription } from "@/app/calendar/calendar-feed-subscription";
 import { CalendarDayCell } from "@/components/calendar-day-cell";
 import { CalendarViewSwitcher } from "@/components/calendar-view-switcher";
@@ -766,7 +769,25 @@ export default async function CalendarPage({
     <>
       {/* ── Top Nav Header ────────────────────────────────────────────────── */}
       <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 sticky top-0 z-50">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <MobileNavOverlay
+            navItems={[
+              { href: "/dashboard", icon: "grid_view", label: "Dashboard" },
+              { href: "/calendar", icon: "calendar_month", label: "Calendar", active: true },
+              { href: "/expenses", icon: "receipt_long", label: "Expenses" },
+              { href: "/messages", icon: "chat", label: "Messages" },
+              { href: "/school", icon: "school", label: "School" },
+              { href: "/vault", icon: "folder_open", label: "Vault" },
+            ]}
+            userName={activeParent.name}
+            userInitials={activeParent.name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
+            avatarUrl={activeParent.avatarUrl ?? undefined}
+          />
           <div className="size-8 text-primary">
             <svg
               className="w-full h-full"
@@ -798,39 +819,16 @@ export default async function CalendarPage({
           </h2>
         </div>
 
-        <div className="flex flex-1 justify-end gap-8">
-          <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-9">
-            <a className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors" href="/dashboard">
-              Dashboard
-            </a>
-            <a className="text-primary text-sm font-bold leading-normal border-b-2 border-primary pb-0.5" href="/calendar">
-              Calendar
-            </a>
-            <a className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors" href="/expenses">
-              Expenses
-            </a>
-            <a className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors" href="/messages">
-              Messages
-            </a>
-            <a className="text-slate-900 dark:text-slate-100 text-sm font-medium leading-normal hover:text-primary transition-colors" href="/settings">
-              Profile
-            </a>
-          </nav>
-          <div className="flex gap-2">
-            <button
-              aria-label="View notifications"
-              className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined">notifications</span>
-            </button>
-            <button
-              aria-label="Open settings"
-              className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined">settings</span>
-            </button>
-            <ThemeToggle />
-          </div>
+        <div className="flex items-center gap-2">
+          <NotificationButton initialPendingCount={0} />
+          <Link
+            href="/settings"
+            aria-label="Go to settings"
+            className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined">settings</span>
+          </Link>
+          <ThemeToggle />
         </div>
       </header>
 
@@ -839,6 +837,24 @@ export default async function CalendarPage({
         id="main-content"
         className="flex-1 flex flex-col md:flex-row overflow-hidden h-[calc(100vh-65px)]"
       >
+        <AppNavSidebar
+          navItems={[
+            { href: "/dashboard", icon: "grid_view", label: "Dashboard" },
+            { href: "/calendar", icon: "calendar_month", label: "Calendar", active: true },
+            { href: "/expenses", icon: "receipt_long", label: "Expenses" },
+            { href: "/messages", icon: "chat", label: "Messages" },
+            { href: "/school", icon: "school", label: "School" },
+            { href: "/vault", icon: "folder_open", label: "Vault" },
+          ]}
+          userName={activeParent.name}
+          userInitials={activeParent.name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase()}
+          avatarUrl={activeParent.avatarUrl ?? undefined}
+        />
         <CalendarSidebar
           data={data}
           pendingRequests={pendingRequests}

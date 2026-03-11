@@ -14,6 +14,8 @@ import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/app/theme-toggle";
+import { NotificationButton } from "@/components/notification-button";
+import { MobileNavOverlay } from "@/components/mobile-nav-overlay";
 import { SettleBalanceButton } from "@/components/settle-balance-button";
 import type { Expense, Parent, Child } from "@/lib";
 import type { DbExpense, DbParent, DbChild } from "@/lib/persistence/types";
@@ -264,6 +266,7 @@ function ExpensesSidebar({
             </a>
             <a
               href="/expenses"
+              aria-current="page"
               className="flex items-center gap-3 px-3 py-2 text-primary bg-primary/10 rounded-lg font-medium transition-colors"
             >
               <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -409,9 +412,13 @@ function ExpensesSidebar({
             </p>
             <p className="text-xs text-slate-500 truncate">{parents[0].email}</p>
           </div>
-          <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-            <span className="material-symbols-outlined text-[20px]">settings</span>
-          </button>
+          <Link
+            href="/settings"
+            aria-label="Go to settings"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-[20px]">settings</span>
+          </Link>
         </div>
       </div>
     </aside>
@@ -727,12 +734,24 @@ export default async function ExpensesPage({
         {/* Header */}
         <header className="bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark h-16 flex items-center justify-between px-4 sm:px-8 shadow-sm z-10">
           <div className="flex items-center gap-4 lg:hidden">
-            <button
-              className="text-slate-500 hover:text-slate-700"
-              aria-label="Open sidebar menu"
-            >
-              <span className="material-symbols-outlined">menu</span>
-            </button>
+            <MobileNavOverlay
+              navItems={[
+                { href: "/dashboard", icon: "grid_view", label: "Dashboard" },
+                { href: "/calendar", icon: "calendar_month", label: "Calendar" },
+                { href: "/expenses", icon: "receipt_long", label: "Expenses", active: true },
+                { href: "/messages", icon: "chat", label: "Messages" },
+                { href: "/school", icon: "school", label: "School" },
+                { href: "/vault", icon: "folder_open", label: "Vault" },
+              ]}
+              userName={activeParent.name}
+              userInitials={activeParent.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()}
+              avatarUrl={activeParent.avatarUrl ?? undefined}
+            />
             <div className="flex items-center gap-2 text-primary">
               <span className="material-symbols-outlined text-2xl">family_restroom</span>
               <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
@@ -746,6 +765,7 @@ export default async function ExpensesPage({
           </h1>
 
           <div className="flex items-center gap-3">
+            <NotificationButton initialPendingCount={0} />
             <SettleBalanceButton />
             <Link
               href="/expenses/add"

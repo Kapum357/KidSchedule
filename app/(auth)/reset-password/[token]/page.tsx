@@ -85,7 +85,7 @@ function BrandPanel() {
           <a className="hover:text-white transition-colors" href="/privacy">
             Privacy
           </a>
-          <a className="hover:text-white transition-colors" href="/terms">
+          <a className="hover:text-white transition-colors" href="/legal">
             Terms
           </a>
         </div>

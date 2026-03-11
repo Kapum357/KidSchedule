@@ -2,6 +2,8 @@
  * KidSchedule – Parent Dashboard
  */
 import { OptimizedImage } from "@/components/optimized-image";
+import { NotificationButton } from "@/components/notification-button";
+import { MobileNavOverlay } from "@/components/mobile-nav-overlay";
 import { SchedulePresets } from "@/lib/custody-engine";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -126,6 +128,7 @@ function Sidebar({
             <a
               key={link.href}
               href={link.href}
+              aria-current={isActive ? "page" : undefined}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
                 isActive
                   ? "text-primary bg-primary/10 font-semibold"
@@ -168,9 +171,10 @@ function Sidebar({
 
       {/* User profile */}
       <div className="p-4 border-t border-slate-100 dark:border-slate-800 shrink-0">
-        <button
+        <Link
+          href="/settings"
           className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-left"
-          aria-label="Account menu"
+          aria-label={`${currentParent.name} — go to settings`}
         >
           {currentParent.avatarUrl ? (
             <OptimizedImage
@@ -199,7 +203,7 @@ function Sidebar({
           <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-lg hidden sm:inline">
             expand_more
           </span>
-        </button>
+        </Link>
       </div>
     </aside>
   );
@@ -209,17 +213,27 @@ function Sidebar({
 
 function DashboardHeader({
   unreadCount,
-}: Readonly<{ unreadCount: number }>) {
+  userName,
+  userInitials,
+  avatarUrl,
+}: Readonly<{ unreadCount: number; userName: string; userInitials: string; avatarUrl?: string }>) {
   return (
     <header className="h-16 bg-white dark:bg-surface border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 z-10 shrink-0">
       <div className="flex items-center gap-4">
-        {/* Mobile hamburger */}
-        <button
-          aria-label="Open menu"
-          className="md:hidden p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
-        >
-          <span aria-hidden="true" className="material-symbols-outlined">menu</span>
-        </button>
+        <div className="md:hidden">
+          <MobileNavOverlay
+            navItems={[
+              { href: "/dashboard", icon: "dashboard", label: "Dashboard", active: true },
+              { href: "/calendar", icon: "calendar_month", label: "Calendar" },
+              { href: "/messages", icon: "forum", label: "Messages", badge: unreadCount > 0 ? unreadCount : undefined },
+              { href: "/expenses", icon: "account_balance_wallet", label: "Expenses" },
+              { href: "/vault", icon: "description", label: "Documents" },
+            ]}
+            userName={userName}
+            userInitials={userInitials}
+            avatarUrl={avatarUrl}
+          />
+        </div>
         <h1 className="text-xl font-bold text-slate-800 dark:text-white hidden sm:block">Dashboard</h1>
       </div>
 
@@ -239,19 +253,7 @@ function DashboardHeader({
             aria-label="Search"
           />
         </div>
-        {/* Notifications */}
-        <button
-          aria-label="View notifications"
-          className="relative p-2 text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 rounded-full transition-colors"
-        >
-          <span aria-hidden="true" className="material-symbols-outlined">notifications</span>
-          {unreadCount > 0 && (
-            <span
-              aria-hidden="true"
-              className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-surface"
-            />
-          )}
-        </button>
+        <NotificationButton initialPendingCount={unreadCount} />
         <ThemeToggle />
       </div>
     </header>
@@ -925,7 +927,12 @@ export default async function DashboardPage() {
         id="main-content"
         className="flex-1 flex flex-col h-full relative overflow-hidden"
       >
-        <DashboardHeader unreadCount={data.unreadMessageCount} />
+        <DashboardHeader
+          unreadCount={data.unreadMessageCount}
+          userName={data.currentParent.name}
+          userInitials={data.currentParent.name.charAt(0)}
+          avatarUrl={data.currentParent.avatarUrl ?? undefined}
+        />
 
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8">

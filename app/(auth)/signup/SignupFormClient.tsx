@@ -172,7 +172,7 @@ export default function SignupForm({
         </div>
         <label className="text-sm text-slate-600 dark:text-slate-400 leading-tight" htmlFor="agreedToTerms">
           I agree to the{" "}
-          <a className="text-primary hover:underline font-semibold" href="/terms">Terms of Service</a>{" "}
+          <a className="text-primary hover:underline font-semibold" href="/legal">Terms of Service</a>{" "}
           and{" "}
           <a className="text-primary hover:underline font-semibold" href="/privacy">Privacy Policy</a>.
         </label>

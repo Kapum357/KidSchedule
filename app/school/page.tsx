@@ -36,8 +36,9 @@ import {
 } from "@/lib/pta-engine";
 import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { ThemeToggle } from "@/app/theme-toggle";
+import { MobileNavOverlay } from "@/components/mobile-nav-overlay";
 import { LogoutButton } from "./logout-button";
-import { NotificationButton } from "./notification-button";
+import { NotificationButton } from "@/components/notification-button";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/persistence";
 import { redirect } from "next/navigation";
@@ -719,7 +720,7 @@ export default async function SchoolPortalPage({
     <>
       <div className="relative flex min-h-screen w-full flex-row overflow-hidden">
         {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
-        <nav aria-label="Primary school sidebar" className="w-72 bg-white dark:bg-[#1A2633] border-r border-slate-200 dark:border-slate-800 flex-col justify-between hidden lg:flex sticky top-0 h-screen z-20">
+        <nav aria-label="Primary school sidebar" className="w-64 bg-white dark:bg-[#1A2633] border-r border-slate-200 dark:border-slate-800 flex-col justify-between hidden lg:flex sticky top-0 h-screen z-20">
         <div className="flex flex-col gap-6 p-6">
           {/* Logo */}
           <div className="flex items-center gap-3">
@@ -747,6 +748,7 @@ export default async function SchoolPortalPage({
             ].map((item) => (
               <a
                 key={item.href}
+                aria-current={item.active ? "page" : undefined}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   item.active
                     ? "bg-primary/10 text-primary"
@@ -812,12 +814,24 @@ export default async function SchoolPortalPage({
             <span aria-hidden="true" className="material-symbols-outlined text-primary text-3xl">school</span>
             <h1 className="font-bold text-lg">KidSchedule</h1>
           </div>
-          <button 
-            className="p-2.5 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" 
-            aria-label="Open menu"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined">menu</span>
-          </button>
+          <MobileNavOverlay
+            navItems={[
+              { href: "/dashboard", icon: "grid_view", label: "Dashboard" },
+              { href: "/calendar", icon: "calendar_month", label: "Calendar" },
+              { href: "/expenses", icon: "receipt_long", label: "Expenses" },
+              { href: "/messages", icon: "chat", label: "Messages" },
+              { href: "/school", icon: "school", label: "School", active: true },
+              { href: "/vault", icon: "folder_open", label: "Vault" },
+            ]}
+            userName={activeParent.name}
+            userInitials={activeParent.name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
+            avatarUrl={activeParent.avatarUrl ?? undefined}
+          />
         </header>
 
         {/* Desktop page header */}
@@ -958,20 +972,24 @@ export default async function SchoolPortalPage({
                   <h3 className="font-bold text-slate-900 dark:text-white text-lg">
                     School Contacts
                   </h3>
-                  {/* Search is a UI affordance; wiring requires Client Component */}
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-slate-400">
-                      <span aria-hidden="true" className="material-symbols-outlined text-lg">search</span>
-                    </span>
-                    <input
-                      aria-label="Search school contacts"
-                      className="pl-8 pr-4 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border-none rounded-md w-40 focus:ring-1 focus:ring-primary text-slate-700 dark:text-slate-300"
-                      placeholder="Use ?q=name"
-                      value={searchQuery}
-                      readOnly
-                      type="text"
-                    />
-                  </div>
+                  <form method="GET" action="/school" role="search">
+                    {activeTab !== "overview" && (
+                      <input type="hidden" name="tab" value={activeTab} />
+                    )}
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-slate-400">
+                        <span aria-hidden="true" className="material-symbols-outlined text-lg">search</span>
+                      </span>
+                      <input
+                        name="q"
+                        aria-label="Search school contacts"
+                        className="pl-8 pr-4 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border-none rounded-md w-40 focus:ring-1 focus:ring-primary text-slate-700 dark:text-slate-300"
+                        placeholder="Search contacts…"
+                        defaultValue={searchQuery}
+                        type="search"
+                      />
+                    </div>
+                  </form>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

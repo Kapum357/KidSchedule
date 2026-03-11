@@ -28,7 +28,7 @@ const PUBLIC_ROUTES = new Set([
     "/archive",
   "/faq",
   "/privacy",
-  "/terms",
+  "/legal",
   "/for-coparents",
   "/for-families",
   "/for-teams",

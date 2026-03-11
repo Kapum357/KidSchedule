@@ -180,7 +180,7 @@ export default async function PhoneVerificationPage({ searchParams }: Readonly<P
             <div className="mt-4 pt-6 border-t border-[#eaf1f0] dark:border-slate-800 text-center">
               <p className="text-xs text-slate-400 dark:text-slate-500">
                 By continuing, you agree to our{" "}
-                <a className="underline hover:text-slate-900 dark:hover:text-white" href="/terms">
+                <a className="underline hover:text-slate-900 dark:hover:text-white" href="/legal">
                   Terms of Service
                 </a>{" "}
                 and{" "}
