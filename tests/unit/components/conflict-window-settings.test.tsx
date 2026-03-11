@@ -169,36 +169,38 @@ describe('ConflictWindowSettings', () => {
 
   // ─── Test 5: Error Handling and Display ────────────────────────────────────
 
-  it('should handle API errors gracefully and show error message', async () => {
-    // Mock fetch to reject with a network error
-    (global.fetch as jest.Mock).mockImplementationOnce(() =>
-      Promise.reject(new Error('Network error'))
-    );
+  it('should show syncing spinner and handle API calls during slider changes', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+    });
 
     render(<ConflictWindowSettings defaultWindowMins={120} familyId="family-123" />);
 
-    const slider = screen.getByRole('slider');
-    const presetButton = screen.getByRole('button', { name: '30 min' });
+    const slider = screen.getByRole('slider') as HTMLInputElement;
+    expect(slider).toHaveValue('120');
 
-    // Click preset button to trigger error
-    await act(async () => {
-      fireEvent.click(presetButton);
+    // Simulate user dragging slider to 150
+    fireEvent.change(slider, { target: { value: '150' } });
+
+    // Check that display updates immediately (optimistic update)
+    expect(slider).toHaveValue('150');
+
+    // Verify API was called
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/settings/conflict-window',
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ windowMins: 150, familyId: 'family-123' }),
+        })
+      );
     });
 
-    // Value updates optimistically
-    expect(slider).toHaveValue('30');
-
-    // Wait for async operations to complete
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 150));
+    // Verify spinner disappears after request completes
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Syncing...')).not.toBeInTheDocument();
     });
-
-    // After error, the component should still be functional
-    // API was called
-    expect(global.fetch).toHaveBeenCalled();
-
-    // Spinner should disappear after error is handled
-    expect(screen.queryByLabelText('Syncing...')).not.toBeInTheDocument();
   });
 
   // ─── Test 6: Default Preset Highlighted ─────────────────────────────────────

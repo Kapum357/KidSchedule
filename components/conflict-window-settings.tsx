@@ -35,7 +35,7 @@ export function ConflictWindowSettings({
   const { add: addToast } = useToast();
 
   const syncToServer = useCallback(
-    (newValue: number) => {
+    (newValue: number, fallbackValue: number) => {
       setIsSyncing(true);
 
       // Fire-and-forget API call
@@ -51,7 +51,7 @@ export function ConflictWindowSettings({
         })
         .catch((error) => {
           // Revert to previous value on error
-          setWindowMins(defaultWindowMins);
+          setWindowMins(fallbackValue);
           addToast('Failed to save. Please try again.', 'error', 3000);
           console.error('Failed to sync conflict window setting:', error);
         })
@@ -59,24 +59,24 @@ export function ConflictWindowSettings({
           setIsSyncing(false);
         });
     },
-    [defaultWindowMins, familyId, addToast]
+    [familyId, addToast]
   );
 
   const handleSliderChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = parseInt(e.target.value, 10);
       setWindowMins(newValue);
-      syncToServer(newValue);
+      syncToServer(newValue, windowMins);  // Pass current value as fallback
     },
-    [syncToServer]
+    [windowMins, syncToServer]
   );
 
   const handlePresetClick = useCallback(
     (presetMins: number) => {
       setWindowMins(presetMins);
-      syncToServer(presetMins);
+      syncToServer(presetMins, windowMins);  // Pass current value as fallback
     },
-    [syncToServer]
+    [windowMins, syncToServer]
   );
 
   return (
