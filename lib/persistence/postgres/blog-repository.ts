@@ -51,16 +51,16 @@ function rowToDb(row: BlogRow): DbBlogPost {
 }
 
 export function createBlogPostRepository(tx?: SqlClient): BlogPostRepository {
-  const query: SqlClient = tx ?? sql;
+  const q: SqlClient = tx ?? sql;
 
   return {
     async findById(id: string): Promise<DbBlogPost | null> {
-      const rows = await query<BlogRow[]>`SELECT * FROM blog_posts WHERE id = ${id}`;
+      const rows = await q<BlogRow[]>`SELECT * FROM blog_posts WHERE id = ${id}`;
       return rows[0] ? rowToDb(rows[0]) : null;
     },
 
     async findBySlug(slug: string): Promise<DbBlogPost | null> {
-      const rows = await query<BlogRow[]>`SELECT * FROM blog_posts WHERE slug = ${slug}`;
+      const rows = await q<BlogRow[]>`SELECT * FROM blog_posts WHERE slug = ${slug}`;
       return rows[0] ? rowToDb(rows[0]) : null;
     },
 
@@ -77,25 +77,25 @@ export function createBlogPostRepository(tx?: SqlClient): BlogPostRepository {
       let total: number;
 
       if (categories && categories.length > 0) {
-        posts = await query<BlogRow[]>`
+        posts = await q<BlogRow[]>`
           SELECT * FROM blog_posts
           WHERE is_published = TRUE AND categories ?| ${categories}
           ORDER BY ${sql.unsafe(orderBy)}
           LIMIT ${limit} OFFSET ${offset}
         `;
-        const countRows = await query<[{ count: string }]>`
+        const countRows = await q<[{ count: string }]>`
           SELECT COUNT(*) as count FROM blog_posts
           WHERE is_published = TRUE AND categories ?| ${categories}
         `;
         total = Number.parseInt(countRows[0].count, 10);
       } else {
-        posts = await query<BlogRow[]>`
+        posts = await q<BlogRow[]>`
           SELECT * FROM blog_posts
           WHERE is_published = TRUE
           ORDER BY ${sql.unsafe(orderBy)}
           LIMIT ${limit} OFFSET ${offset}
         `;
-        const countRows = await query<[{ count: string }]>`
+        const countRows = await q<[{ count: string }]>`
           SELECT COUNT(*) as count FROM blog_posts WHERE is_published = TRUE
         `;
         total = Number.parseInt(countRows[0].count, 10);
@@ -105,7 +105,7 @@ export function createBlogPostRepository(tx?: SqlClient): BlogPostRepository {
     },
 
     async findFeatured(): Promise<DbBlogPost | null> {
-      const rows = await query<BlogRow[]>`
+      const rows = await q<BlogRow[]>`
         SELECT * FROM blog_posts
         WHERE is_featured = TRUE AND is_published = TRUE
         ORDER BY published_at DESC LIMIT 1
@@ -114,11 +114,11 @@ export function createBlogPostRepository(tx?: SqlClient): BlogPostRepository {
     },
 
     async incrementViewCount(id: string): Promise<void> {
-      await query`UPDATE blog_posts SET view_count = view_count + 1 WHERE id = ${id}`;
+      await q`UPDATE blog_posts SET view_count = view_count + 1 WHERE id = ${id}`;
     },
 
     async incrementShareCount(id: string): Promise<void> {
-      await query`UPDATE blog_posts SET share_count = share_count + 1 WHERE id = ${id}`;
+      await q`UPDATE blog_posts SET share_count = share_count + 1 WHERE id = ${id}`;
     },
   };
 }
@@ -130,7 +130,7 @@ type CategoryRow = {
   slug: string;
   name: string;
   description: string | null;
-  created_at: Date;
+  createdAt: Date;
 };
 
 function categoryRowToDb(r: CategoryRow): DbBlogCategory {
@@ -139,7 +139,7 @@ function categoryRowToDb(r: CategoryRow): DbBlogCategory {
     slug: r.slug,
     name: r.name,
     description: r.description ?? undefined,
-    createdAt: r.created_at.toISOString(),
+    createdAt: r.createdAt.toISOString(),
   };
 }
 
