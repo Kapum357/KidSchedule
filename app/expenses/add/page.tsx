@@ -139,10 +139,20 @@ async function handleAddExpense(formData: FormData): Promise<void> {
 
   const parentId = session.userId;
 
-  // TODO: Get familyId from user context or family lookup
-  // Currently, this would be fetched from user's parent record or passed from context
-  // For now, placeholder that will fail if not resolved in Task 1
-  const familyId = ""; // Will be set from user's family context
+  // Look up parent's family
+  const parent = await db.parents.findByUserId(parentId);
+  if (!parent) {
+    const params = new URLSearchParams(baseParams);
+    params.set("error", "Could not find your family information. Please contact support.");
+    redirect(`/expenses/add?${params.toString()}`);
+  }
+
+  const familyId = parent.familyId;
+
+  // Get the other parent for split calculations
+  const otherParents = await db.parents.findByFamilyId(familyId);
+  const otherParent = otherParents.find((p) => p.id !== parent.id);
+  const otherParentId = otherParent?.id;
 
   // ─── Prepare Expense Data ──────────────────────────────────────────────────
 
@@ -158,11 +168,10 @@ async function handleAddExpense(formData: FormData): Promise<void> {
   // For custom splits, build splitRatio: { [parentId]: percentage, [otherParentId]: percentage }
   // splitSummary provides the "you" and "other" breakdown
   const splitRatio: Record<string, number> | undefined =
-    splitMethod === "custom"
+    splitMethod === "custom" && otherParentId
       ? {
           [parentId]: splitSummary.youPercent / 100,
-          // Note: other parent ID would come from family context
-          // For now, placeholder structure
+          [otherParentId]: splitSummary.otherPercent / 100,
         }
       : undefined;
 

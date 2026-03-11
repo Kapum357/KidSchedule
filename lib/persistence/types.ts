@@ -434,7 +434,10 @@ export interface DbMoment {
   mediaUrl: string;
   thumbnailUrl?: string;
   mediaType: "photo" | "video";
+  title: string;
   caption?: string;
+  childTag: "none" | "leo" | "mia" | "both";
+  visibility: "shared" | "private";
   takenAt?: string; // ISO date when photo was taken
   createdAt: string;
   updatedAt: string;

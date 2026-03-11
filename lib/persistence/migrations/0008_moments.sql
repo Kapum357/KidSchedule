@@ -11,7 +11,10 @@ CREATE TABLE moments (
   media_url TEXT NOT NULL,
   thumbnail_url TEXT,
   media_type TEXT NOT NULL CHECK (media_type IN ('photo', 'video')),
+  title TEXT NOT NULL,
   caption TEXT,
+  child_tag TEXT NOT NULL CHECK (child_tag IN ('none', 'leo', 'mia', 'both')),
+  visibility TEXT NOT NULL CHECK (visibility IN ('shared', 'private')) DEFAULT 'shared',
   taken_at DATE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

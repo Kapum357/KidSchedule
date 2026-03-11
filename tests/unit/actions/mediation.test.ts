@@ -24,6 +24,14 @@ jest.mock("@/lib", () => ({
   requireAuth: jest.fn(),
 }));
 
+jest.mock("@/lib/auth", () => {
+  const actual = jest.requireActual("@/lib/auth");
+  return {
+    ...actual,
+    requireAuth: jest.fn(),
+  };
+});
+
 jest.mock("@/lib/persistence", () => ({
   db: {
     parents: {
@@ -74,7 +82,7 @@ jest.mock("next/cache", () => ({
 // ─── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { adjustSuggestionTone, sendMediationSuggestion, loadMediationData, dismissWarning, getDeescalationTips } from "@/app/mediation/page-actions";
-import { requireAuth } from "@/lib";
+import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/persistence";
 import { adjustSuggestion } from "@/lib/providers/ai";
 import { getDeescalationTips as getDeescalationTipsFromAssistant } from "@/lib/providers/ai/mediation-assistant";

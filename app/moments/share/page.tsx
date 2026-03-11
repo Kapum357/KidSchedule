@@ -6,6 +6,9 @@ import {
   type MomentChildTag,
   type MomentVisibility,
 } from "@/lib/moment-engine";
+import { requireAuth } from "@/lib/auth";
+import { setCurrentFamilyId } from "@/lib/persistence/postgres/client";
+import { db } from "@/lib/persistence";
 import { FileUploadZone } from "./file-upload-zone";
 
 type ShareMomentSearchParams = {
@@ -73,7 +76,7 @@ async function handleShareMoment(formData: FormData): Promise<void> {
   "use server";
 
   const input = parseShareMomentFormData(formData);
-  const validation = validateShareMomentInput(input);
+  const mediaUrl = (formData.get("mediaUrl") as string | null) ?? "";
 
   const baseParams = buildQueryStringFromInput({
     title: input.title,
@@ -82,23 +85,74 @@ async function handleShareMoment(formData: FormData): Promise<void> {
     visibility: input.visibility,
   });
 
+  // Validate core fields
+  const validation = validateShareMomentInput(input);
   if (!validation.valid) {
     const params = new URLSearchParams(baseParams);
     params.set("error", validation.error ?? "Could not share this moment.");
     redirect(`/moments/share?${params.toString()}`);
   }
 
-  const success = new URLSearchParams(baseParams);
-  success.set("success", "1");
-  if (input.mediaFileName) {
-    success.set("file", "1");
+  // Validate media was uploaded
+  if (!mediaUrl) {
+    const params = new URLSearchParams(baseParams);
+    params.set("error", "Please wait for the file upload to complete before sharing.");
+    redirect(`/moments/share?${params.toString()}`);
   }
 
-  // Future persistence wiring point:
-  // - upload media file via provider adapter
-  // - persist moment record through lib/persistence boundary
-  // - emit moment_uploaded activity item
-  redirect(`/moments/share?${success.toString()}`);
+  // ─── Auth & Session ────────────────────────────────────────────────────────
+
+  let session;
+  try {
+    session = await requireAuth();
+  } catch (error) {
+    const params = new URLSearchParams(baseParams);
+    params.set("error", "You must be logged in to share a moment.");
+    redirect(`/moments/share?${params.toString()}`);
+  }
+
+  const uploadedBy = session.userId;
+
+  // Look up parent's family
+  const parent = await db.parents.findByUserId(uploadedBy);
+  if (!parent) {
+    const params = new URLSearchParams(baseParams);
+    params.set("error", "Could not find your family information. Please contact support.");
+    redirect(`/moments/share?${params.toString()}`);
+  }
+
+  const familyId = parent.familyId;
+
+  // ─── Create Moment ─────────────────────────────────────────────────────────
+
+  try {
+    // Set RLS context for family-scoped data isolation
+    await setCurrentFamilyId(familyId);
+
+    // Create moment in database
+    await db.moments.create({
+      familyId,
+      uploadedBy,
+      mediaUrl,
+      // Persist a simplified media kind matching the DB contract ("photo" | "video").
+      mediaType: input.mediaFileType?.startsWith("video/") ? "video" : "photo",
+      title: input.title,
+      caption: input.caption,
+      childTag: input.childTag,
+      visibility: input.visibility,
+      thumbnailUrl: undefined, // No thumbnail generation for now
+    });
+
+    const success = new URLSearchParams(baseParams);
+    success.set("success", "1");
+    success.set("file", "1");
+    redirect(`/moments/share?${success.toString()}`);
+  } catch (error) {
+    console.error("[Moments] Failed to create moment:", error);
+    const params = new URLSearchParams(baseParams);
+    params.set("error", "Could not save this moment. Please try again.");
+    redirect(`/moments/share?${params.toString()}`);
+  }
 }
 
 export default async function ShareMomentPage({

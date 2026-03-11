@@ -1,5 +1,5 @@
 import { createHoliday, updateHoliday, deleteHoliday, listHolidaysForFamily } from '@/app/actions/holidays'
-import { requireAuth } from '@/lib'
+import { requireAuth } from '@/lib/auth'
 import { db } from '@/lib/persistence'
 import { revalidatePath } from 'next/cache'
 import type { DbScheduleOverride } from '@/lib/persistence/types'
@@ -10,7 +10,18 @@ jest.mock('next/cache', () => ({
   revalidatePath: jest.fn(),
 }))
 
-jest.mock('@/lib')
+jest.mock('@/lib', () => ({
+  ...jest.requireActual('@/lib'),
+}))
+
+jest.mock('@/lib/auth', () => {
+  const actual = jest.requireActual('@/lib/auth')
+  return {
+    ...actual,
+    requireAuth: jest.fn(),
+  }
+})
+
 jest.mock('@/lib/persistence', () => ({
   db: {
     families: {

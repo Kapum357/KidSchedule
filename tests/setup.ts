@@ -107,6 +107,43 @@ if (!global.crypto) {
   global.crypto = webcrypto;
 }
 
+// ─── Mock Next.js Server Functions ──────────────────────────────────────────
+// These functions require a request context that doesn't exist in Jest tests.
+// We mock them to prevent "called outside a request scope" errors.
+
+jest.mock('next/headers', () => ({
+  cookies: jest.fn(() => ({
+    get: jest.fn((_name: string) => {
+      // Return null by default, tests can override with mockImplementation
+      return null;
+    }),
+    set: jest.fn(),
+    delete: jest.fn(),
+    has: jest.fn(() => false),
+    getAll: jest.fn(() => []),
+    clear: jest.fn(),
+  })),
+  headers: jest.fn(() => ({
+    get: jest.fn(),
+    has: jest.fn(() => false),
+    entries: jest.fn(() => []),
+  })),
+}));
+
+jest.mock('next/navigation', () => ({
+  redirect: jest.fn(() => {
+    throw new Error('Redirected');
+  }),
+  useRouter: jest.fn(),
+  usePathname: jest.fn(),
+  useSearchParams: jest.fn(),
+}));
+
+jest.mock('next/cache', () => ({
+  revalidatePath: jest.fn(),
+  revalidateTag: jest.fn(),
+}));
+
 // Global test utilities
 global.console = {
   ...console,

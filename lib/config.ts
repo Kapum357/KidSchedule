@@ -30,6 +30,11 @@ interface ExportConfig {
   };
 }
 
+interface MomentsStorageConfig {
+  storagePath: string;
+  baseUrl: string;
+}
+
 function validateRequired(name: string, value?: string): string {
   if (!value) {
     throw new Error(
@@ -91,6 +96,19 @@ export function getConfig(): ExportConfig {
             }
           : undefined,
     },
+  };
+}
+
+export function getMomentsStorageConfig(): MomentsStorageConfig {
+  return {
+    storagePath: validateOptional(
+      process.env.MOMENTS_STORAGE_PATH,
+      "./public/moments"
+    ),
+    baseUrl: validateOptional(
+      process.env.MOMENTS_STORAGE_BASE_URL,
+      "/moments/"
+    ),
   };
 }
 

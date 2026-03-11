@@ -35,8 +35,17 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/lib", () => ({
+  ...jest.requireActual("@/lib"),
   requireAuth: jest.fn(),
 }));
+
+jest.mock("@/lib/auth", () => {
+  const actual = jest.requireActual("@/lib/auth");
+  return {
+    ...actual,
+    requireAuth: jest.fn(),
+  };
+});
 
 jest.mock("@/lib/persistence", () => ({
   db: {
@@ -69,7 +78,7 @@ jest.mock("@/lib/providers/ai", () => ({
 import { sendMessage } from "@/app/messages/actions";
 import { resolveMessageState } from "@/app/messages/page";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { requireAuth } = require("@/lib") as { requireAuth: jest.Mock };
+const { requireAuth } = jest.requireMock("@/lib/auth") as { requireAuth: jest.Mock };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { db } = require("@/lib/persistence") as {
   db: {
