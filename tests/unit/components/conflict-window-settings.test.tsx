@@ -205,21 +205,33 @@ describe('ConflictWindowSettings', () => {
 
   // ─── Test 6: Error Scenario - Toast, Spinner, and Value Revert ───────────────
 
-  it('should show error toast and spinner when API call fails', async () => {
-    // Get reference to mock's call list before rendering
-    const fetchMock = global.fetch as jest.Mock;
-    fetchMock.mockRejectedValue(new Error('Network error'));
+  it('should show error toast and revert value when API call fails', async () => {
+    // Mock useToast
+    const mockToast = jest.fn();
+    const mockUseToast = require('@/components/toast-notification').useToast as jest.Mock;
+    mockUseToast.mockReturnValue({ add: mockToast });
 
-    render(<ConflictWindowSettings defaultWindowMins={120} familyId="family-123" />);
+    render(
+      <ConflictWindowSettings defaultWindowMins={120} familyId="family-123" />
+    );
 
     const slider = screen.getByRole('slider') as HTMLInputElement;
     expect(slider.value).toBe('120');
 
-    // User changes slider to 180
-    fireEvent.change(slider, { target: { value: '180' } });
-    expect(slider.value).toBe('180'); // Optimistic update is immediate
+    // Mock fetch to reject
+    const fetchMock = jest.fn().mockRejectedValue(new Error('Network error'));
+    global.fetch = fetchMock;
 
-    // Verify fetch was called with correct params
+    // User changes slider to 180 (optimistic update)
+    fireEvent.change(slider, { target: { value: '180' } });
+    expect(slider.value).toBe('180'); // Optimistic update immediate
+
+    // VERIFY SPINNER APPEARS during sync
+    await waitFor(() => {
+      expect(screen.getByLabelText('Syncing...')).toBeInTheDocument();
+    });
+
+    // Verify API call with correct parameters
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         '/api/settings/conflict-window',
@@ -231,17 +243,22 @@ describe('ConflictWindowSettings', () => {
       );
     });
 
-    // Verify spinner eventually disappears (error was caught and finally executed)
-    await waitFor(
-      () => {
-        expect(screen.queryByLabelText('Syncing...')).not.toBeInTheDocument();
-      },
-      { timeout: 2000 }
-    );
+    // VERIFY ERROR TOAST APPEARS with correct message
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        'Failed to save. Please try again.',
+        'error',
+        expect.any(Number)
+      );
+    });
 
-    // Verify the display label still shows - this confirms component renders after error
-    const displayLabels = screen.getAllByText('Current Buffer');
-    expect(displayLabels[0]).toBeInTheDocument();
+    // VERIFY VALUE REVERTS to previous (120, not default)
+    await waitFor(() => {
+      expect((screen.getByRole('slider') as HTMLInputElement).value).toBe('120');
+    });
+
+    // VERIFY SPINNER DISAPPEARS
+    expect(screen.queryByLabelText('Syncing...')).not.toBeInTheDocument();
   });
 
   // ─── Test 7: Default Preset Highlighted ─────────────────────────────────────
