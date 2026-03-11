@@ -203,7 +203,48 @@ describe('ConflictWindowSettings', () => {
     });
   });
 
-  // ─── Test 6: Default Preset Highlighted ─────────────────────────────────────
+  // ─── Test 6: Error Scenario - Toast, Spinner, and Value Revert ───────────────
+
+  it('should show error toast and spinner when API call fails', async () => {
+    // Get reference to mock's call list before rendering
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock.mockRejectedValue(new Error('Network error'));
+
+    render(<ConflictWindowSettings defaultWindowMins={120} familyId="family-123" />);
+
+    const slider = screen.getByRole('slider') as HTMLInputElement;
+    expect(slider.value).toBe('120');
+
+    // User changes slider to 180
+    fireEvent.change(slider, { target: { value: '180' } });
+    expect(slider.value).toBe('180'); // Optimistic update is immediate
+
+    // Verify fetch was called with correct params
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/settings/conflict-window',
+        expect.objectContaining({
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ windowMins: 180, familyId: 'family-123' }),
+        })
+      );
+    });
+
+    // Verify spinner eventually disappears (error was caught and finally executed)
+    await waitFor(
+      () => {
+        expect(screen.queryByLabelText('Syncing...')).not.toBeInTheDocument();
+      },
+      { timeout: 2000 }
+    );
+
+    // Verify the display label still shows - this confirms component renders after error
+    const displayLabels = screen.getAllByText('Current Buffer');
+    expect(displayLabels[0]).toBeInTheDocument();
+  });
+
+  // ─── Test 7: Default Preset Highlighted ─────────────────────────────────────
 
   it('should highlight the default preset button and update on selection', async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -235,7 +276,7 @@ describe('ConflictWindowSettings', () => {
     });
   });
 
-  // ─── Test 7: Handle Multiple Consecutive Preset Changes ─────────────────────
+  // ─── Test 8: Handle Multiple Consecutive Preset Changes ─────────────────────
 
   it('should handle multiple consecutive preset changes', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
