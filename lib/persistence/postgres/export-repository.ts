@@ -113,55 +113,23 @@ export function createExportJobsRepository(tx?: SqlClient): ExportJobsRepository
     },
 
     async update(id: string, data: Partial<ExportJobRecord>): Promise<ExportJobRecord | null> {
-      // Build update clause with proper SQL escaping
-      const setClauses: string[] = [];
+      const updates: Record<string, unknown> = {};
+      if (data.status !== undefined) updates.status = data.status;
+      if (data.resultUrl !== undefined) updates.result_url = data.resultUrl;
+      if (data.mimeType !== undefined) updates.mime_type = data.mimeType;
+      if (data.error !== undefined) updates.error = data.error;
+      if (data.completedAt !== undefined) updates.completed_at = data.completedAt;
+      if (data.sizeBytes !== undefined) updates.size_bytes = data.sizeBytes;
+      if (data.retryCount !== undefined) updates.retry_count = data.retryCount;
 
-      // String fields - escape single quotes by doubling them
-      if (data.status !== undefined) {
-        const escaped = String(data.status).replace(/'/g, "''");
-        setClauses.push(`status = '${escaped}'`);
-      }
-      if (data.resultUrl !== undefined) {
-        const escaped = String(data.resultUrl).replace(/'/g, "''");
-        setClauses.push(`result_url = '${escaped}'`);
-      }
-      if (data.mimeType !== undefined) {
-        const escaped = String(data.mimeType).replace(/'/g, "''");
-        setClauses.push(`mime_type = '${escaped}'`);
-      }
-      if (data.error !== undefined) {
-        const escaped = String(data.error).replace(/'/g, "''");
-        setClauses.push(`error = '${escaped}'`);
-      }
-      if (data.completedAt !== undefined) {
-        const escaped = String(data.completedAt).replace(/'/g, "''");
-        setClauses.push(`completed_at = '${escaped}'`);
-      }
+      if (Object.keys(updates).length === 0) return this.findById(id);
 
-      // Numeric fields - no quoting
-      if (data.sizeBytes !== undefined) {
-        setClauses.push(`size_bytes = ${data.sizeBytes}`);
-      }
-      if (data.retryCount !== undefined) {
-        setClauses.push(`retry_count = ${data.retryCount}`);
-      }
-
-      // Return early if nothing to update
-      if (setClauses.length === 0) {
-        return this.findById(id);
-      }
-
-      setClauses.push("updated_at = NOW()");
-
-      // Build and execute update query
-      const setSql = setClauses.join(", ");
-      const rows = (await q`
+      const rows = await q<ExportJobRow[]>`
         UPDATE export_jobs
-        SET ${q.unsafe(setSql)}
+        SET ${q(updates)}, updated_at = NOW()
         WHERE id = ${id}
         RETURNING *
-      `) as unknown as ExportJobRow[];
-
+      `;
       return rows[0] ? rowToDb(rows[0]) : null;
     },
   };
