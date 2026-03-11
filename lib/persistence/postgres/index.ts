@@ -18,9 +18,11 @@ import { createParentRepository } from "./parent-repository";
 import { createChildRepository } from "./child-repository";
 import { createCustodyScheduleRepository } from "./custody-schedule-repository";
 import { createCalendarEventRepository } from "./calendar-event-repository";
-import { createScheduleChangeRequestRepository } from "./schedule-change-request-repository";
-import { createChangeRequestMessageRepository } from "./change-request-message-repository";
-import { createScheduleOverrideRepository } from "./schedule-override-repository";
+import {
+  createScheduleChangeRequestRepository,
+  createChangeRequestMessageRepository,
+  createScheduleOverrideRepository,
+} from "./schedule-repository";
 import { createHolidayRepository, createHolidayExceptionRuleRepository } from "./holiday-repository";
 import { createBlogPostRepository, createBlogCategoryRepository } from "./blog-repository";
 import { createSchoolEventRepository } from "./school-event-repository";
