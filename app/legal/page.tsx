@@ -1,7 +1,9 @@
+'use client';
+
 /**
  * KidSchedule – Legal Documentation Page (Combined Terms & Privacy)
  *
- * Server Component rendering comprehensive legal documentation:
+ * Client Component rendering comprehensive legal documentation:
  * - Terms of Service
  * - Privacy Policy
  * - Sticky table of contents navigation
@@ -20,24 +22,17 @@ import type { LegalSection } from "@/lib";
 import Link from "next/link";
 import { TableOfContents } from "./table-of-contents";
 
-// This page can be statically generated since legal content changes infrequently
-export const dynamic = "force-static";
-export const revalidate = 86400; // Revalidate once per day
-
-// ─── Metadata ──────────────────────────────────────────────────────────────────
-
-export const metadata = {
-  title: "Terms of Service & Privacy Policy | KidSchedule",
-  description:
-    "Read KidSchedule's Terms of Service and Privacy Policy. Learn about our data protection practices, AI mediation policies, and your rights.",
-  robots: "index, follow",
-};
-
 // ─── Section Renderer ──────────────────────────────────────────────────────────
 
-function LegalSectionComponent({ section }: Readonly<{ section: LegalSection }>) {
+function LegalSectionComponent({
+  section,
+  docType,
+}: Readonly<{ section: LegalSection; docType: "terms" | "privacy" }>) {
   return (
-    <section className="mb-16 scroll-mt-24" id={section.id}>
+    <section
+      className="mb-16 scroll-mt-24"
+      id={`${docType}-${section.id}`}
+    >
       <div className="flex items-start gap-4 mb-6">
         <div className="bg-primary/20 text-primary p-2 rounded-lg hidden sm:block shrink-0">
           <span className="material-symbols-outlined text-2xl">{section.icon}</span>
@@ -124,7 +119,7 @@ export default function LegalPage() {
       <div className="flex flex-1 h-full overflow-hidden">
         <TableOfContents
           sections={allSections.map((section) => ({
-            id: section.id,
+            id: `${section.docType}-${section.id}`,
             label: section.title,
             icon: section.icon,
           }))}
@@ -182,7 +177,11 @@ export default function LegalPage() {
                 </h2>
               </div>
               {terms.sections.map((section) => (
-                <LegalSectionComponent key={section.id} section={section} />
+                <LegalSectionComponent
+                  key={`terms-${section.id}`}
+                  section={section}
+                  docType="terms"
+                />
               ))}
             </div>
 
@@ -197,7 +196,11 @@ export default function LegalPage() {
                 </h2>
               </div>
               {privacy.sections.map((section) => (
-                <LegalSectionComponent key={section.id} section={section} />
+                <LegalSectionComponent
+                  key={`privacy-${section.id}`}
+                  section={section}
+                  docType="privacy"
+                />
               ))}
             </div>
 

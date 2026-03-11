@@ -3,7 +3,7 @@
 import { useSectionInView } from '@/hooks/useSectionInView';
 
 interface Section {
-  id: string;
+  id: string; // already-prefixed anchor id (e.g. "terms-introduction")
   label: string;
   icon: string;
 }
@@ -13,7 +13,9 @@ interface TableOfContentsProps {
 }
 
 export function TableOfContents({ sections }: TableOfContentsProps) {
-  const activeId = useSectionInView(sections.map((s) => s.id));
+  // The page now passes precomputed, prefixed ids to avoid any mismatch between server and client.
+  const ids = sections.map((s) => s.id);
+  const activeId = useSectionInView(ids);
 
   return (
     <aside className="w-72 bg-surface-light dark:bg-surface-dark border-r border-slate-200 dark:border-slate-800 hidden md:flex flex-col h-full overflow-y-auto custom-scrollbar shrink-0 print:hidden">

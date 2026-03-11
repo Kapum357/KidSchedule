@@ -857,8 +857,8 @@ const PRIVACY_SECTIONS: LegalSection[] = [
         Your use of integrated services is subject to their own privacy policies:
       </p>
       <ul class="list-disc pl-5 space-y-2 marker:text-primary mb-4 text-sm">
-        <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Google Privacy Policy</a></li>
-        <li><a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Stripe Privacy Policy</a></li>
+        <li><a href="https://policies.google.com/legal" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Google Privacy Policy</a></li>
+        <li><a href="https://stripe.com/legal" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Stripe Privacy Policy</a></li>
       </ul>
       
       <h3 class="text-lg font-bold text-slate-900 dark:text-white mt-6 mb-3">Disconnecting Integrations</h3>

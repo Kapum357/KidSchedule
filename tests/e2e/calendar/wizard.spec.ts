@@ -306,9 +306,10 @@ if (!process.env.DATABASE_URL) {
     const nextButton = page.locator("button:has-text('Next Step')");
     await nextButton.click();
 
-    // Set date to get consistent preview
+    // Set date to get consistent preview (today or future to satisfy validation)
     const startDateInput = page.locator('input[type="date"]');
-    await startDateInput.fill("2024-01-08");
+    const today = new Date().toISOString().split("T")[0];
+    await startDateInput.fill(today);
 
     // Switch rotation starter from A to B
     await page.locator("label:has-text('Parent B')").first().click();
@@ -353,6 +354,9 @@ if (!process.env.DATABASE_URL) {
 
     const nextButton = page.locator("button:has-text('Next Step')");
     await nextButton.click();
+
+    // Wait for pattern step to load before checking percentages
+    await expect(page.locator("h1")).toContainText("Schedule Preview");
 
     // Look for percentage display
     const percentageText = page.locator("body").textContent();

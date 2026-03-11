@@ -21,6 +21,7 @@ module.exports = {
   // Module path aliases (match tsconfig paths)
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    '^uuid$': '<rootDir>/tests/__mocks__/uuid.js',
   },
 
   // Coverage configuration

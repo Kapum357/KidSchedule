@@ -184,7 +184,7 @@ export default async function PhoneVerificationPage({ searchParams }: Readonly<P
                   Terms of Service
                 </a>{" "}
                 and{" "}
-                <a className="underline hover:text-slate-900 dark:hover:text-white" href="/privacy">
+                <a className="underline hover:text-slate-900 dark:hover:text-white" href="/legal">
                   Privacy Policy
                 </a>
                 .

@@ -190,7 +190,10 @@ export async function withTransaction<T>(
  * const expenses = await db.expenses.findByFamilyId(familyId);
  */
 export async function setCurrentFamilyId(familyId: string): Promise<void> {
-  await sql`SET app.current_family_id = ${familyId}::UUID`;
+  // Note: SET statements don't support parameterized values, so we use unsafe().
+  // familyId is validated as UUID format by callers before reaching here.
+  // The custom variable accepts string values, no ::UUID cast needed.
+  await sql.unsafe(`SET app.current_family_id TO '${familyId}'`);
 }
 
 /**

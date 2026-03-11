@@ -82,7 +82,7 @@ function BrandPanel() {
 
         <div className="text-sm text-white/40 flex gap-6">
           <span>© 2024 KidSchedule Inc.</span>
-          <a className="hover:text-white transition-colors" href="/privacy">
+          <a className="hover:text-white transition-colors" href="/legal">
             Privacy
           </a>
           <a className="hover:text-white transition-colors" href="/legal">

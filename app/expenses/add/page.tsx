@@ -131,7 +131,7 @@ async function handleAddExpense(formData: FormData): Promise<void> {
   let session;
   try {
     session = await requireAuth();
-  } catch (error) {
+  } catch {
     const params = new URLSearchParams(baseParams);
     params.set("error", "You must be logged in to add an expense.");
     redirect(`/expenses/add?${params.toString()}`);
@@ -184,13 +184,15 @@ async function handleAddExpense(formData: FormData): Promise<void> {
     currency: "USD",
     splitMethod,
     splitRatio,
-    paidBy: parentId,
+    paidBy: parent.id,
     paymentStatus: "unpaid" as const,
     receiptUrl: undefined, // To be set after receipt upload
     date: input.dateIncurred, // ISO date string
   };
 
   // ─── Persist Expense ───────────────────────────────────────────────────────
+
+  let successQuery: string | undefined;
 
   try {
     // Set RLS context for family-scoped data isolation
@@ -219,12 +221,19 @@ async function handleAddExpense(formData: FormData): Promise<void> {
     if (input.receiptFileName) {
       success.set("receipt", "1");
     }
-    redirect(`/expenses/add?${success.toString()}`);
-  } catch (error) {
-    console.error("[Expenses] Failed to create expense:", error);
+    // Build success query but defer performing redirect until after try/catch.
+    successQuery = success.toString();
+  } catch (_error) {
+    console.error("[Expenses] Failed to create expense:", _error);
     const params = new URLSearchParams(baseParams);
     params.set("error", "Could not save this expense. Please try again.");
     redirect(`/expenses/add?${params.toString()}`);
+  }
+
+  // Perform the successful redirect outside of the try/catch so Next.js' internal
+  // redirect exception isn't accidentally caught by our error handler above.
+  if (successQuery) {
+    redirect(`/expenses/add?${successQuery}`);
   }
 }
 
@@ -338,7 +347,7 @@ export default async function AddExpensePage({
                     placeholder="e.g. Fall Semester Soccer Cleats"
                     className={`block w-full rounded-lg border border-slate-300 dark:border-slate-600
                       bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900
-                      dark:text-white placeholder-slate-500 dark:placeholder-slate-400
+                      placeholder-slate-600 dark:placeholder-slate-300
                       shadow-sm focus:border-primary focus:ring-primary sm:text-sm`}
                     required
                   />
@@ -362,7 +371,7 @@ export default async function AddExpensePage({
                       placeholder="0.00"
                       className={`block w-full rounded-lg border border-slate-400 dark:border-slate-600
                         bg-white dark:bg-background-dark py-2.5 pl-7 pr-12 text-slate-900
-                        dark:text-white placeholder-slate-500 dark:placeholder-slate-400
+                        placeholder-slate-600 dark:placeholder-slate-300
                         focus:border-primary focus:ring-primary sm:text-sm`}
                       required
                     />
@@ -382,7 +391,7 @@ export default async function AddExpensePage({
                     defaultValue={state.category}
                     className={`block w-full rounded-lg border border-slate-400 dark:border-slate-600
                       bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900
-                      dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm`}
+                      shadow-sm focus:border-primary focus:ring-primary sm:text-sm`}
                   >
                     {EXPENSE_CATEGORY_OPTIONS.map((category) => (
                       <option key={category.value} value={category.value}>
@@ -405,12 +414,9 @@ export default async function AddExpensePage({
                       max={getTodayIsoDate()}
                       className={`block w-full rounded-lg border border-slate-400 dark:border-slate-600
                         bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900
-                        dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm`}
+                        shadow-sm focus:border-primary focus:ring-primary sm:text-sm`}
                       required
                     />
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                      <span className="material-symbols-outlined text-slate-400 text-lg">calendar_today</span>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -468,7 +474,7 @@ export default async function AddExpensePage({
                       defaultValue={state.splitType === "custom" ? normalizedCustom : 50}
                       className={`block w-full rounded-lg border border-slate-400 dark:border-slate-600
                         bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900
-                        dark:text-white placeholder-slate-500 dark:placeholder-slate-400
+                        placeholder-slate-600 dark:placeholder-slate-300
                         focus:border-primary focus:ring-primary sm:text-sm`}
                     />
                   </div>
@@ -523,7 +529,7 @@ export default async function AddExpensePage({
               </div>
             </form>
 
-            <div className="mt-8 text-center text-xs text-slate-400">
+            <div className="mt-8 text-center text-xs text-slate-600 dark:text-slate-300">
               <p>Recorded expenses are visible to both parties immediately upon submission.</p>
             </div>
           </div>

@@ -56,28 +56,28 @@ export default async function SettingsPage() {
                 <span>Profile</span>
               </a>
               <a
-                className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-600 transition-colors hover:bg-primary/10 dark:text-slate-400"
+                className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-600 transition-colors hover:bg-primary/10 dark:text-slate-300"
                 href="#family"
               >
                 <span className="material-symbols-outlined">family_restroom</span>
                 <span>Family Members</span>
               </a>
               <a
-                className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-600 transition-colors hover:bg-primary/10 dark:text-slate-400"
+                className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-600 transition-colors hover:bg-primary/10 dark:text-slate-300"
                 href="#notifications"
               >
                 <span className="material-symbols-outlined">notifications_active</span>
                 <span>Notifications</span>
               </a>
               <a
-                className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-600 transition-colors hover:bg-primary/10 dark:text-slate-400"
+                className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-600 transition-colors hover:bg-primary/10 dark:text-slate-300"
                 href="#security"
               >
                 <span className="material-symbols-outlined">shield</span>
                 <span>Security &amp; Privacy</span>
               </a>
               <a
-                className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-600 transition-colors hover:bg-primary/10 dark:text-slate-400"
+                className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-600 transition-colors hover:bg-primary/10 dark:text-slate-300"
                 href="#subscription"
               >
                 <span className="material-symbols-outlined">credit_card</span>
@@ -94,44 +94,44 @@ export default async function SettingsPage() {
               id="profile"
             >
               <div className="border-b border-slate-200 dark:border-slate-700 p-6">
-                <h3 className="text-lg font-bold">Profile Settings</h3>
-                <p className="text-sm text-slate-500">
+                <h3 className="text-lg font-bold text-slate-600 dark:text-slate-900">Profile Settings</h3>
+                <p className="text-smtext-slate-500 text-slate-600 dark:text-slate-900">
                   Update your personal identification and contact details.
                 </p>
               </div>
               <div className="flex flex-col gap-6 p-6">
                 <div className="flex flex-col gap-4 md:flex-row">
                   <div className="flex flex-1 flex-col gap-2">
-                    <label className="text-sm font-semibold" htmlFor="fullName">Full Name</label>
+                    <label className="text-sm font-semibold text-slate-600 dark:text-slate-900" htmlFor="fullName">Full Name</label>
                     <input
                       id="fullName"
                       className={`w-full rounded-lg border border-slate-300 dark:border-slate-600
                         bg-background-light p-3 focus:border-primary focus:ring-primary
-                        dark:bg-background-dark`}
+                        dark:bg-background-dark text-slate-700 dark:text-slate-800`}
                       type="text"
                       defaultValue={profile?.fullName ?? ""}
                     />
                   </div>
                   <div className="flex flex-1 flex-col gap-2">
-                    <label className="text-sm font-semibold" htmlFor="emailAddress">Email Address</label>
+                    <label className="text-sm font-semibold text-slate-600 dark:text-slate-900" htmlFor="emailAddress">Email Address</label>
                     <input
                       id="emailAddress"
                       className={`w-full rounded-lg border border-slate-300 dark:border-slate-600
                         bg-background-light p-3 focus:border-primary focus:ring-primary
-                        dark:bg-background-dark`}
+                        dark:bg-background-dark text-slate-700 dark:text-slate-800`}
                       type="email"
                       defaultValue={profile?.email ?? ""}
                     />
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold" htmlFor="phoneNumber">Phone Number (Verified via Twilio)</label>
+                  <label className="text-sm font-semibold text-slate-600 dark:text-slate-900" htmlFor="phoneNumber">Phone Number (Verified via Twilio)</label>
                   <div className="flex gap-2">
                     <input
                       id="phoneNumber"
                       className={`flex-1 rounded-lg border border-slate-300 dark:border-slate-600
                         bg-background-light p-3 focus:border-primary focus:ring-primary
-                        dark:bg-background-dark`}
+                        dark:bg-background-dark text-slate-700 dark:text-slate-800`}
                       type="tel"
                       defaultValue={profile?.phone ?? ""}
                     />
@@ -158,7 +158,7 @@ export default async function SettingsPage() {
             >
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 p-6">
                 <div>
-                  <h3 className="text-lg font-bold">Family Management</h3>
+                  <h3 className="text-lg font-bold text-slate-600 dark:text-slate-900">Family Management</h3>
                   <p className="text-sm text-slate-500">Manage children and co-parent access.</p>
                 </div>
                 <button className="flex items-center gap-1 rounded-lg p-2 text-sm font-semibold text-primary hover:bg-primary/10">
@@ -177,7 +177,7 @@ export default async function SettingsPage() {
                       </div>
                       <div>
                         <p className="font-bold">{child.firstName} {child.lastName}</p>
-                        <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
                           Born: {new Date(child.dateOfBirth).toLocaleDateString("en-US", { 
                             year: "numeric", 
                             month: "long", 
@@ -215,7 +215,7 @@ export default async function SettingsPage() {
                               Co-Parent
                             </span>
                           </p>
-                          <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-600 dark:text-slate-300">
                             Status: {statusText}
                           </p>
                         </div>
@@ -235,14 +235,14 @@ export default async function SettingsPage() {
               id="notifications"
             >
               <div className="border-b border-slate-200 dark:border-slate-700 p-6">
-                <h3 className="text-lg font-bold">Notification Preferences</h3>
+                <h3 className="text-lg font-bold text-slate-600 dark:text-slate-900">Notification Preferences</h3>
                 <p className="text-sm text-slate-500">Configure how and when you receive alerts.</p>
               </div>
               <div className="flex flex-col gap-6 p-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-semibold">Calendar Changes</p>
+                      <p className="font-semibold text-slate-600 dark:text-slate-900">Calendar Changes</p>
                       <p className="text-xs text-slate-500">New events or schedule modifications</p>
                     </div>
                     <div className="flex gap-4">
@@ -267,7 +267,7 @@ export default async function SettingsPage() {
                     <hr className="border-slate-200 dark:border-slate-700" />
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-semibold">Expense Entries</p>
+                      <p className="font-semibold text-slate-600 dark:text-slate-900">Expense Entries</p>
                       <p className="text-xs text-slate-500">New shared expenses or payment requests</p>
                     </div>
                     <div className="flex gap-4">
@@ -323,16 +323,16 @@ export default async function SettingsPage() {
               id="security"
             >
               <div className="border-b border-slate-200 dark:border-slate-700 p-6">
-                <h3 className="text-lg font-bold">Security &amp; Privacy</h3>
+                <h3 className="text-lg font-bold text-slate-600 dark:text-slate-900">Security &amp; Privacy</h3>
                 <p className="text-sm text-slate-500">Manage password and compliance settings.</p>
               </div>
               <div className="flex flex-col gap-6 p-6">
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold" htmlFor="twoFactor">Two-Factor Authentication (FR-01)</label>
+                  <label className="text-sm font-semibold text-slate-600 dark:text-slate-900" htmlFor="twoFactor">Two-Factor Authentication</label>
                   <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-primary/5 p-4">
                     <span className="material-symbols-outlined text-primary">security</span>
                     <div className="flex-1">
-                      <p className="text-sm font-bold">
+                      <p className="text-sm font-bold text-slate-600 dark:text-slate-900">
                         2FA is currently DISABLED
                       </p>
                       <p className="text-xs text-slate-500">
@@ -343,7 +343,7 @@ export default async function SettingsPage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <p className="text-sm font-semibold">GDPR &amp; Consent (FR-12)</p>
+                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-900">GDPR &amp; Consent (FR-12)</p>
                   <div className="space-y-3">
                     <label className="flex items-start gap-3">
                       <input
@@ -351,7 +351,7 @@ export default async function SettingsPage() {
                         className="mt-1 rounded text-primary focus:ring-primary"
                         type="checkbox"
                       />
-                      <span className="text-sm">
+                      <span className="text-sm text-slate-700 dark:text-slate-800">
                         I consent to the processing of my communication data for the purpose of
                         mediation analysis.
                       </span>
@@ -362,7 +362,7 @@ export default async function SettingsPage() {
                         className="mt-1 rounded text-primary focus:ring-primary"
                         type="checkbox"
                       />
-                      <span className="text-sm">
+                      <span className="text-sm text-slate-700 dark:text-slate-800">
                         Allow legal export of my communication logs for mediation purposes.
                       </span>
                     </label>
@@ -377,7 +377,7 @@ export default async function SettingsPage() {
               id="subscription"
             >
               <div className="border-b border-slate-200 dark:border-slate-700 p-6">
-                <h3 className="text-lg font-bold">Billing &amp; Subscription</h3>
+                <h3 className="text-lg font-bold text-slate-600 dark:text-slate-900">Billing &amp; Subscription</h3>
                 <p className="text-sm text-slate-500">
                   Manage your Stripe-integrated subscription plan.
                 </p>
@@ -435,10 +435,10 @@ export default async function SettingsPage() {
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-bold">Payment method on file</p>
-                        <p className="text-xs text-slate-500">Managed via Stripe</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300">Managed via Stripe</p>
                       </div>
                       <Link href="/settings/billing">
-                        <button className="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">Edit</button>
+                        <button className="text-xs font-bold text-slate-600 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-200">Edit</button>
                       </Link>
                     </div>
                   </div>

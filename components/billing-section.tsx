@@ -76,7 +76,7 @@ export function BillingSection({ userId, currentPlanTier, subscription }: Billin
   }
 
   if (loading) {
-    return <div className="text-center text-slate-600 dark:text-slate-400">Loading billing information...</div>;
+    return <div className="text-center text-slate-600 dark:text-slate-300">Loading billing information...</div>;
   }
 
   return (
@@ -88,7 +88,7 @@ export function BillingSection({ userId, currentPlanTier, subscription }: Billin
         {subscription ? (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
             <div className="mb-4">
-              <p className="text-sm text-slate-600 dark:text-slate-400">Plan</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Plan</p>
               <p className="text-lg font-bold text-slate-900 dark:text-white capitalize">
                 {subscription.planTier}
               </p>
@@ -96,13 +96,13 @@ export function BillingSection({ userId, currentPlanTier, subscription }: Billin
 
             <div className="mb-4 grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Status</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Status</p>
                 <p className="font-semibold text-slate-900 dark:text-white capitalize">
                   {subscription.status}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Billing Period</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Billing Period</p>
                 <p className="font-semibold text-slate-900 dark:text-white">
                   {subscription.currentPeriodStart
                     ? new Date(subscription.currentPeriodStart).toLocaleDateString()
@@ -146,7 +146,7 @@ export function BillingSection({ userId, currentPlanTier, subscription }: Billin
           </div>
         ) : (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center dark:border-slate-700 dark:bg-slate-800">
-            <p className="mb-4 text-slate-600 dark:text-slate-400">You&apos;re currently on the Free Plan</p>
+            <p className="mb-4 text-slate-600 dark:text-slate-300">You&apos;re currently on the Free Plan</p>
             <button
               onClick={() => setShowPricingModal(true)}
               className="rounded-lg bg-primary px-6 py-2 font-semibold text-white hover:opacity-90"
@@ -186,7 +186,7 @@ export function BillingSection({ userId, currentPlanTier, subscription }: Billin
       {/* Billing History Section */}
       <div>
         <h2 className="mb-4 text-xl font-bold text-slate-900 dark:text-white">Billing History</h2>
-        <p className="text-slate-600 dark:text-slate-400">
+        <p className="text-slate-600 dark:text-slate-300">
           View and download invoices in the{" "}
           <button
             onClick={handleOpenPortal}

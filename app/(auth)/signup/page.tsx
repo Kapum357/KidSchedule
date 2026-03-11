@@ -5,9 +5,8 @@
  * Next.js Server Actions which call the production auth service.
  */
 
-import { redirect } from "next/navigation";
 import Script from "next/script";
-import { register } from "@/lib/auth";
+import { handleSignup } from "./actions";
 import type { AuthResult } from "@/lib";
 
 // ─── Server Action ────────────────────────────────────────────────────────────
@@ -31,45 +30,7 @@ import SignupForm from "./SignupFormClient";
  * On success: sets httpOnly cookies and redirects to /dashboard.
  * On failure: redirects back to /signup with error search params.
  */
-async function handleSignup(formData: FormData): Promise<void> {
-  "use server";
-
-  const fullName = (formData.get("fullName") as string | null)?.trim() ?? "";
-  const email = (formData.get("email") as string | null)?.trim().toLowerCase() ?? "";
-  const password = (formData.get("password") as string | null) ?? "";
-  const confirmPassword = (formData.get("confirmPassword") as string | null) ?? "";
-  const agreedToTerms = formData.get("agreeToTerms") === "on";
-  const recaptchaToken = (formData.get("g-recaptcha-response") as string | null) ?? undefined;
-
-  // Validate passwords match
-  if (password !== confirmPassword) {
-    redirect("/signup?error=passwords_dont_match");
-  }
-
-  // Validate terms agreement
-  if (!agreedToTerms) {
-    redirect("/signup?error=must_agree_terms");
-  }
-
-  // Validate password strength
-  if (password.length < 8) {
-    redirect("/signup?error=invalid_credentials&message=Password must be at least 8 characters");
-  }
-
-  try {
-    await register({
-      fullName,
-      email,
-      password,
-      recaptchaToken,
-    });
-
-    redirect("/dashboard");
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Registration failed";
-    redirect(`/signup?error=invalid_credentials&message=${encodeURIComponent(message)}`);
-  }
-}
+// Signup form server action is implemented in ./actions.ts and imported above.
 
 // ─── Left Panel ───────────────────────────────────────────────────────────────
 
@@ -108,25 +69,6 @@ function BrandPanel() {
           <div className="h-1 w-4 bg-white/50 rounded-full" />
           <div className="h-1 w-4 bg-white/50 rounded-full" />
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Error Banner ─────────────────────────────────────────────────────────────
-
-function ErrorBanner({ message }: Readonly<{ message: string }>) {
-  return (
-    <div
-      id="signup-error"
-      className="rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 px-4 py-3 flex items-start gap-3"
-      role="alert"
-    >
-      <span className="material-symbols-outlined text-red-500 dark:text-red-400 text-xl mt-0.5 shrink-0">
-        error
-      </span>
-      <div>
-        <p className="text-sm font-medium text-red-800 dark:text-red-300">{message}</p>
       </div>
     </div>
   );
