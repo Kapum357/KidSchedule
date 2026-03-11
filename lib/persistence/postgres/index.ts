@@ -16,19 +16,22 @@ import { createRateLimitRepository } from "./rate-limit-repository";
 import { createFamilyRepository } from "./family-repository";
 import { createParentRepository } from "./parent-repository";
 import { createChildRepository } from "./child-repository";
+import { createCustodyScheduleRepository } from "./custody-schedule-repository";
 import { createCalendarEventRepository } from "./calendar-event-repository";
 import { createScheduleChangeRequestRepository } from "./schedule-change-request-repository";
 import { createChangeRequestMessageRepository } from "./change-request-message-repository";
 import { createScheduleOverrideRepository } from "./schedule-override-repository";
 import { createHolidayRepository } from "./holiday-repository";
 import { createHolidayExceptionRuleRepository } from "./holiday-exception-rule-repository";
-import { createBlogPostRepository } from "./blog-post-repository";
+import { createBlogPostRepository, createBlogCategoryRepository } from "./blog-repository";
 import { createSchoolEventRepository } from "./school-event-repository";
 import { createVolunteerTaskRepository } from "./volunteer-task-repository";
 import { createSchoolContactRepository } from "./school-contact-repository";
 import { createSchoolVaultDocumentRepository } from "./school-vault-document-repository";
 import { createLunchMenuRepository } from "./lunch-menu-repository";
 import { createExpenseRepository } from "./expense-repository";
+import { createReminderRepository } from "./reminder-repository";
+import { createConflictWindowRepository } from "./conflict-window-repository";
 import {
   createMessageThreadRepository,
   createMessageRepository,
@@ -40,7 +43,9 @@ import { createScheduledNotificationRepository } from "./scheduled-notification-
 import { createExportJobsRepository } from "./export-jobs-repository";
 import {
   createStripeCustomerRepository,
+  createPaymentMethodRepository,
   createSubscriptionRepository,
+  createInvoiceRepository,
   createWebhookEventRepository,
   createPlanTierRepository,
 } from "./billing-repository";
@@ -81,6 +86,7 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     families: createFamilyRepository(tx),
     parents: createParentRepository(tx),
     children: createChildRepository(tx),
+    custodySchedules: createCustodyScheduleRepository(tx),
     calendarEvents: createCalendarEventRepository(tx),
     scheduleChangeRequests: createScheduleChangeRequestRepository(tx),
     changeRequestMessages: createChangeRequestMessageRepository(tx),
@@ -88,12 +94,15 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     holidays: createHolidayRepository(tx),
     holidayExceptionRules: createHolidayExceptionRuleRepository(tx),
     blogPosts: createBlogPostRepository(tx),
+    blogCategories: createBlogCategoryRepository(tx),
     schoolEvents: createSchoolEventRepository(tx),
     volunteerTasks: createVolunteerTaskRepository(tx),
     schoolContacts: createSchoolContactRepository(tx),
     schoolVaultDocuments: createSchoolVaultDocumentRepository(tx),
     lunchMenus: createLunchMenuRepository(tx),
     expenses: createExpenseRepository(),
+    reminders: createReminderRepository(tx),
+    conflictWindows: createConflictWindowRepository(tx),
     messageThreads: createMessageThreadRepository(),
     messages: createMessageRepository(),
     hashChainVerifications: createHashChainVerificationRepository(),
@@ -106,7 +115,9 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     exportMessageHashes: createExportMessageHashRepository(tx),
     exportVerificationAttempts: createExportVerificationAttemptRepository(tx),
     stripeCustomers: createStripeCustomerRepository(tx),
+    paymentMethods: createPaymentMethodRepository(tx),
     subscriptions: createSubscriptionRepository(tx),
+    invoices: createInvoiceRepository(tx),
     webhookEvents: createWebhookEventRepository(tx),
     planTiers: createPlanTierRepository(tx),
     mediationTopics: createMediationTopicRepository(tx),

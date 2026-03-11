@@ -2,8 +2,8 @@
  * KidSchedule – PostgreSQL Blog Post Repository
  */
 
-import type { BlogPostRepository } from "../repositories";
-import type { DbBlogPost } from "../types";
+import type { BlogPostRepository, BlogCategoryRepository } from "../repositories";
+import type { DbBlogPost, DbBlogCategory } from "../types";
 import { sql, type SqlClient } from "./client";
 
 type BlogRow = {
@@ -78,19 +78,19 @@ export function createBlogPostRepository(tx?: SqlClient): BlogPostRepository {
 
       if (categories && categories.length > 0) {
         posts = await query<BlogRow[]>`
-          SELECT * FROM blog_posts 
+          SELECT * FROM blog_posts
           WHERE is_published = TRUE AND categories ?| ${categories}
           ORDER BY ${sql.unsafe(orderBy)}
           LIMIT ${limit} OFFSET ${offset}
         `;
         const countRows = await query<[{ count: string }]>`
-          SELECT COUNT(*) as count FROM blog_posts 
+          SELECT COUNT(*) as count FROM blog_posts
           WHERE is_published = TRUE AND categories ?| ${categories}
         `;
         total = Number.parseInt(countRows[0].count, 10);
       } else {
         posts = await query<BlogRow[]>`
-          SELECT * FROM blog_posts 
+          SELECT * FROM blog_posts
           WHERE is_published = TRUE
           ORDER BY ${sql.unsafe(orderBy)}
           LIMIT ${limit} OFFSET ${offset}
@@ -106,7 +106,7 @@ export function createBlogPostRepository(tx?: SqlClient): BlogPostRepository {
 
     async findFeatured(): Promise<DbBlogPost | null> {
       const rows = await query<BlogRow[]>`
-        SELECT * FROM blog_posts 
+        SELECT * FROM blog_posts
         WHERE is_featured = TRUE AND is_published = TRUE
         ORDER BY published_at DESC LIMIT 1
       `;
@@ -119,6 +119,40 @@ export function createBlogPostRepository(tx?: SqlClient): BlogPostRepository {
 
     async incrementShareCount(id: string): Promise<void> {
       await query`UPDATE blog_posts SET share_count = share_count + 1 WHERE id = ${id}`;
+    },
+  };
+}
+
+// ─── Blog Category impl ───────────────────────────────────────────────────────
+
+type CategoryRow = {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  created_at: Date;
+};
+
+function categoryRowToDb(r: CategoryRow): DbBlogCategory {
+  return {
+    id: r.id,
+    slug: r.slug,
+    name: r.name,
+    description: r.description ?? undefined,
+    createdAt: r.created_at.toISOString(),
+  };
+}
+
+export function createBlogCategoryRepository(tx?: SqlClient): BlogCategoryRepository {
+  const q: SqlClient = tx ?? sql;
+  return {
+    async findAll() {
+      const rows = await q<CategoryRow[]>`SELECT * FROM blog_categories ORDER BY name ASC`;
+      return rows.map(categoryRowToDb);
+    },
+    async findBySlug(slug) {
+      const rows = await q<CategoryRow[]>`SELECT * FROM blog_categories WHERE slug = ${slug} LIMIT 1`;
+      return rows[0] ? categoryRowToDb(rows[0]) : null;
     },
   };
 }
