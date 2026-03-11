@@ -5,6 +5,9 @@
  * Returns default value (120 minutes) if no setting exists.
  */
 
+export const runtime = "nodejs";
+
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/persistence";
@@ -17,7 +20,8 @@ interface ConflictWindowResponse {
 
 const DEFAULT_WINDOW_MINS = 120;
 
-export async function GET(request: Request): Promise<NextResponse> {
+export async function GET(): Promise<NextResponse> {
+  const requestId = randomUUID();
   const startedAt = Date.now();
 
   try {
@@ -25,7 +29,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const sessionUser = await getCurrentUser();
     if (!sessionUser) {
       const response = NextResponse.json(
-        { error: "unauthorized" },
+        { error: "unauthorized", message: "Authentication required" },
         { status: 401 }
       );
       observeApiRequest({
@@ -41,7 +45,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const family = await db.families.findByParentUserId(sessionUser.userId);
     if (!family) {
       const response = NextResponse.json(
-        { error: "family_not_found" },
+        { error: "family_not_found", message: "No family found for user" },
         { status: 404 }
       );
       observeApiRequest({
@@ -74,11 +78,12 @@ export async function GET(request: Request): Promise<NextResponse> {
     observeApiException("/api/settings/conflict-window", "GET", error);
 
     logEvent("error", "Conflict window settings endpoint error", {
+      requestId,
       error: error instanceof Error ? error.message : "unknown",
     });
 
     const response = NextResponse.json(
-      { error: "internal_server_error" },
+      { error: "internal_server_error", message: "Failed to fetch conflict window" },
       { status: 500 }
     );
 

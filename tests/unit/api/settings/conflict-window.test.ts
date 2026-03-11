@@ -51,7 +51,6 @@ jest.mock("next/server", () => ({
 
 import { GET } from "@/app/api/settings/conflict-window/route";
 import { getCurrentUser } from "@/lib/auth";
-import { db } from "@/lib/persistence";
 import { observeApiRequest, observeApiException } from "@/lib/observability/api-observability";
 import { logEvent } from "@/lib/observability/logger";
 
@@ -70,7 +69,7 @@ describe("GET /api/settings/conflict-window", () => {
   it("should return 401 if user not authenticated", async () => {
     mockGetCurrentUser.mockResolvedValue(null);
 
-    const response = await GET(new Request("http://localhost:3000/api/settings/conflict-window"));
+    const response = await GET();
 
     expect(response.status).toBe(401);
     const body = await response.json();
@@ -80,6 +79,7 @@ describe("GET /api/settings/conflict-window", () => {
         route: "/api/settings/conflict-window",
         method: "GET",
         status: 401,
+        durationMs: expect.any(Number),
       })
     );
   });
@@ -109,7 +109,7 @@ describe("GET /api/settings/conflict-window", () => {
       updatedAt: "2024-03-01T12:00:00Z",
     });
 
-    const response = await GET(new Request("http://localhost:3000/api/settings/conflict-window"));
+    const response = await GET();
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -119,6 +119,7 @@ describe("GET /api/settings/conflict-window", () => {
         route: "/api/settings/conflict-window",
         method: "GET",
         status: 200,
+        durationMs: expect.any(Number),
       })
     );
   });
@@ -144,7 +145,7 @@ describe("GET /api/settings/conflict-window", () => {
 
     mockConflictWindows.findByFamilyId.mockResolvedValue(null);
 
-    const response = await GET(new Request("http://localhost:3000/api/settings/conflict-window"));
+    const response = await GET();
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -154,6 +155,7 @@ describe("GET /api/settings/conflict-window", () => {
         route: "/api/settings/conflict-window",
         method: "GET",
         status: 200,
+        durationMs: expect.any(Number),
       })
     );
   });
@@ -169,7 +171,7 @@ describe("GET /api/settings/conflict-window", () => {
 
     mockFamilies.findByParentUserId.mockResolvedValue(null);
 
-    const response = await GET(new Request("http://localhost:3000/api/settings/conflict-window"));
+    const response = await GET();
 
     expect(response.status).toBe(404);
     const body = await response.json();
@@ -179,6 +181,7 @@ describe("GET /api/settings/conflict-window", () => {
         route: "/api/settings/conflict-window",
         method: "GET",
         status: 404,
+        durationMs: expect.any(Number),
       })
     );
   });
@@ -195,7 +198,7 @@ describe("GET /api/settings/conflict-window", () => {
     const dbError = new Error("Database connection failed");
     mockFamilies.findByParentUserId.mockRejectedValue(dbError);
 
-    const response = await GET(new Request("http://localhost:3000/api/settings/conflict-window"));
+    const response = await GET();
 
     expect(response.status).toBe(500);
     const body = await response.json();
@@ -215,6 +218,7 @@ describe("GET /api/settings/conflict-window", () => {
         route: "/api/settings/conflict-window",
         method: "GET",
         status: 500,
+        durationMs: expect.any(Number),
       })
     );
   });
