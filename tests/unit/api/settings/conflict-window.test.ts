@@ -287,7 +287,7 @@ describe("PUT /api/settings/conflict-window", () => {
 
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toBe("validation_error");
+    expect(body.error).toBe("invalid_input");
     expect(mockObserveApiRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         route: "/api/settings/conflict-window",
@@ -298,7 +298,7 @@ describe("PUT /api/settings/conflict-window", () => {
     );
   });
 
-  it("should clamp value to [0, 720] range (e.g., 9999 -> 720)", async () => {
+  it("should reject value outside [0, 720] range with 400 invalid_input error", async () => {
     const userId = "user-123";
     const familyId = "family-456";
 
@@ -317,27 +317,21 @@ describe("PUT /api/settings/conflict-window", () => {
       updatedAt: "2024-01-01T00:00:00Z",
     });
 
-    mockConflictWindows.upsert.mockResolvedValue({
-      familyId,
-      windowMins: 720,
-      updatedAt: "2024-03-01T12:00:00Z",
-    });
-
     const request = {
       json: jest.fn().mockResolvedValue({ windowMins: 9999 }),
     } as unknown as Request;
 
     const response = await PUT(request);
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.windowMins).toBe(720);
-    expect(mockConflictWindows.upsert).toHaveBeenCalledWith(familyId, 720);
+    expect(body.error).toBe("invalid_input");
+    expect(mockConflictWindows.upsert).not.toHaveBeenCalled();
     expect(mockObserveApiRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         route: "/api/settings/conflict-window",
         method: "PUT",
-        status: 200,
+        status: 400,
         durationMs: expect.any(Number),
       })
     );

@@ -28,7 +28,7 @@ interface ConflictWindowResponse {
 const DEFAULT_WINDOW_MINS = 120;
 
 const ConflictWindowRequestSchema = z.object({
-  windowMins: z.number().int(),
+  windowMins: z.number().int().min(0).max(720),
 });
 
 type ConflictWindowRequest = z.infer<typeof ConflictWindowRequestSchema>;
@@ -187,7 +187,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
       }
       const response = NextResponse.json(
         {
-          error: "validation_error",
+          error: "invalid_input",
           message: errorMessage,
         },
         { status: 400 }
