@@ -227,6 +227,16 @@ export interface DbBlogPost {
   isPublished: boolean;
 }
 
+// ─── Blog Category Entity ─────────────────────────────────────────────────────
+
+export interface DbBlogCategory {
+  id: number;          // SERIAL PRIMARY KEY
+  slug: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+}
+
 // ─── School/PTA Entities ──────────────────────────────────────────────────────
 
 export interface DbSchoolEvent {
@@ -308,6 +318,31 @@ export interface DbLunchMenu {
   alternativeOption?: DbLunchMenuItem;
   side?: string;
   accountBalance: number;
+}
+
+// ─── Lunch Account & Transaction Entities ─────────────────────────────────────
+
+export interface DbLunchAccount {
+  id: string;
+  familyId: string;
+  childId: string;
+  accountNumber?: string;
+  balanceCents: number;
+  lastTransactionAt?: string;
+  autoReloadEnabled: boolean;
+  autoReloadThresholdCents?: number;
+  autoReloadAmountCents?: number;
+  createdAt: string;
+}
+
+export interface DbLunchTransaction {
+  id: string;
+  accountId: string;
+  amountCents: number;     // negative = purchase, positive = deposit
+  transactionType: "purchase" | "deposit" | "refund";
+  description?: string;
+  transactionDate: string; // ISO date YYYY-MM-DD
+  createdAt: string;
 }
 
 // ─── Expense Entities ─────────────────────────────────────────────────────────
@@ -645,6 +680,31 @@ export interface DbPlanTier {
   maxDocuments?: number;
   isActive: boolean;
   createdAt: string;
+}
+
+// ─── Reminder Entities ────────────────────────────────────────────────────────
+
+export interface DbReminder {
+  id: string;
+  familyId: string;
+  parentId: string;
+  text: string;
+  dueAt?: string;
+  completed: boolean;
+  completedAt?: string;
+  createdAt: string;
+}
+
+// ─── Conflict Window Entity ───────────────────────────────────────────────────
+
+/**
+ * Per-family scheduling conflict buffer window.
+ * Uses family_id as primary key (one row per family).
+ */
+export interface DbConflictWindow {
+  familyId: string;
+  windowMins: number;
+  updatedAt: string;
 }
 
 // ─── Mediation Entities ───────────────────────────────────────────────────────

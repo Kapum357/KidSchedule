@@ -21,6 +21,7 @@ import type {
   DbFamily,
   DbParent,
   DbChild,
+  DbCustodySchedule,
   DbCalendarEvent,
   DbScheduleChangeRequest,
   DbChangeRequestMessage,
@@ -28,11 +29,14 @@ import type {
   DbHolidayDefinition,
   DbHolidayExceptionRule,
   DbBlogPost,
+  DbBlogCategory,
   DbSchoolEvent,
   DbVolunteerTask,
   DbSchoolContact,
   DbSchoolVaultDocument,
   DbLunchMenu,
+  DbLunchAccount,
+  DbLunchTransaction,
   DbExpense,
   DbMessageThread,
   DbMessage,
@@ -45,9 +49,13 @@ import type {
   DbExportMessageHash,
   DbExportVerificationAttempt,
   DbStripeCustomer,
+  DbPaymentMethod,
   DbSubscription,
+  DbInvoice,
   DbWebhookEvent,
   DbPlanTier,
+  DbReminder,
+  DbConflictWindow,
   DbMediationTopic,
   DbMediationWarning,
   AuditAction,
@@ -150,6 +158,17 @@ export interface ChildRepository {
   create(child: Omit<DbChild, "id" | "createdAt">): Promise<DbChild>;
   update(id: string, data: Partial<DbChild>): Promise<DbChild | null>;
   delete(id: string): Promise<boolean>;
+}
+
+// ─── Custody Schedule Repository ─────────────────────────────────────────────
+
+export interface CustodyScheduleRepository {
+  findById(id: string): Promise<DbCustodySchedule | null>;
+  findByFamilyId(familyId: string): Promise<DbCustodySchedule[]>;
+  findActiveByFamilyId(familyId: string): Promise<DbCustodySchedule | null>;
+  create(schedule: Omit<DbCustodySchedule, "id" | "createdAt" | "updatedAt">): Promise<DbCustodySchedule>;
+  update(id: string, data: Partial<DbCustodySchedule>): Promise<DbCustodySchedule | null>;
+  setActive(familyId: string, scheduleId: string): Promise<boolean>;
 }
 
 // ─── Calendar Event Repository ────────────────────────────────────────────────
@@ -264,6 +283,13 @@ export interface BlogPostRepository {
   incrementShareCount(id: string): Promise<void>;
 }
 
+// ─── Blog Category Repository ─────────────────────────────────────────────────
+
+export interface BlogCategoryRepository {
+  findAll(): Promise<DbBlogCategory[]>;
+  findBySlug(slug: string): Promise<DbBlogCategory | null>;
+}
+
 // ─── School Event Repository ──────────────────────────────────────────────────
 
 export interface SchoolEventRepository {
@@ -305,6 +331,23 @@ export interface SchoolVaultDocumentRepository {
 
 export interface LunchMenuRepository {
   findByFamilyIdSince(familyId: string, fromDate: string): Promise<DbLunchMenu[]>;
+}
+
+// ─── Lunch Account Repository ─────────────────────────────────────────────────
+
+export interface LunchAccountRepository {
+  findById(id: string): Promise<DbLunchAccount | null>;
+  findByFamilyId(familyId: string): Promise<DbLunchAccount[]>;
+  findByChildId(childId: string): Promise<DbLunchAccount | null>;
+  create(data: Omit<DbLunchAccount, "id" | "createdAt">): Promise<DbLunchAccount>;
+  updateBalance(id: string, balanceCents: number): Promise<DbLunchAccount | null>;
+}
+
+// ─── Lunch Transaction Repository ────────────────────────────────────────────
+
+export interface LunchTransactionRepository {
+  findByAccountId(accountId: string, limit?: number): Promise<DbLunchTransaction[]>;
+  create(data: Omit<DbLunchTransaction, "id" | "createdAt">): Promise<DbLunchTransaction>;
 }
 
 // ─── Expense Repository ───────────────────────────────────────────────────────
@@ -459,6 +502,26 @@ export interface ExportVerificationAttemptRepository {
   create(data: Omit<DbExportVerificationAttempt, "id" | "createdAt">): Promise<DbExportVerificationAttempt>;
 }
 
+// ─── Reminder Repository ──────────────────────────────────────────────────────
+
+export interface ReminderRepository {
+  findById(id: string): Promise<DbReminder | null>;
+  findByParentId(parentId: string): Promise<DbReminder[]>;
+  findPendingByParentId(parentId: string): Promise<DbReminder[]>;
+  findByFamilyId(familyId: string): Promise<DbReminder[]>;
+  create(reminder: Omit<DbReminder, "id" | "createdAt">): Promise<DbReminder>;
+  complete(id: string): Promise<DbReminder | null>;
+  update(id: string, data: Partial<DbReminder>): Promise<DbReminder | null>;
+  delete(id: string): Promise<boolean>;
+}
+
+// ─── Conflict Window Repository ───────────────────────────────────────────────
+
+export interface ConflictWindowRepository {
+  findByFamilyId(familyId: string): Promise<DbConflictWindow | null>;
+  upsert(familyId: string, windowMins: number): Promise<DbConflictWindow>;
+}
+
 // ─── Billing Repositories ─────────────────────────────────────────────────────
 
 export interface StripeCustomerRepository {
@@ -474,6 +537,23 @@ export interface SubscriptionRepository {
   findActive(stripeCustomerLocalId: string): Promise<DbSubscription | null>;
   create(data: Omit<DbSubscription, "id" | "createdAt" | "updatedAt">): Promise<DbSubscription>;
   update(id: string, data: Partial<DbSubscription>): Promise<DbSubscription | null>;
+}
+
+export interface PaymentMethodRepository {
+  findByCustomer(stripeCustomerLocalId: string): Promise<DbPaymentMethod[]>;
+  findDefault(stripeCustomerLocalId: string): Promise<DbPaymentMethod | null>;
+  findByStripeId(stripePaymentMethodId: string): Promise<DbPaymentMethod | null>;
+  create(data: Omit<DbPaymentMethod, "id" | "createdAt" | "updatedAt">): Promise<DbPaymentMethod>;
+  setDefault(id: string, stripeCustomerLocalId: string): Promise<void>;
+  softDelete(id: string): Promise<void>;
+}
+
+export interface InvoiceRepository {
+  findByCustomer(stripeCustomerLocalId: string, limit?: number): Promise<DbInvoice[]>;
+  findByStripeId(stripeInvoiceId: string): Promise<DbInvoice | null>;
+  findBySubscription(subscriptionId: string): Promise<DbInvoice[]>;
+  findOpen(stripeCustomerLocalId: string): Promise<DbInvoice[]>;
+  upsert(data: Omit<DbInvoice, "id" | "createdAt" | "updatedAt">): Promise<DbInvoice>;
 }
 
 export interface WebhookEventRepository {
@@ -548,6 +628,7 @@ export interface UnitOfWork {
   families: FamilyRepository;
   parents: ParentRepository;
   children: ChildRepository;
+  custodySchedules: CustodyScheduleRepository;
   calendarEvents: CalendarEventRepository;
   scheduleChangeRequests: ScheduleChangeRequestRepository;
   changeRequestMessages: ChangeRequestMessageRepository;
@@ -555,12 +636,17 @@ export interface UnitOfWork {
   holidays: HolidayRepository;
   holidayExceptionRules: HolidayExceptionRuleRepository;
   blogPosts: BlogPostRepository;
+  blogCategories: BlogCategoryRepository;
   schoolEvents: SchoolEventRepository;
   volunteerTasks: VolunteerTaskRepository;
   schoolContacts: SchoolContactRepository;
   schoolVaultDocuments: SchoolVaultDocumentRepository;
   lunchMenus: LunchMenuRepository;
+  lunchAccounts: LunchAccountRepository;
+  lunchTransactions: LunchTransactionRepository;
   expenses: ExpenseRepository;
+  reminders: ReminderRepository;
+  conflictWindows: ConflictWindowRepository;
   messageThreads: MessageThreadRepository;
   messages: MessageRepository;
   hashChainVerifications: HashChainVerificationRepository;
@@ -570,7 +656,9 @@ export interface UnitOfWork {
   scheduledNotifications: ScheduledNotificationRepository;
   exportJobs: ExportJobsRepository;
   stripeCustomers: StripeCustomerRepository;
+  paymentMethods: PaymentMethodRepository;
   subscriptions: SubscriptionRepository;
+  invoices: InvoiceRepository;
   webhookEvents: WebhookEventRepository;
   planTiers: PlanTierRepository;
   exportMetadata: ExportMetadataRepository;
