@@ -170,3 +170,33 @@ export async function withTransaction<T>(
   const result = await sql.begin(fn);
   return result as T;
 }
+
+// ─── RLS Session Context ──────────────────────────────────────────────────────
+
+/**
+ * Set the current family ID for Row-Level Security filtering.
+ * Must be called before queries that depend on RLS policies.
+ *
+ * The RLS policies in the database check:
+ *   family_id = current_setting('app.current_family_id')::UUID
+ *
+ * This function sets that session variable to enable family-scoped data isolation.
+ *
+ * @param familyId - UUID of the family to set as the current context
+ * @returns A promise that resolves after the session variable is set
+ *
+ * @example
+ * await setCurrentFamilyId(familyId);
+ * const expenses = await db.expenses.findByFamilyId(familyId);
+ */
+export async function setCurrentFamilyId(familyId: string): Promise<void> {
+  await sql`SET app.current_family_id = ${familyId}::UUID`;
+}
+
+/**
+ * Reset the current family ID session variable.
+ * Useful when cleaning up after RLS-scoped operations.
+ */
+export async function resetCurrentFamilyId(): Promise<void> {
+  await sql`RESET app.current_family_id`;
+}

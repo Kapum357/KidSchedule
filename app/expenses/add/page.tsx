@@ -12,6 +12,9 @@ import {
   validateAddExpenseInput,
 } from "@/lib/expense-engine";
 import type { ExpenseCategory } from "@/lib";
+import { requireAuth } from "@/lib/auth";
+import { setCurrentFamilyId } from "@/lib/persistence/postgres/client";
+import { db } from "@/lib/persistence";
 
 type ExpenseSearchParams = {
   name?: string;
@@ -123,20 +126,97 @@ async function handleAddExpense(formData: FormData): Promise<void> {
     redirect(`/expenses/add?${params.toString()}`);
   }
 
-  const amountCents = amountTextToCents(input.amountText) ?? 0;
-  computeSplitSummary(amountCents, input.splitType, input.customYouPercent);
+  // ─── Auth & Session ────────────────────────────────────────────────────────
 
-  const success = new URLSearchParams(baseParams);
-  success.set("success", "1");
-  if (input.receiptFileName) {
-    success.set("receipt", "1");
+  let session;
+  try {
+    session = await requireAuth();
+  } catch (error) {
+    const params = new URLSearchParams(baseParams);
+    params.set("error", "You must be logged in to add an expense.");
+    redirect(`/expenses/add?${params.toString()}`);
   }
 
-  // Future persistence wiring point:
-  // - insert Expense into lib/persistence boundary
-  // - upload receipt to provider and store receiptUrl
-  // - emit activity feed item
-  redirect(`/expenses/add?${success.toString()}`);
+  const parentId = session.userId;
+
+  // TODO: Get familyId from user context or family lookup
+  // Currently, this would be fetched from user's parent record or passed from context
+  // For now, placeholder that will fail if not resolved in Task 1
+  const familyId = ""; // Will be set from user's family context
+
+  // ─── Prepare Expense Data ──────────────────────────────────────────────────
+
+  const amountCents = amountTextToCents(input.amountText) ?? 0;
+  const splitSummary = computeSplitSummary(amountCents, input.splitType, input.customYouPercent);
+
+  // Map UI split type to DB schema:
+  // - "equal" | "standard" → "50-50"
+  // - "custom" → "custom" with computed splitRatio
+  const splitMethod: "50-50" | "custom" | "one-parent" =
+    input.splitType === "custom" ? "custom" : "50-50";
+
+  // For custom splits, build splitRatio: { [parentId]: percentage, [otherParentId]: percentage }
+  // splitSummary provides the "you" and "other" breakdown
+  const splitRatio: Record<string, number> | undefined =
+    splitMethod === "custom"
+      ? {
+          [parentId]: splitSummary.youPercent / 100,
+          // Note: other parent ID would come from family context
+          // For now, placeholder structure
+        }
+      : undefined;
+
+  const newExpense = {
+    familyId,
+    title: input.expenseName,
+    description: undefined,
+    category: input.category,
+    totalAmount: amountCents,
+    currency: "USD",
+    splitMethod,
+    splitRatio,
+    paidBy: parentId,
+    paymentStatus: "unpaid" as const,
+    receiptUrl: undefined, // To be set after receipt upload
+    date: input.dateIncurred, // ISO date string
+  };
+
+  // ─── Persist Expense ───────────────────────────────────────────────────────
+
+  try {
+    // Set RLS context for family-scoped data isolation
+    await setCurrentFamilyId(familyId);
+
+    // Create expense in database
+    await db.expenses.create(newExpense);
+
+    // Future: Upload receipt to provider and store receiptUrl
+    // if (input.receiptFile) {
+    //   const receiptUrl = await uploadReceiptToProvider(input.receiptFile);
+    //   await db.expenses.update(expense.id, { receiptUrl });
+    // }
+
+    // Future: Emit activity feed item
+    // await db.activityItems.create({
+    //   familyId,
+    //   type: "expense_added",
+    //   actorId: parentId,
+    //   entityId: expense.id,
+    //   summary: `${parentName} logged ${input.expenseName}`,
+    // });
+
+    const success = new URLSearchParams(baseParams);
+    success.set("success", "1");
+    if (input.receiptFileName) {
+      success.set("receipt", "1");
+    }
+    redirect(`/expenses/add?${success.toString()}`);
+  } catch (error) {
+    console.error("[Expenses] Failed to create expense:", error);
+    const params = new URLSearchParams(baseParams);
+    params.set("error", "Could not save this expense. Please try again.");
+    redirect(`/expenses/add?${params.toString()}`);
+  }
 }
 
 export default async function AddExpensePage({

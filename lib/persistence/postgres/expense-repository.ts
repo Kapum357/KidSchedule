@@ -1,31 +1,211 @@
 /**
- * Expense Repository – PostgreSQL Implementation (Stub)
+ * KidSchedule – PostgreSQL Expense Repository
  *
- * Placeholder for migration 0006_expenses.sql integration.
- * To be implemented when migration is applied to production database.
+ * Implements expense CRUD operations with family-scoped queries.
+ * Supports filtering by date range for reporting and analysis.
  */
 
 import type { ExpenseRepository } from "../repositories";
 import type { DbExpense } from "../types";
+import { sql, type SqlClient } from "./client";
 
-export function createExpenseRepository(): ExpenseRepository {
+type ExpenseRow = {
+  id: string;
+  family_id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  total_amount: number;
+  currency: string;
+  split_method: string;
+  split_ratio: Record<string, number> | null;
+  paid_by: string;
+  payment_status: string;
+  receipt_url: string | null;
+  date: string;
+  created_at: string;
+  updated_at: string;
+};
+
+function rowToDb(row: ExpenseRow): DbExpense {
   return {
-    async findById() {
-      return null;
+    id: row.id,
+    familyId: row.family_id,
+    title: row.title,
+    description: row.description ?? undefined,
+    category: row.category as DbExpense["category"],
+    totalAmount: row.total_amount,
+    currency: row.currency,
+    splitMethod: row.split_method as DbExpense["splitMethod"],
+    splitRatio: row.split_ratio ?? undefined,
+    paidBy: row.paid_by,
+    paymentStatus: row.payment_status as DbExpense["paymentStatus"],
+    receiptUrl: row.receipt_url ?? undefined,
+    date: row.date,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function createExpenseRepository(tx?: SqlClient): ExpenseRepository {
+  const query: SqlClient = tx ?? sql;
+
+  return {
+    async findById(id: string): Promise<DbExpense | null> {
+      const rows = await query<ExpenseRow[]>`
+        SELECT * FROM expenses WHERE id = ${id}
+      `;
+      return rows[0] ? rowToDb(rows[0]) : null;
     },
-    async findByFamilyId() {
-      return [];
+
+    async findByFamilyId(familyId: string): Promise<DbExpense[]> {
+      const rows = await query<ExpenseRow[]>`
+        SELECT * FROM expenses
+        WHERE family_id = ${familyId}
+        ORDER BY date DESC, created_at DESC
+      `;
+      return rows.map(rowToDb);
     },
-    async findByFamilyIdAndDateRange() {
-      return [];
+
+    async findByFamilyIdAndDateRange(
+      familyId: string,
+      startDate: string,
+      endDate: string
+    ): Promise<DbExpense[]> {
+      const rows = await query<ExpenseRow[]>`
+        SELECT * FROM expenses
+        WHERE family_id = ${familyId}
+          AND date >= ${startDate}
+          AND date <= ${endDate}
+        ORDER BY date DESC, created_at DESC
+      `;
+      return rows.map(rowToDb);
     },
-    async create(data) {
-      return data as DbExpense;
+
+    async create(
+      expense: Omit<DbExpense, "id" | "createdAt" | "updatedAt">
+    ): Promise<DbExpense> {
+      const now = new Date().toISOString();
+      const rows = await query<ExpenseRow[]>`
+        INSERT INTO expenses (
+          family_id,
+          title,
+          description,
+          category,
+          total_amount,
+          currency,
+          split_method,
+          split_ratio,
+          paid_by,
+          payment_status,
+          receipt_url,
+          date,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          ${expense.familyId},
+          ${expense.title},
+          ${expense.description ?? null},
+          ${expense.category},
+          ${expense.totalAmount},
+          ${expense.currency},
+          ${expense.splitMethod},
+          ${expense.splitRatio ? JSON.stringify(expense.splitRatio) : null},
+          ${expense.paidBy},
+          ${expense.paymentStatus},
+          ${expense.receiptUrl ?? null},
+          ${expense.date},
+          ${now},
+          ${now}
+        )
+        RETURNING *
+      `;
+      return rowToDb(rows[0]);
     },
-    async update(_id, data) {
-      return data as DbExpense;
+
+    async update(
+      id: string,
+      data: Partial<DbExpense>
+    ): Promise<DbExpense | null> {
+      const now = new Date().toISOString();
+
+      // Build dynamic update clause
+      const updates: string[] = [];
+      const values: unknown[] = [];
+
+      if (data.title !== undefined) {
+        updates.push("title");
+        values.push(data.title);
+      }
+      if (data.description !== undefined) {
+        updates.push("description");
+        values.push(data.description ?? null);
+      }
+      if (data.category !== undefined) {
+        updates.push("category");
+        values.push(data.category);
+      }
+      if (data.totalAmount !== undefined) {
+        updates.push("total_amount");
+        values.push(data.totalAmount);
+      }
+      if (data.currency !== undefined) {
+        updates.push("currency");
+        values.push(data.currency);
+      }
+      if (data.splitMethod !== undefined) {
+        updates.push("split_method");
+        values.push(data.splitMethod);
+      }
+      if (data.splitRatio !== undefined) {
+        updates.push("split_ratio");
+        values.push(data.splitRatio ? JSON.stringify(data.splitRatio) : null);
+      }
+      if (data.paymentStatus !== undefined) {
+        updates.push("payment_status");
+        values.push(data.paymentStatus);
+      }
+      if (data.receiptUrl !== undefined) {
+        updates.push("receipt_url");
+        values.push(data.receiptUrl ?? null);
+      }
+      if (data.date !== undefined) {
+        updates.push("date");
+        values.push(data.date);
+      }
+
+      updates.push("updated_at");
+      values.push(now);
+
+      if (updates.length === 1) {
+        // Only updated_at changed, or nothing to update
+        return this.findById(id);
+      }
+
+      // Build SET clause dynamically
+      const setClause = updates
+        .map((col, i) => `${col} = $${i + 1}`)
+        .join(", ");
+
+      const rows = await query<ExpenseRow[]>`
+        UPDATE expenses
+        SET ${setClause}
+        WHERE id = ${id}
+        RETURNING *
+      `;
+
+      return rows[0] ? rowToDb(rows[0]) : null;
     },
-    async delete() {
+
+    async delete(id: string): Promise<boolean> {
+      // Note: postgres.js doesn't return rowCount directly on DELETE
+      // We check if a row was found and deleted by querying first
+      const existing = await this.findById(id);
+      if (!existing) {
+        return false;
+      }
+      await query`DELETE FROM expenses WHERE id = ${id}`;
       return true;
     },
   };
