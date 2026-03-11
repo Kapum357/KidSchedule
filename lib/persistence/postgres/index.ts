@@ -40,7 +40,12 @@ import {
 import { createSmsRelayParticipantRepository } from "./sms-relay-repository";
 import { createMomentRepository, createMomentReactionRepository } from "./moments-repository";
 import { createScheduledNotificationRepository } from "./scheduled-notification-repository";
-import { createExportJobsRepository } from "./export-jobs-repository";
+import {
+  createExportJobsRepository,
+  createExportMetadataRepository,
+  createExportMessageHashRepository,
+  createExportVerificationAttemptRepository,
+} from "./export-repository";
 import {
   createStripeCustomerRepository,
   createPaymentMethodRepository,
@@ -49,11 +54,6 @@ import {
   createWebhookEventRepository,
   createPlanTierRepository,
 } from "./billing-repository";
-import {
-  createExportMetadataRepository,
-  createExportMessageHashRepository,
-  createExportVerificationAttemptRepository,
-} from "./export-metadata-repository";
 import {
   createMediationTopicRepository,
   createMediationWarningRepository,
