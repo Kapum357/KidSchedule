@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useToast } from '@/components/toast-notification';
 
 interface ConflictWindowSettingsProps {
@@ -33,9 +33,10 @@ export function ConflictWindowSettings({
   const [windowMins, setWindowMins] = useState(defaultWindowMins);
   const [isSyncing, setIsSyncing] = useState(false);
   const { add: addToast } = useToast();
+  const windowMinsRef = useRef(windowMins);
 
   const syncToServer = useCallback(
-    (newValue: number, fallbackValue: number) => {
+    (newValue: number) => {
       setIsSyncing(true);
 
       // Fire-and-forget API call
@@ -50,8 +51,8 @@ export function ConflictWindowSettings({
           }
         })
         .catch((error) => {
-          // Revert to previous value on error
-          setWindowMins(fallbackValue);
+          // Use ref instead of parameter - always has most current value
+          setWindowMins(windowMinsRef.current);
           addToast('Failed to save. Please try again.', 'error', 3000);
           console.error('Failed to sync conflict window setting:', error);
         })
@@ -65,16 +66,20 @@ export function ConflictWindowSettings({
   const handleSliderChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = parseInt(e.target.value, 10);
+      // Capture current value as fallback BEFORE state changes
+      windowMinsRef.current = windowMins;
       setWindowMins(newValue);
-      syncToServer(newValue, windowMins);  // Pass current value as fallback
+      syncToServer(newValue);
     },
     [windowMins, syncToServer]
   );
 
   const handlePresetClick = useCallback(
     (presetMins: number) => {
+      // Capture current value as fallback BEFORE state changes
+      windowMinsRef.current = windowMins;
       setWindowMins(presetMins);
-      syncToServer(presetMins, windowMins);  // Pass current value as fallback
+      syncToServer(presetMins);
     },
     [windowMins, syncToServer]
   );
