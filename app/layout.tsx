@@ -66,11 +66,15 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
 
-        {/* Material Symbols – variable font used by the dashboard UI */}
-        {/* display=optional prevents render-blocking; font loads after first paint */}
+        {/* Material Symbols – optimized request */}
+        {/*
+          Previous URL loaded full variable axes ranges (multi‑MB payload in Lighthouse).
+          Keep only FILL axis (0..1) so `.icon-filled` still works while drastically
+          reducing transfer size.
+        */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=optional"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:FILL@0..1&display=optional"
           fetchPriority="low"
         />
         
