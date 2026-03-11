@@ -6,6 +6,7 @@ interface ObserveApiRequestInput {
   method: string;
   status: number;
   durationMs: number;
+  requestId?: string;
 }
 
 export function observeApiRequest(input: ObserveApiRequestInput): void {

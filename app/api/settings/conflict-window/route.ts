@@ -5,14 +5,14 @@
  * Returns default value (120 minutes) if no setting exists.
  */
 
-export const runtime = "nodejs";
-
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/persistence";
 import { observeApiRequest, observeApiException } from "@/lib/observability/api-observability";
 import { logEvent } from "@/lib/observability/logger";
+
+export const runtime = "nodejs";
 
 interface ConflictWindowResponse {
   windowMins: number;
@@ -37,6 +37,7 @@ export async function GET(): Promise<NextResponse> {
         method: "GET",
         status: 401,
         durationMs: Date.now() - startedAt,
+        requestId,
       });
       return response;
     }
@@ -53,6 +54,7 @@ export async function GET(): Promise<NextResponse> {
         method: "GET",
         status: 404,
         durationMs: Date.now() - startedAt,
+        requestId,
       });
       return response;
     }
@@ -71,6 +73,7 @@ export async function GET(): Promise<NextResponse> {
       method: "GET",
       status: 200,
       durationMs: Date.now() - startedAt,
+      requestId,
     });
 
     return response;
@@ -92,6 +95,7 @@ export async function GET(): Promise<NextResponse> {
       method: "GET",
       status: 500,
       durationMs: Date.now() - startedAt,
+      requestId,
     });
 
     return response;
