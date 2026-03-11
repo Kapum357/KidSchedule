@@ -27,7 +27,11 @@ import { createSchoolEventRepository } from "./school-event-repository";
 import { createVolunteerTaskRepository } from "./volunteer-task-repository";
 import { createSchoolContactRepository } from "./school-contact-repository";
 import { createSchoolVaultDocumentRepository } from "./school-vault-document-repository";
-import { createLunchMenuRepository } from "./lunch-menu-repository";
+import {
+  createLunchMenuRepository,
+  createLunchAccountRepository,
+  createLunchTransactionRepository,
+} from "./lunch-repository";
 import { createExpenseRepository } from "./expense-repository";
 import { createReminderRepository } from "./reminder-repository";
 import { createConflictWindowRepository } from "./conflict-window-repository";
@@ -99,6 +103,8 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     schoolContacts: createSchoolContactRepository(tx),
     schoolVaultDocuments: createSchoolVaultDocumentRepository(tx),
     lunchMenus: createLunchMenuRepository(tx),
+    lunchAccounts: createLunchAccountRepository(tx),
+    lunchTransactions: createLunchTransactionRepository(tx),
     expenses: createExpenseRepository(),
     reminders: createReminderRepository(tx),
     conflictWindows: createConflictWindowRepository(tx),
