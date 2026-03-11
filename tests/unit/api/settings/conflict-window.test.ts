@@ -1,7 +1,7 @@
 /**
  * Conflict Window Settings API Tests
  *
- * Tests for GET /api/settings/conflict-window endpoint.
+ * Tests for GET and PUT /api/settings/conflict-window endpoints.
  * Uses Jest mocks — no real DB connection required.
  */
 
@@ -332,6 +332,119 @@ describe("PUT /api/settings/conflict-window", () => {
         route: "/api/settings/conflict-window",
         method: "PUT",
         status: 400,
+        durationMs: expect.any(Number),
+      })
+    );
+  });
+
+  it("should return 400 on invalid JSON", async () => {
+    mockGetCurrentUser.mockResolvedValue({
+      userId: "user-123",
+      email: "parent@example.com",
+      sessionId: "session-789",
+    });
+
+    mockFamilies.findByParentUserId.mockResolvedValue({
+      id: "family-456",
+      name: "Smith Family",
+      custodyAnchorDate: "2024-01-01",
+      scheduleId: "schedule-123",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+    });
+
+    const request = {
+      json: jest.fn().mockRejectedValue(new SyntaxError("Unexpected token")),
+    } as unknown as Request;
+
+    const response = await PUT(request);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe("invalid_json");
+    expect(body.message).toBe("Request body must be valid JSON");
+    expect(mockConflictWindows.upsert).not.toHaveBeenCalled();
+  });
+
+  it("should accept windowMins=0 (lower boundary)", async () => {
+    mockGetCurrentUser.mockResolvedValue({
+      userId: "user-123",
+      email: "parent@example.com",
+      sessionId: "session-789",
+    });
+
+    mockFamilies.findByParentUserId.mockResolvedValue({
+      id: "family-456",
+      name: "Smith Family",
+      custodyAnchorDate: "2024-01-01",
+      scheduleId: "schedule-123",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+    });
+
+    mockConflictWindows.upsert.mockResolvedValue({
+      familyId: "family-456",
+      windowMins: 0,
+      updatedAt: "2024-03-01T12:00:00Z",
+    });
+
+    const request = {
+      json: jest.fn().mockResolvedValue({ windowMins: 0 }),
+    } as unknown as Request;
+
+    const response = await PUT(request);
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.windowMins).toBe(0);
+    expect(mockConflictWindows.upsert).toHaveBeenCalledWith("family-456", 0);
+    expect(mockObserveApiRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: "/api/settings/conflict-window",
+        method: "PUT",
+        status: 200,
+        durationMs: expect.any(Number),
+      })
+    );
+  });
+
+  it("should accept windowMins=720 (upper boundary)", async () => {
+    mockGetCurrentUser.mockResolvedValue({
+      userId: "user-123",
+      email: "parent@example.com",
+      sessionId: "session-789",
+    });
+
+    mockFamilies.findByParentUserId.mockResolvedValue({
+      id: "family-456",
+      name: "Smith Family",
+      custodyAnchorDate: "2024-01-01",
+      scheduleId: "schedule-123",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+    });
+
+    mockConflictWindows.upsert.mockResolvedValue({
+      familyId: "family-456",
+      windowMins: 720,
+      updatedAt: "2024-03-01T12:00:00Z",
+    });
+
+    const request = {
+      json: jest.fn().mockResolvedValue({ windowMins: 720 }),
+    } as unknown as Request;
+
+    const response = await PUT(request);
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.windowMins).toBe(720);
+    expect(mockConflictWindows.upsert).toHaveBeenCalledWith("family-456", 720);
+    expect(mockObserveApiRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: "/api/settings/conflict-window",
+        method: "PUT",
+        status: 200,
         durationMs: expect.any(Number),
       })
     );

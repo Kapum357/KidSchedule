@@ -33,53 +33,61 @@ const ConflictWindowRequestSchema = z.object({
 
 type ConflictWindowRequest = z.infer<typeof ConflictWindowRequestSchema>;
 
+type AuthResult =
+  | {
+      error: "unauthorized" | "family_not_found";
+      status: 401 | 404;
+    }
+  | {
+      sessionUser: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
+      family: NonNullable<Awaited<ReturnType<typeof db.families.findByParentUserId>>>;
+    };
+
+/**
+ * Shared authentication and family lookup logic for conflict window endpoints.
+ * Returns { sessionUser, family } on success or { error, status } on failure.
+ */
+async function authAndLoadFamily(): Promise<AuthResult> {
+  const sessionUser = await getCurrentUser();
+  if (!sessionUser) {
+    return { error: "unauthorized", status: 401 };
+  }
+  const family = await db.families.findByParentUserId(sessionUser.userId);
+  if (!family) {
+    return { error: "family_not_found", status: 404 };
+  }
+  return { sessionUser, family };
+}
+
 export async function GET(): Promise<NextResponse> {
   const requestId = randomUUID();
   const startedAt = Date.now();
 
   try {
-    // Authenticate user
-    const sessionUser = await getCurrentUser();
-    if (!sessionUser) {
-      const response = NextResponse.json(
-        { error: "unauthorized", message: "Authentication required" },
-        { status: 401 }
-      );
+    const authResult = await authAndLoadFamily();
+    if ("error" in authResult) {
+      const body = {
+        error: authResult.error,
+        message:
+          authResult.error === "unauthorized"
+            ? "Authentication required"
+            : "No family found for user",
+      };
+      const response = NextResponse.json(body, { status: authResult.status });
+
       observeApiRequest({
         route: "/api/settings/conflict-window",
         method: "GET",
-        status: 401,
+        status: authResult.status,
         durationMs: Date.now() - startedAt,
         requestId,
       });
       return response;
     }
 
-    // Get user's family
-    const family = await db.families.findByParentUserId(sessionUser.userId);
-    if (!family) {
-      const response = NextResponse.json(
-        { error: "family_not_found", message: "No family found for user" },
-        { status: 404 }
-      );
-      observeApiRequest({
-        route: "/api/settings/conflict-window",
-        method: "GET",
-        status: 404,
-        durationMs: Date.now() - startedAt,
-        requestId,
-      });
-      return response;
-    }
-
-    // Get conflict window setting (or default if not set)
+    const { family } = authResult;
     const conflictWindow = await db.conflictWindows.findByFamilyId(family.id);
     const windowMins = conflictWindow?.windowMins ?? DEFAULT_WINDOW_MINS;
-
-    const response = NextResponse.json(
-      { windowMins } as ConflictWindowResponse,
-      { status: 200 }
-    );
 
     observeApiRequest({
       route: "/api/settings/conflict-window",
@@ -89,7 +97,14 @@ export async function GET(): Promise<NextResponse> {
       requestId,
     });
 
-    return response;
+    logEvent("info", "GET /api/settings/conflict-window", {
+      familyId: family.id,
+      windowMins,
+    });
+
+    return NextResponse.json({ windowMins } as ConflictWindowResponse, {
+      status: 200,
+    });
   } catch (error) {
     observeApiException("/api/settings/conflict-window", "GET", error);
 
@@ -99,7 +114,10 @@ export async function GET(): Promise<NextResponse> {
     });
 
     const response = NextResponse.json(
-      { error: "internal_server_error", message: "Failed to fetch conflict window" },
+      {
+        error: "internal_server_error",
+        message: "Failed to retrieve conflict window setting",
+      },
       { status: 500 }
     );
 
@@ -120,39 +138,28 @@ export async function PUT(request: Request): Promise<NextResponse> {
   const startedAt = Date.now();
 
   try {
-    // Authenticate user
-    const sessionUser = await getCurrentUser();
-    if (!sessionUser) {
-      const response = NextResponse.json(
-        { error: "unauthorized", message: "Authentication required" },
-        { status: 401 }
-      );
+    const authResult = await authAndLoadFamily();
+    if ("error" in authResult) {
+      const body = {
+        error: authResult.error,
+        message:
+          authResult.error === "unauthorized"
+            ? "Authentication required"
+            : "No family found for user",
+      };
+      const response = NextResponse.json(body, { status: authResult.status });
+
       observeApiRequest({
         route: "/api/settings/conflict-window",
         method: "PUT",
-        status: 401,
+        status: authResult.status,
         durationMs: Date.now() - startedAt,
         requestId,
       });
       return response;
     }
 
-    // Get user's family
-    const family = await db.families.findByParentUserId(sessionUser.userId);
-    if (!family) {
-      const response = NextResponse.json(
-        { error: "family_not_found", message: "No family found for user" },
-        { status: 404 }
-      );
-      observeApiRequest({
-        route: "/api/settings/conflict-window",
-        method: "PUT",
-        status: 404,
-        durationMs: Date.now() - startedAt,
-        requestId,
-      });
-      return response;
-    }
+    const { family } = authResult;
 
     // Parse and validate request body
     let body: unknown;
@@ -240,7 +247,10 @@ export async function PUT(request: Request): Promise<NextResponse> {
     });
 
     const response = NextResponse.json(
-      { error: "internal_server_error", message: "Failed to update conflict window" },
+      {
+        error: "internal_server_error",
+        message: "Failed to update conflict window",
+      },
       { status: 500 }
     );
 
