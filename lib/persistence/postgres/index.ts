@@ -25,10 +25,12 @@ import {
 } from "./schedule-repository";
 import { createHolidayRepository, createHolidayExceptionRuleRepository } from "./holiday-repository";
 import { createBlogPostRepository, createBlogCategoryRepository } from "./blog-repository";
-import { createSchoolEventRepository } from "./school-event-repository";
 import { createVolunteerTaskRepository } from "./volunteer-task-repository";
-import { createSchoolContactRepository } from "./school-contact-repository";
-import { createSchoolVaultDocumentRepository } from "./school-vault-document-repository";
+import {
+  createSchoolContactRepository,
+  createSchoolEventRepository,
+  createSchoolVaultDocumentRepository,
+} from "./school-repository";
 import {
   createLunchMenuRepository,
   createLunchAccountRepository,
