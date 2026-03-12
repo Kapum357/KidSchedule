@@ -6,6 +6,7 @@ import {
 } from "@/lib/providers/sms";
 import { observeApiRequest } from "@/lib/observability/api-observability";
 import { logEvent } from "@/lib/observability/logger";
+import { getTwilioAuthToken } from "@/lib/providers/sms/twilio-config";
 
 function getCanonicalWebhookUrl(request: Request): string {
   const configuredBaseUrl = process.env.TWILIO_WEBHOOK_BASE_URL;
@@ -33,8 +34,11 @@ function toParamsObject(formData: FormData): Record<string, string> {
 
 export async function POST(request: Request): Promise<NextResponse> {
   const startedAt = Date.now();
-  const authToken = process.env.TWILIO_AUTH_TOKEN ?? "";
-  if (!authToken) {
+  let authToken: string;
+
+  try {
+    authToken = getTwilioAuthToken();
+  } catch (error) {
     logEvent("error", "Twilio auth token is not configured", {
       route: "/api/webhooks/twilio",
     });

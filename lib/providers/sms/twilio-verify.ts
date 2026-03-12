@@ -13,6 +13,7 @@
  */
 
 import { logEvent } from "@/lib/observability/logger";
+import { getTwilioAuthToken, getTwilioAccountSid } from "./twilio-config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,23 +72,18 @@ function checkVerifyRateLimit(phone: string): { allowed: boolean; retryAfterSeco
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isVerifyEnabled(): boolean {
-  return Boolean(
-    process.env.TWILIO_ACCOUNT_SID &&
-    process.env.TWILIO_AUTH_TOKEN &&
-    process.env.TWILIO_VERIFY_SERVICE_SID
-  );
+  try {
+    getTwilioAccountSid();
+    getTwilioAuthToken();
+    return Boolean(process.env.TWILIO_VERIFY_SERVICE_SID);
+  } catch {
+    return false;
+  }
 }
 
 function getBasicAuth(): string {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-
-  if (!accountSid) {
-    throw new Error("TWILIO_ACCOUNT_SID is not configured");
-  }
-  if (!authToken) {
-    throw new Error("TWILIO_AUTH_TOKEN is not configured");
-  }
+  const accountSid = getTwilioAccountSid();
+  const authToken = getTwilioAuthToken();
 
   return Buffer.from(`${accountSid}:${authToken}`).toString("base64");
 }

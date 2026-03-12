@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { checkConnection } from "@/lib/persistence";
 import { logEvent } from "@/lib/observability/logger";
+import { getTwilioAuthToken, getTwilioAccountSid } from "@/lib/providers/sms/twilio-config";
 
 export const runtime = "nodejs";
 
@@ -88,10 +89,13 @@ async function checkStripe(): Promise<HealthCheck> {
  * Check Twilio API availability.
  */
 async function checkTwilio(): Promise<HealthCheck> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  let accountSid: string;
+  let authToken: string;
 
-  if (!accountSid || !authToken) {
+  try {
+    accountSid = getTwilioAccountSid();
+    authToken = getTwilioAuthToken();
+  } catch {
     return { name: "twilio", status: "degraded", error: "Not configured" };
   }
 

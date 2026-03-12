@@ -12,6 +12,7 @@ import { verifyTwilioWebhookSignature } from "@/lib/providers/sms/twilio-webhook
 import { logEvent } from "@/lib/observability/logger";
 import { getDb } from "@/lib/persistence";
 import { emitNewMessage } from "@/lib/socket-server";
+import { getTwilioAuthToken } from "@/lib/providers/sms/twilio-config";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -130,8 +131,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     });
 
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    if (!authToken) {
+    let authToken: string;
+    try {
+      authToken = getTwilioAuthToken();
+    } catch (error) {
       logEvent("error", "Twilio auth token is not configured", {
         route: "/api/webhooks/twilio/incoming",
       });

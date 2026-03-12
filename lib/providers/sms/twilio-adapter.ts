@@ -18,6 +18,7 @@
 import type { SmsSender, SmsSendOptions, SmsSendResult } from "../types";
 import { getProxyNumberForFamily } from "./proxy-number";
 import { createSmsDeliveryRecord, updateSmsDeliveryStatus } from "./status-tracker";
+import { getTwilioAuthToken, getTwilioAccountSid } from "./twilio-config";
 
 // SMS message templates with {{variable}} placeholders
 const SMS_TEMPLATES: Record<string, string> = {
@@ -40,18 +41,8 @@ export class TwilioAdapter implements SmsSender {
   private readonly baseBackoffMs: number;
 
   constructor() {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-
-    if (!accountSid) {
-      throw new Error("TWILIO_ACCOUNT_SID is not configured");
-    }
-    if (!authToken) {
-      throw new Error("TWILIO_AUTH_TOKEN is not configured");
-    }
-
-    this.accountSid = accountSid;
-    this.authToken = authToken;
+    this.accountSid = getTwilioAccountSid();
+    this.authToken = getTwilioAuthToken();
     this.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID ?? null;
     this.fromNumber = process.env.TWILIO_FROM_NUMBER ?? null;
     this.statusCallbackUrl = process.env.TWILIO_STATUS_CALLBACK_URL ?? null;
