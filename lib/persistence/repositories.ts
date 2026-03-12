@@ -323,9 +323,20 @@ export interface SchoolContactRepository {
 
 // ─── School Vault Document Repository ────────────────────────────────────────
 
+export type CreateVaultDocumentInput = {
+  familyId: string;
+  title: string;
+  fileType: string;
+  addedBy: string;
+  sizeBytes?: number;
+  url?: string;
+  actionDeadline?: string;
+};
+
 export interface SchoolVaultDocumentRepository {
   findById(id: string): Promise<DbSchoolVaultDocument | null>;
   findByFamilyId(familyId: string): Promise<DbSchoolVaultDocument[]>;
+  create(input: CreateVaultDocumentInput): Promise<DbSchoolVaultDocument>;
 }
 
 // ─── Lunch Menu Repository ───────────────────────────────────────────────────

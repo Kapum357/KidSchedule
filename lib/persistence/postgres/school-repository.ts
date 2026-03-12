@@ -6,6 +6,7 @@ import type {
   SchoolContactRepository,
   SchoolEventRepository,
   SchoolVaultDocumentRepository,
+  CreateVaultDocumentInput,
 } from "../repositories";
 import type {
   DbSchoolContact,
@@ -213,6 +214,45 @@ function vaultDocRowToDb(row: VaultDocumentRow): DbSchoolVaultDocument {
   };
 }
 
+// ─── Allowed file types for vault documents
+const ALLOWED_FILE_TYPES = new Set<string>([
+  "pdf",
+  "docx",
+  "xlsx",
+  "jpg",
+  "png",
+]);
+
+function validateFileType(fileType: string): boolean {
+  return ALLOWED_FILE_TYPES.has(fileType.toLowerCase());
+}
+
+// Custom error class for HTTP status codes
+class HttpError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number
+  ) {
+    super(message);
+    this.name = "HttpError";
+  }
+}
+
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case "available":
+      return "Available";
+    case "pending_signature":
+      return "Awaiting Signature";
+    case "signed":
+      return "Signed";
+    case "expired":
+      return "Expired";
+    default:
+      return "Unknown";
+  }
+}
+
 export function createSchoolVaultDocumentRepository(tx?: SqlClient): SchoolVaultDocumentRepository {
   // Cast to postgres.Sql for TypeScript generic inference in template literals
   // The union type (Sql | TransactionSql) causes generic type inference to fail
@@ -233,6 +273,75 @@ export function createSchoolVaultDocumentRepository(tx?: SqlClient): SchoolVault
           added_at DESC
       `;
       return rows.map(vaultDocRowToDb);
+    },
+
+    async create(input: CreateVaultDocumentInput): Promise<DbSchoolVaultDocument> {
+      // 1. Validate file type
+      if (!validateFileType(input.fileType)) {
+        throw new HttpError(
+          `Invalid file type: ${input.fileType}. Allowed types: ${Array.from(ALLOWED_FILE_TYPES).join(", ")}`,
+          400
+        );
+      }
+
+      // 2. Check quota limit - get plan tier for family's subscription
+      type QuotaRow = { maxDocuments: number | null; documentCount: number };
+      const quotaRows = await q<QuotaRow[]>`
+        SELECT
+          COALESCE(pt.max_documents, 0) as "maxDocuments",
+          COUNT(DISTINCT svd.id)::int as "documentCount"
+        FROM families f
+        LEFT JOIN stripe_customers sc ON f.id = (
+          SELECT family_id FROM family_members fm
+          WHERE fm.user_id = sc.user_id LIMIT 1
+        )
+        LEFT JOIN subscriptions s ON sc.id = s.stripe_customer_id
+          AND s.status IN ('active', 'trialing')
+        LEFT JOIN plan_tiers pt ON s.plan_tier = pt.id
+        LEFT JOIN school_vault_documents svd ON f.id = svd.family_id
+          AND svd.is_deleted = false
+        WHERE f.id = ${input.familyId}
+        GROUP BY f.id, pt.max_documents
+      `;
+
+      const quotaRow = quotaRows[0];
+      if (!quotaRow) {
+        // Family not found or no subscription - use conservative limit
+        throw new HttpError(
+          "Family not found or quota information unavailable",
+          404
+        );
+      }
+
+      const { maxDocuments, documentCount } = quotaRow;
+
+      // Check if quota is enforced (maxDocuments is not null and > 0) and limit reached
+      if (maxDocuments != null && maxDocuments > 0 && documentCount >= maxDocuments) {
+        throw new HttpError(
+          `Document quota exceeded: ${documentCount}/${maxDocuments} documents`,
+          429
+        );
+      }
+
+      // 3. Insert document with default status 'available'
+      const status = "available";
+      const statusLabel = getStatusLabel(status);
+
+      const rows = await q<VaultDocumentRow[]>`
+        INSERT INTO school_vault_documents (
+          family_id, title, file_type, status, status_label, added_by,
+          size_bytes, url, action_deadline, is_deleted
+        ) VALUES (
+          ${input.familyId}, ${input.title}, ${input.fileType.toLowerCase()},
+          ${status}, ${statusLabel}, ${input.addedBy},
+          ${input.sizeBytes ?? null}, ${input.url ?? null},
+          ${input.actionDeadline ? new Date(input.actionDeadline) : null},
+          false
+        )
+        RETURNING *
+      `;
+
+      return vaultDocRowToDb(rows[0]);
     },
   };
 }
