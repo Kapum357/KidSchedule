@@ -359,10 +359,17 @@ export type CreateVaultDocumentInput = {
   actionDeadline?: string;
 };
 
+export type UpdateVaultDocumentInput = {
+  status?: string;
+  title?: string;
+  actionDeadline?: string | null;
+};
+
 export interface SchoolVaultDocumentRepository {
   findById(id: string): Promise<DbSchoolVaultDocument | null>;
   findByFamilyId(familyId: string): Promise<DbSchoolVaultDocument[]>;
   create(input: CreateVaultDocumentInput): Promise<DbSchoolVaultDocument>;
+  update(id: string, input: UpdateVaultDocumentInput): Promise<DbSchoolVaultDocument | null>;
 }
 
 // ─── Lunch Menu Repository ───────────────────────────────────────────────────

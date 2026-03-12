@@ -7,6 +7,7 @@ import type {
   SchoolEventRepository,
   SchoolVaultDocumentRepository,
   CreateVaultDocumentInput,
+  UpdateVaultDocumentInput,
 } from "../repositories";
 import { HttpError } from "../repositories";
 import type {
@@ -353,6 +354,47 @@ export function createSchoolVaultDocumentRepository(tx?: SqlClient): SchoolVault
       });
 
       return vaultDocRowToDb(result);
+    },
+
+    async update(id: string, input: UpdateVaultDocumentInput): Promise<DbSchoolVaultDocument | null> {
+      // 1. Validate that at least one field is being updated
+      if (input.status === undefined && input.title === undefined && input.actionDeadline === undefined) {
+        throw new HttpError("No fields to update", 400);
+      }
+
+      // 2. Validate status if provided
+      const VALID_STATUSES = new Set<string>(["available", "pending_signature", "signed", "expired"]);
+      if (input.status !== undefined && !VALID_STATUSES.has(input.status)) {
+        throw new HttpError(
+          `Invalid status: ${input.status}. Allowed statuses: available, pending_signature, signed, expired`,
+          400
+        );
+      }
+
+      // 3. Build the updates object with only provided fields
+      const updates: Record<string, unknown> = {};
+      if (input.status !== undefined) {
+        updates.status = input.status;
+        updates.status_label = getStatusLabel(input.status);
+      }
+      if (input.title !== undefined) {
+        updates.title = input.title;
+      }
+      if (input.actionDeadline !== undefined) {
+        updates.action_deadline = input.actionDeadline ? new Date(input.actionDeadline) : null;
+      }
+
+      // 4. Execute the update query
+      // Note: RLS policy automatically filters by family context (checked in middleware)
+      // Soft-delete check: WHERE is_deleted = false prevents updating deleted documents
+      const rows = await q<VaultDocumentRow[]>`
+        UPDATE school_vault_documents
+        SET ${q(updates)}, updated_at = NOW()
+        WHERE id = ${id} AND is_deleted = false
+        RETURNING *
+      `;
+
+      return rows[0] ? vaultDocRowToDb(rows[0]) : null;
     },
   };
 }
