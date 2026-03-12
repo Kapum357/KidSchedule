@@ -113,13 +113,15 @@ export default async function SettingsPage() {
                 <span className="material-symbols-outlined">credit_card</span>
                 <span>Subscription</span>
               </a>
-              <a
-                className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-600 transition-colors hover:bg-primary/10 dark:text-slate-300"
-                href="#conflict-buffer"
-              >
-                <span className="material-symbols-outlined">schedule</span>
-                <span>Conflict Buffer</span>
-              </a>
+              {family && (
+                <a
+                  className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-600 transition-colors hover:bg-primary/10 dark:text-slate-300"
+                  href="#conflict-buffer"
+                >
+                  <span className="material-symbols-outlined">schedule</span>
+                  <span>Conflict Buffer</span>
+                </a>
+              )}
             </nav>
           </aside>
 
