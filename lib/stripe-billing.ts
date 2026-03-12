@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { sql } from "@/lib/persistence/postgres";
+import { sql, withTransaction, createPostgresUnitOfWork } from "@/lib/persistence/postgres";
 
 type PlanTier = "essential" | "plus" | "complete";
 type SubscriptionStatus = "active" | "past_due" | "canceled" | "incomplete" | "trialing";
@@ -539,33 +539,36 @@ async function handlePaymentMethodAttached(event: Stripe.Event): Promise<void> {
     return;
   }
 
-  // Find customer in DB by Stripe ID
-  type CustomerRow = { id: string };
-  const customer = await sql<CustomerRow[]>`
-    SELECT id FROM stripe_customers WHERE stripe_customer_id = ${stripeCustomerId} LIMIT 1
-  `;
+  // Wrap all database operations in a transaction for atomicity
+  await withTransaction(async (tx) => {
+    // Find customer in DB by Stripe ID
+    type CustomerRow = { id: string };
+    const customer = await tx<CustomerRow[]>`
+      SELECT id FROM stripe_customers WHERE stripe_customer_id = ${stripeCustomerId} LIMIT 1
+    `;
 
-  if (!customer[0]) {
-    // Ignore unknown customer
-    return;
-  }
+    if (!customer[0]) {
+      // Ignore unknown customer
+      return;
+    }
 
-  const customerId = customer[0].id;
+    const customerId = customer[0].id;
 
-  // Add payment method to DB
-  const cardData = paymentMethod.card;
-  await sql`
-    INSERT INTO payment_methods (
-      stripe_customer_id, stripe_payment_method_id, type,
-      last4, brand, exp_month, exp_year, is_default, is_deleted
-    ) VALUES (
-      ${customerId}, ${paymentMethod.id}, ${paymentMethod.type},
-      ${cardData?.last4 ?? null}, ${cardData?.brand ?? null},
-      ${cardData?.exp_month ?? null}, ${cardData?.exp_year ?? null},
-      false, false
-    )
-    ON CONFLICT (stripe_payment_method_id) DO NOTHING
-  `;
+    // Add payment method to DB
+    const cardData = paymentMethod.card;
+    await tx`
+      INSERT INTO payment_methods (
+        stripe_customer_id, stripe_payment_method_id, type,
+        last4, brand, exp_month, exp_year, is_default, is_deleted
+      ) VALUES (
+        ${customerId}, ${paymentMethod.id}, ${paymentMethod.type},
+        ${cardData?.last4 ?? null}, ${cardData?.brand ?? null},
+        ${cardData?.exp_month ?? null}, ${cardData?.exp_year ?? null},
+        false, false
+      )
+      ON CONFLICT (stripe_payment_method_id) DO NOTHING
+    `;
+  });
 }
 
 async function handlePaymentMethodDetached(event: Stripe.Event): Promise<void> {
@@ -576,52 +579,55 @@ async function handlePaymentMethodDetached(event: Stripe.Event): Promise<void> {
     return;
   }
 
-  // Find customer in DB by Stripe ID
-  type CustomerRow = { id: string };
-  const customer = await sql<CustomerRow[]>`
-    SELECT id FROM stripe_customers WHERE stripe_customer_id = ${stripeCustomerId} LIMIT 1
-  `;
+  // Wrap all database operations in a transaction for atomicity
+  await withTransaction(async (tx) => {
+    // Find customer in DB by Stripe ID
+    type CustomerRow = { id: string };
+    const customer = await tx<CustomerRow[]>`
+      SELECT id FROM stripe_customers WHERE stripe_customer_id = ${stripeCustomerId} LIMIT 1
+    `;
 
-  if (!customer[0]) {
-    // Ignore unknown customer
-    return;
-  }
+    if (!customer[0]) {
+      // Ignore unknown customer
+      return;
+    }
 
-  const customerId = customer[0].id;
+    const customerId = customer[0].id;
 
-  // Check if this is the default method before soft-delete
-  const methodRows = await sql<{ is_default: boolean }[]>`
-    SELECT is_default FROM payment_methods
-    WHERE stripe_payment_method_id = ${paymentMethod.id} AND stripe_customer_id = ${customerId}
-    LIMIT 1
-  `;
-
-  const wasDefault = methodRows[0]?.is_default ?? false;
-
-  // Soft delete the payment method
-  await sql`
-    UPDATE payment_methods
-    SET is_deleted = true, deleted_at = NOW(), is_default = false, updated_at = NOW()
-    WHERE stripe_payment_method_id = ${paymentMethod.id}
-  `;
-
-  // If was default, auto-select the oldest active method
-  if (wasDefault) {
-    const remainingMethods = await sql<{ id: string }[]>`
-      SELECT id FROM payment_methods
-      WHERE stripe_customer_id = ${customerId} AND is_deleted = false
-      ORDER BY created_at ASC
+    // Check if this is the default method before soft-delete
+    const methodRows = await tx<{ is_default: boolean }[]>`
+      SELECT is_default FROM payment_methods
+      WHERE stripe_payment_method_id = ${paymentMethod.id} AND stripe_customer_id = ${customerId}
       LIMIT 1
     `;
 
-    if (remainingMethods[0]) {
-      await sql`
-        UPDATE payment_methods
-        SET is_default = true, updated_at = NOW()
-        WHERE id = ${remainingMethods[0].id}
+    const wasDefault = methodRows[0]?.is_default ?? false;
+
+    // Soft delete the payment method
+    await tx`
+      UPDATE payment_methods
+      SET is_deleted = true, deleted_at = NOW(), is_default = false, updated_at = NOW()
+      WHERE stripe_payment_method_id = ${paymentMethod.id}
+    `;
+
+    // If was default, auto-select the oldest active method
+    if (wasDefault) {
+      const remainingMethods = await tx<{ id: string }[]>`
+        SELECT id FROM payment_methods
+        WHERE stripe_customer_id = ${customerId} AND is_deleted = false
+        ORDER BY created_at ASC
+        LIMIT 1
       `;
+
+      if (remainingMethods[0]) {
+        await tx`
+          UPDATE payment_methods
+          SET is_default = true, updated_at = NOW()
+          WHERE id = ${remainingMethods[0].id}
+        `;
+      }
     }
-  }
+  });
 }
 
 export async function processStripeWebhookEvent(event: Stripe.Event): Promise<{
