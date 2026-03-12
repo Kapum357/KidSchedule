@@ -34,7 +34,9 @@ function rowToDb(r: ReminderRow): DbReminder {
 }
 
 export function createReminderRepository(tx?: SqlClient): ReminderRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id) {

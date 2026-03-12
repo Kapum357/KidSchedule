@@ -76,7 +76,9 @@ function rowToDb(row: ScheduledNotificationRow): DbScheduledNotification {
 }
 
 export function createScheduledNotificationRepository(tx?: SqlClient): ScheduledNotificationRepository {
-  const query: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const query = (tx ?? sql) as typeof sql;
 
   return {
     async create(data: CreateScheduledNotificationData): Promise<DbScheduledNotification> {
@@ -138,7 +140,10 @@ export function createScheduledNotificationRepository(tx?: SqlClient): Scheduled
         throw new Error('findPendingByTimeRangeForDelivery must be called within a transaction');
       }
 
-      const result = await tx<ScheduledNotificationRow[]>`
+      // Cast transaction for TypeScript generic inference in template literals
+      const txQuery = tx as typeof sql;
+
+      const result = await txQuery<ScheduledNotificationRow[]>`
         SELECT * FROM scheduled_notifications
         WHERE scheduled_at >= ${startTime}
           AND scheduled_at <= ${endTime}

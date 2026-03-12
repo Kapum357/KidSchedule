@@ -45,7 +45,9 @@ function rowToDb(row: MomentRow): DbMoment {
 }
 
 export function createMomentRepository(tx?: SqlClient): MomentRepository {
-  const query: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const query = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbMoment | null> {
@@ -205,7 +207,9 @@ function reactionRowToDb(row: MomentReactionRow): DbMomentReaction {
 }
 
 export function createMomentReactionRepository(tx?: SqlClient): MomentReactionRepository {
-  const query: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const query = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbMomentReaction | null> {

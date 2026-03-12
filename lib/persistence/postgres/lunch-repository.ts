@@ -36,7 +36,9 @@ function menuRowToDb(row: LunchMenuRow): DbLunchMenu {
 }
 
 export function createLunchMenuRepository(tx?: SqlClient): LunchMenuRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findByFamilyIdSince(familyId: string, fromDate: string): Promise<DbLunchMenu[]> {
@@ -88,7 +90,9 @@ function accountRowToDb(r: LunchAccountRow): DbLunchAccount {
 }
 
 export function createLunchAccountRepository(tx?: SqlClient): LunchAccountRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
   return {
     async findById(id) {
       const rows = await q<LunchAccountRow[]>`SELECT * FROM lunch_accounts WHERE id = ${id} LIMIT 1`;
@@ -145,7 +149,9 @@ function txRowToDb(r: LunchTransactionRow): DbLunchTransaction {
 }
 
 export function createLunchTransactionRepository(tx?: SqlClient): LunchTransactionRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
   return {
     async findByAccountId(accountId, limit = 100) {
       const rows = await q<LunchTransactionRow[]>`

@@ -51,7 +51,9 @@ function rowToDb(row: BlogRow): DbBlogPost {
 }
 
 export function createBlogPostRepository(tx?: SqlClient): BlogPostRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbBlogPost | null> {
@@ -144,7 +146,9 @@ function categoryRowToDb(r: CategoryRow): DbBlogCategory {
 }
 
 export function createBlogCategoryRepository(tx?: SqlClient): BlogCategoryRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
   return {
     async findAll() {
       const rows = await q<CategoryRow[]>`SELECT * FROM blog_categories ORDER BY name ASC`;

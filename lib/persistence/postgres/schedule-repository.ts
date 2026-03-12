@@ -57,7 +57,9 @@ function requestRowToDb(row: RequestRow): DbScheduleChangeRequest {
 }
 
 export function createScheduleChangeRequestRepository(tx?: SqlClient): ScheduleChangeRequestRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbScheduleChangeRequest | null> {
@@ -200,7 +202,9 @@ function messageRowToDb(row: MessageRow): DbChangeRequestMessage {
 export function createChangeRequestMessageRepository(
   tx?: SqlClient
 ): ChangeRequestMessageRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findByRequestId(requestId: string): Promise<DbChangeRequestMessage[]> {
@@ -271,7 +275,9 @@ function overrideRowToDb(row: OverrideRow): DbScheduleOverride {
 }
 
 export function createScheduleOverrideRepository(tx?: SqlClient): ScheduleOverrideRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbScheduleOverride | null> {

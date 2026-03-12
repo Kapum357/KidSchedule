@@ -31,7 +31,9 @@ function rowToDb(row: HolidayRow): DbHolidayDefinition {
 }
 
 export function createHolidayRepository(tx?: SqlClient): HolidayRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbHolidayDefinition | null> {
@@ -118,7 +120,9 @@ function ruleRowToDb(row: RuleRow): DbHolidayExceptionRule {
 }
 
 export function createHolidayExceptionRuleRepository(tx?: SqlClient): HolidayExceptionRuleRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findByFamilyId(familyId: string): Promise<DbHolidayExceptionRule[]> {

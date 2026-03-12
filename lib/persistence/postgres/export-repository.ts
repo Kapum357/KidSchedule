@@ -58,7 +58,9 @@ function rowToDb(row: ExportJobRow): ExportJobRecord {
 }
 
 export function createExportJobsRepository(tx?: SqlClient): ExportJobsRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<ExportJobRecord | null> {
@@ -194,7 +196,9 @@ function metadataRowToDb(row: ExportMetadataRow): DbExportMetadata {
 }
 
 export function createExportMetadataRepository(tx?: SqlClient): ExportMetadataRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     /**
@@ -328,7 +332,9 @@ function messageHashRowToDb(row: ExportMessageHashRow): DbExportMessageHash {
 }
 
 export function createExportMessageHashRepository(tx?: SqlClient): ExportMessageHashRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     /**
@@ -422,7 +428,9 @@ function verificationAttemptRowToDb(row: ExportVerificationAttemptRow): DbExport
 }
 
 export function createExportVerificationAttemptRepository(tx?: SqlClient): ExportVerificationAttemptRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     /**

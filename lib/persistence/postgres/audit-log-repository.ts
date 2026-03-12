@@ -29,7 +29,9 @@ function rowToDb(row: AuditRow): DbAuditLog {
 }
 
 export function createAuditLogRepository(tx?: SqlClient): AuditLogRepository {
-  const query: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const query = (tx ?? sql) as typeof sql;
 
   return {
     async create(log: Omit<DbAuditLog, "id" | "timestamp">): Promise<DbAuditLog> {

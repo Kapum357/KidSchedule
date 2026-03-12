@@ -37,7 +37,9 @@ function mediationTopicRowToDb(row: MediationTopicRow): DbMediationTopic {
 }
 
 export function createMediationTopicRepository(tx?: SqlClient): MediationTopicRepository {
-  const query: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const query = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbMediationTopic | null> {
@@ -199,7 +201,9 @@ function mediationWarningRowToDb(row: MediationWarningRow): DbMediationWarning {
 }
 
 export function createMediationWarningRepository(tx?: SqlClient): MediationWarningRepository {
-  const query: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const query = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbMediationWarning | null> {

@@ -43,7 +43,9 @@ function rowToDb(row: TaskRow): DbVolunteerTask {
 }
 
 export function createVolunteerTaskRepository(tx?: SqlClient): VolunteerTaskRepository {
-  const query: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const query = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbVolunteerTask | null> {

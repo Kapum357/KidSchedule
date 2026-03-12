@@ -45,7 +45,9 @@ function contactRowToDb(row: ContactRow): DbSchoolContact {
 }
 
 export function createSchoolContactRepository(tx?: SqlClient): SchoolContactRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbSchoolContact | null> {
@@ -109,7 +111,9 @@ function eventRowToDb(row: EventRow): DbSchoolEvent {
 }
 
 export function createSchoolEventRepository(tx?: SqlClient): SchoolEventRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbSchoolEvent | null> {
@@ -206,7 +210,9 @@ function vaultDocRowToDb(row: VaultDocumentRow): DbSchoolVaultDocument {
 }
 
 export function createSchoolVaultDocumentRepository(tx?: SqlClient): SchoolVaultDocumentRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findById(id: string): Promise<DbSchoolVaultDocument | null> {

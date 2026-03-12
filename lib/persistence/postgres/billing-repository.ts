@@ -44,7 +44,9 @@ function customerRowToDb(r: CustomerRow): DbStripeCustomer {
 }
 
 export function createStripeCustomerRepository(tx?: SqlClient): StripeCustomerRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findByUserId(userId) {
@@ -106,7 +108,9 @@ function paymentMethodRowToDb(r: PaymentMethodRow): DbPaymentMethod {
 }
 
 export function createPaymentMethodRepository(tx?: SqlClient): PaymentMethodRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findByCustomer(stripeCustomerLocalId) {
@@ -187,9 +191,12 @@ export function createPaymentMethodRepository(tx?: SqlClient): PaymentMethodRepo
     async softDelete(id) {
       // If using a transaction, use it directly; otherwise wrap in one
       const performSoftDelete = async (txOrQ: SqlClient) => {
+        // Cast to postgres.Sql for TypeScript generic inference
+        const query = txOrQ as typeof sql;
+
         // Check if this is the default method before soft-delete
         type MethodRow = { stripeCustomerId: string; isDefault: boolean };
-        const methodRows = await txOrQ<MethodRow[]>`
+        const methodRows = await query<MethodRow[]>`
           SELECT stripe_customer_id, is_default FROM payment_methods
           WHERE id = ${id}
           LIMIT 1
@@ -202,14 +209,14 @@ export function createPaymentMethodRepository(tx?: SqlClient): PaymentMethodRepo
         const { stripeCustomerId, isDefault: wasDefault } = methodRows[0];
 
         // Soft delete
-        await txOrQ`
+        await query`
           UPDATE payment_methods SET is_deleted = true, deleted_at = NOW(), is_default = false, updated_at = NOW()
           WHERE id = ${id}
         `;
 
         // If was default, auto-select the oldest active method
         if (wasDefault) {
-          const remainingMethods = await txOrQ<{ id: string }[]>`
+          const remainingMethods = await query<{ id: string }[]>`
             SELECT id FROM payment_methods
             WHERE stripe_customer_id = ${stripeCustomerId} AND is_deleted = false
             ORDER BY created_at ASC
@@ -217,7 +224,7 @@ export function createPaymentMethodRepository(tx?: SqlClient): PaymentMethodRepo
           `;
 
           if (remainingMethods[0]) {
-            await txOrQ`
+            await query`
               UPDATE payment_methods
               SET is_default = true, updated_at = NOW()
               WHERE id = ${remainingMethods[0].id}
@@ -262,7 +269,9 @@ function subscriptionRowToDb(r: SubscriptionRow): DbSubscription {
 }
 
 export function createSubscriptionRepository(tx?: SqlClient): SubscriptionRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findByCustomer(stripeCustomerLocalId) {
@@ -358,7 +367,9 @@ function invoiceRowToDb(r: InvoiceRow): DbInvoice {
 }
 
 export function createInvoiceRepository(tx?: SqlClient): InvoiceRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findByCustomer(stripeCustomerLocalId, limit = 50) {
@@ -452,7 +463,9 @@ function webhookRowToDb(r: WebhookRow): DbWebhookEvent {
 }
 
 export function createWebhookEventRepository(tx?: SqlClient): WebhookEventRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findByStripeEventId(stripeEventId) {
@@ -521,7 +534,9 @@ function planTierRowToDb(r: PlanTierRow): DbPlanTier {
 }
 
 export function createPlanTierRepository(tx?: SqlClient): PlanTierRepository {
-  const q: SqlClient = tx ?? sql;
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
 
   return {
     async findAll() {
