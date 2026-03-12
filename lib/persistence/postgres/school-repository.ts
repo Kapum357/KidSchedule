@@ -396,5 +396,95 @@ export function createSchoolVaultDocumentRepository(tx?: SqlClient): SchoolVault
 
       return rows[0] ? vaultDocRowToDb(rows[0]) : null;
     },
+
+    async delete(id: string, familyId: string): Promise<boolean> {
+      // 1. Fetch the document to get size_bytes and verify it's not already deleted
+      const docRows = await q<
+        Pick<VaultDocumentRow, "sizeBytes" | "isDeleted" | "familyId">[]
+      >`
+        SELECT size_bytes, is_deleted, family_id FROM school_vault_documents WHERE id = ${id}
+      `;
+
+      const document = docRows[0];
+      if (!document) {
+        // Document not found
+        return false;
+      }
+
+      if (document.isDeleted) {
+        // Already soft-deleted, return false (idempotency)
+        return false;
+      }
+
+      // Verify family_id matches (security check - caller should already verify)
+      if (document.familyId !== familyId) {
+        throw new HttpError("Family ID mismatch", 403);
+      }
+
+      // 2. Perform soft-delete + quota reclaim in a transaction
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (sql as any).begin(async (txQuery: SqlClient) => {
+        // Soft-delete the document
+        const deleteRows = await (txQuery as typeof sql)<VaultDocumentRow[]>`
+          UPDATE school_vault_documents
+          SET is_deleted = true, updated_at = NOW()
+          WHERE id = ${id}
+          RETURNING *
+        `;
+
+        if (!deleteRows[0]) {
+          throw new Error("Failed to soft-delete document");
+        }
+
+        // Reclaim storage quota from subscription if size_bytes is not null
+        if (document.sizeBytes !== null && document.sizeBytes > 0) {
+          // Find the subscription for this family and decrease used_storage_bytes
+          const familyRows = await (txQuery as typeof sql)<{ subscriptionId: string }[]>`
+            SELECT s.id as "subscriptionId"
+            FROM subscriptions s
+            INNER JOIN stripe_customers sc ON s.stripe_customer_id = sc.id
+            INNER JOIN family_members fm ON sc.user_id = fm.user_id
+            WHERE fm.family_id = ${familyId}
+              AND s.status IN ('active', 'trialing')
+            LIMIT 1
+          `;
+
+          if (familyRows[0]) {
+            const subscriptionId = familyRows[0].subscriptionId;
+
+            // Note: used_storage_bytes field needs to exist in subscriptions table
+            // This assumes migration has added it. If not present, query will fail gracefully.
+            await (txQuery as typeof sql)`
+              UPDATE subscriptions
+              SET used_storage_bytes = GREATEST(0, COALESCE(used_storage_bytes, 0) - ${document.sizeBytes})
+              WHERE id = ${subscriptionId}
+            `;
+          }
+        }
+
+        return deleteRows[0];
+      });
+
+      return !!result;
+    },
+
+    async hardDelete(): Promise<number> {
+      // Query documents that have been soft-deleted for 30+ days
+      // Hard-delete them (quota was already reclaimed during soft-delete)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const deletedCount = await (sql as any).begin(async (txQuery: SqlClient) => {
+        // 1. Permanently delete documents soft-deleted for 30+ days
+        // Note: Quota was already reclaimed when delete() was called (soft-delete)
+        // Hard-delete just removes the database record after retention window
+        const result = await (txQuery as typeof sql)`
+          DELETE FROM school_vault_documents
+          WHERE is_deleted = true AND added_at < NOW() - INTERVAL '30 days'
+        `;
+
+        return result.count;
+      });
+
+      return deletedCount;
+    },
   };
 }

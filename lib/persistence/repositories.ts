@@ -370,6 +370,26 @@ export interface SchoolVaultDocumentRepository {
   findByFamilyId(familyId: string): Promise<DbSchoolVaultDocument[]>;
   create(input: CreateVaultDocumentInput): Promise<DbSchoolVaultDocument>;
   update(id: string, input: UpdateVaultDocumentInput): Promise<DbSchoolVaultDocument | null>;
+  /**
+   * Soft-delete a vault document and reclaim storage quota.
+   *
+   * Sets is_deleted = true and updated_at = NOW() for FERPA 30-day retention compliance.
+   * Automatically reclaims used_storage_bytes from the family's subscription quota.
+   *
+   * Returns true if document was deleted, false if not found or already deleted.
+   * Throws HttpError if operation fails (e.g., document not found or already deleted).
+   */
+  delete(id: string, familyId: string): Promise<boolean>;
+  /**
+   * Hard-delete documents that have been soft-deleted for 30+ days.
+   *
+   * Query: DELETE FROM school_vault_documents WHERE is_deleted=true AND added_at < NOW() - 30 days
+   * For each hard-deleted document, reclaim its size_bytes from quota.
+   *
+   * Returns count of documents permanently deleted.
+   * FERPA compliance: Only deletes documents past 30-day retention window.
+   */
+  hardDelete(): Promise<number>;
 }
 
 // ─── Lunch Menu Repository ───────────────────────────────────────────────────

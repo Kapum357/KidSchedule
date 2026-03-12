@@ -252,7 +252,7 @@ type SubscriptionRow = {
   stripe_price_id: string; plan_tier: string; status: string;
   current_period_start: Date; current_period_end: Date; cancel_at_period_end: boolean;
   canceled_at: Date | null; cancel_at: Date | null; trial_start: Date | null; trial_end: Date | null;
-  quantity: number; metadata: Record<string, unknown>; created_at: Date; updated_at: Date;
+  quantity: number; used_storage_bytes: number; metadata: Record<string, unknown>; created_at: Date; updated_at: Date;
 };
 
 function subscriptionRowToDb(r: SubscriptionRow): DbSubscription {
@@ -263,7 +263,7 @@ function subscriptionRowToDb(r: SubscriptionRow): DbSubscription {
     cancelAtPeriodEnd: r.cancel_at_period_end,
     canceledAt: r.canceled_at?.toISOString(), cancelAt: r.cancel_at?.toISOString(),
     trialStart: r.trial_start?.toISOString(), trialEnd: r.trial_end?.toISOString(),
-    quantity: r.quantity, metadata: r.metadata,
+    quantity: r.quantity, usedStorageBytes: r.used_storage_bytes, metadata: r.metadata,
     createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
   };
 }

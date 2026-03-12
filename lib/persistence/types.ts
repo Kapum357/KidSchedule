@@ -643,6 +643,7 @@ export interface DbSubscription {
   trialStart?: string;
   trialEnd?: string;
   quantity: number;
+  usedStorageBytes: number;       // Storage used by school vault documents (bytes)
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
