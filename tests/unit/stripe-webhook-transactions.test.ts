@@ -14,13 +14,13 @@ jest.mock('@/lib/observability/api-observability');
 jest.mock('@/lib/observability/metrics');
 
 // Mock the postgres client before importing stripe-billing
-const mockWithTransaction = jest.fn();
-const mockSql = jest.fn();
+const mockTxWithTransaction = jest.fn();
+const mockTxSql = jest.fn();
 
 jest.mock('@/lib/persistence/postgres', () => {
   return {
-    sql: mockSql,
-    withTransaction: mockWithTransaction,
+    sql: mockTxSql,
+    withTransaction: mockTxWithTransaction,
     createPostgresUnitOfWork: jest.fn(),
     setCurrentFamilyId: jest.fn(),
     resetCurrentFamilyId: jest.fn(),
@@ -32,8 +32,8 @@ jest.mock('@/lib/persistence/postgres', () => {
 describe('Stripe Webhook Transaction Handling', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockWithTransaction.mockImplementation((fn) => fn(jest.fn().mockResolvedValue([])));
-    mockSql.mockResolvedValue([]);
+    mockTxWithTransaction.mockImplementation((fn) => fn(jest.fn().mockResolvedValue([])));
+    mockTxSql.mockResolvedValue([]);
     process.env.STRIPE_WEBHOOK_SECRET = 'test_secret_key';
     process.env.STRIPE_SECRET_KEY = 'sk_test_key';
   });
@@ -48,16 +48,16 @@ describe('Stripe Webhook Transaction Handling', () => {
       const stripeModule = await import('@/lib/stripe-billing');
       expect(stripeModule).toBeDefined();
       // The module file imports withTransaction at the top level
-      expect(mockWithTransaction).toBeDefined();
+      expect(mockTxWithTransaction).toBeDefined();
     });
   });
 
   describe('Payment Method Attachment Transactions', () => {
     it('should invoke withTransaction when processing payment_method.attached event', async () => {
       // Reset and re-implement after beforeEach
-      mockWithTransaction.mockClear();
-      mockSql.mockClear();
-      mockWithTransaction.mockImplementation((fn) => fn(jest.fn().mockResolvedValue([])));
+      mockTxWithTransaction.mockClear();
+      mockTxSql.mockClear();
+      mockTxWithTransaction.mockImplementation((fn) => fn(jest.fn().mockResolvedValue([])));
 
       const stripeModule = require('@/lib/stripe-billing');
       const event = {
@@ -79,14 +79,14 @@ describe('Stripe Webhook Transaction Handling', () => {
         created: Math.floor(Date.now() / 1000),
       };
 
-      mockSql
+      mockTxSql
         .mockResolvedValueOnce([{ stripeEventId: 'evt_attach_1' }])
         .mockResolvedValueOnce([{ userId: 'user_1' }])
         .mockResolvedValueOnce([]); // markWebhookProcessed
 
       await stripeModule.processStripeWebhookEvent(event);
 
-      expect(mockWithTransaction).toHaveBeenCalled();
+      expect(mockTxWithTransaction).toHaveBeenCalled();
     });
 
 

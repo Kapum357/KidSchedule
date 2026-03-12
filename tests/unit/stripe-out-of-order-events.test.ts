@@ -15,11 +15,11 @@ jest.mock('@/lib/observability/api-observability');
 jest.mock('@/lib/observability/metrics');
 
 // Mock the postgres client before importing stripe-billing
-const mockSql = jest.fn();
+const mockOoeSql = jest.fn();
 
 jest.mock('@/lib/persistence/postgres', () => {
   return {
-    sql: mockSql,
+    sql: mockOoeSql,
     withTransaction: jest.fn((fn) => fn(jest.fn())),
     createPostgresUnitOfWork: jest.fn(),
     setCurrentFamilyId: jest.fn(),

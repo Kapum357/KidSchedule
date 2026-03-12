@@ -687,6 +687,18 @@ export interface DbWebhookEvent {
   createdAt: string;
 }
 
+export interface DbTwilioWebhookEvent {
+  id: string;
+  messageSid: string;             // MessageSid from Twilio — strong idempotency key
+  phoneNumber: string;            // E.164 format (e.g., +15551234567)
+  eventType: string;              // e.g. 'MessageReceived', 'DeliveryReceipt', 'OptOutChange'
+  timestamp: string;              // From Twilio webhook (event creation time, ISO-8601)
+  payload: Record<string, unknown>; // Full webhook body
+  processedAt?: string;           // NULL until successfully processed
+  errorMessage?: string;          // NULL unless processing failed
+  createdAt: string;
+}
+
 export interface DbPlanTier {
   id: string;                     // 'free', 'starter', 'professional'
   displayName: string;

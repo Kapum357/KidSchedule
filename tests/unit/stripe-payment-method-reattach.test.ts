@@ -14,13 +14,13 @@ jest.mock('@/lib/observability/api-observability');
 jest.mock('@/lib/observability/metrics');
 
 // Mock the postgres client before importing stripe-billing
-const mockWithTransaction = jest.fn();
-const mockSql = jest.fn();
+const mockReatWithTransaction = jest.fn();
+const mockReatSql = jest.fn();
 
 jest.mock('@/lib/persistence/postgres', () => {
   return {
-    sql: mockSql,
-    withTransaction: mockWithTransaction,
+    sql: mockReatSql,
+    withTransaction: mockReatWithTransaction,
     createPostgresUnitOfWork: jest.fn(),
     setCurrentFamilyId: jest.fn(),
     resetCurrentFamilyId: jest.fn(),
@@ -42,7 +42,7 @@ describe('Stripe Payment Method Reattach Bug Fix', () => {
 
       // Track the transaction callback to inspect the SQL
       let transactionCallback: any;
-      mockWithTransaction.mockImplementation(async (fn) => {
+      mockReatWithTransaction.mockImplementation(async (fn) => {
         transactionCallback = fn;
         // Mock the transaction object with the same signature as regular sql
         const tx = jest.fn().mockResolvedValue([]);
@@ -69,13 +69,13 @@ describe('Stripe Payment Method Reattach Bug Fix', () => {
       };
 
       // Mock the webhook event reservation and processing
-      mockSql
+      mockReatSql
         .mockResolvedValueOnce([{ stripeEventId: 'evt_reattach_1' }]) // reserveWebhookEvent
         .mockResolvedValueOnce([]); // markWebhookProcessed
 
       await stripeModule.processStripeWebhookEvent(event);
 
-      expect(mockWithTransaction).toHaveBeenCalled();
+      expect(mockReatWithTransaction).toHaveBeenCalled();
     });
 
     it('should update is_deleted to false on conflict with stripe_payment_method_id', async () => {
@@ -92,7 +92,7 @@ describe('Stripe Payment Method Reattach Bug Fix', () => {
         return Promise.resolve([{ id: 'cus_1' }]);
       });
 
-      mockWithTransaction.mockImplementation(async (fn) => {
+      mockReatWithTransaction.mockImplementation(async (fn) => {
         return fn(mockTx);
       });
 
@@ -115,20 +115,20 @@ describe('Stripe Payment Method Reattach Bug Fix', () => {
         created: Math.floor(Date.now() / 1000),
       };
 
-      mockSql
+      mockReatSql
         .mockResolvedValueOnce([{ stripeEventId: 'evt_reattach_2' }])
         .mockResolvedValueOnce([]); // markWebhookProcessed
 
       await stripeModule.processStripeWebhookEvent(event);
 
-      expect(mockWithTransaction).toHaveBeenCalled();
+      expect(mockReatWithTransaction).toHaveBeenCalled();
       expect(mockTx).toHaveBeenCalled();
     });
 
     it('should accept deleted payment method that previously failed to reattach', async () => {
       const stripeModule = require('@/lib/stripe-billing');
 
-      mockWithTransaction.mockImplementation(async (fn) => {
+      mockReatWithTransaction.mockImplementation(async (fn) => {
         const tx = jest.fn().mockResolvedValue([]);
         return fn(tx);
       });
@@ -156,20 +156,20 @@ describe('Stripe Payment Method Reattach Bug Fix', () => {
         created: Math.floor(Date.now() / 1000),
       };
 
-      mockSql
+      mockReatSql
         .mockResolvedValueOnce([{ stripeEventId: 'evt_reattach_3' }])
         .mockResolvedValueOnce([]); // markWebhookProcessed
 
       await stripeModule.processStripeWebhookEvent(event);
 
-      expect(mockWithTransaction).toHaveBeenCalledTimes(1);
+      expect(mockReatWithTransaction).toHaveBeenCalledTimes(1);
     });
 
     it('should maintain atomicity during reattach operation', async () => {
       const stripeModule = require('@/lib/stripe-billing');
 
       const mockTx = jest.fn().mockResolvedValue([]);
-      mockWithTransaction.mockImplementation(async (fn) => {
+      mockReatWithTransaction.mockImplementation(async (fn) => {
         return fn(mockTx);
       });
 
@@ -192,15 +192,15 @@ describe('Stripe Payment Method Reattach Bug Fix', () => {
         created: Math.floor(Date.now() / 1000),
       };
 
-      mockSql
+      mockReatSql
         .mockResolvedValueOnce([{ stripeEventId: 'evt_reattach_4' }])
         .mockResolvedValueOnce([]); // markWebhookProcessed
 
       await stripeModule.processStripeWebhookEvent(event);
 
       // Verify transaction was used
-      expect(mockWithTransaction).toHaveBeenCalledTimes(1);
-      expect(mockWithTransaction).toHaveBeenCalledWith(expect.any(Function));
+      expect(mockReatWithTransaction).toHaveBeenCalledTimes(1);
+      expect(mockReatWithTransaction).toHaveBeenCalledWith(expect.any(Function));
     });
   });
 
@@ -208,7 +208,7 @@ describe('Stripe Payment Method Reattach Bug Fix', () => {
     it('should handle payment method reattach for unknown customer gracefully', async () => {
       const stripeModule = require('@/lib/stripe-billing');
 
-      mockWithTransaction.mockImplementation(async (fn) => {
+      mockReatWithTransaction.mockImplementation(async (fn) => {
         const tx = jest.fn().mockResolvedValue([]);
         return fn(tx);
       });
@@ -232,7 +232,7 @@ describe('Stripe Payment Method Reattach Bug Fix', () => {
         created: Math.floor(Date.now() / 1000),
       };
 
-      mockSql
+      mockReatSql
         .mockResolvedValueOnce([{ stripeEventId: 'evt_unknown_customer' }])
         .mockResolvedValueOnce([]); // markWebhookProcessed
 
@@ -246,7 +246,7 @@ describe('Stripe Payment Method Reattach Bug Fix', () => {
     it('should handle duplicate reattach events idempotently', async () => {
       const stripeModule = require('@/lib/stripe-billing');
 
-      mockWithTransaction.mockImplementation(async (fn) => {
+      mockReatWithTransaction.mockImplementation(async (fn) => {
         const tx = jest.fn().mockResolvedValue([]);
         return fn(tx);
       });
@@ -271,7 +271,7 @@ describe('Stripe Payment Method Reattach Bug Fix', () => {
       };
 
       // First call succeeds
-      mockSql
+      mockReatSql
         .mockResolvedValueOnce([{ stripeEventId: 'evt_duplicate_reattach' }])
         .mockResolvedValueOnce([]); // markWebhookProcessed
 
@@ -280,7 +280,7 @@ describe('Stripe Payment Method Reattach Bug Fix', () => {
       expect(result1.duplicate).toBe(false);
 
       // Second call with same event ID is a duplicate
-      mockSql
+      mockReatSql
         .mockResolvedValueOnce([]); // reserveWebhookEvent returns empty
 
       const result2 = await stripeModule.processStripeWebhookEvent(event);

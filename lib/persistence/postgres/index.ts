@@ -60,6 +60,7 @@ import {
   createSubscriptionRepository,
   createInvoiceRepository,
   createWebhookEventRepository,
+  createTwilioWebhookEventRepository,
   createPlanTierRepository,
 } from "./billing-repository";
 import {
@@ -130,6 +131,7 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     subscriptions: createSubscriptionRepository(tx),
     invoices: createInvoiceRepository(tx),
     webhookEvents: createWebhookEventRepository(tx),
+    twilioWebhookEvents: createTwilioWebhookEventRepository(tx),
     planTiers: createPlanTierRepository(tx),
     mediationTopics: createMediationTopicRepository(tx),
     mediationWarnings: createMediationWarningRepository(tx),

@@ -54,6 +54,7 @@ import type {
   DbSubscription,
   DbInvoice,
   DbWebhookEvent,
+  DbTwilioWebhookEvent,
   DbPlanTier,
   DbReminder,
   DbConflictWindow,
@@ -681,6 +682,20 @@ export interface WebhookEventRepository {
   findUnprocessed(limit?: number): Promise<DbWebhookEvent[]>;
 }
 
+export interface TwilioWebhookEventRepository {
+  create(data: Omit<DbTwilioWebhookEvent, "id" | "createdAt">): Promise<DbTwilioWebhookEvent>;
+  findByMessageSid(messageSid: string): Promise<DbTwilioWebhookEvent | null>;
+  findByPhoneAndEventType(
+    phoneNumber: string,
+    eventType: string,
+    timestamp?: string
+  ): Promise<DbTwilioWebhookEvent | null>;
+  markProcessed(id: string, processedAt?: string): Promise<void>;
+  markError(id: string, errorMessage: string): Promise<void>;
+  findUnprocessed(limit?: number): Promise<DbTwilioWebhookEvent[]>;
+  findOlderThan(daysOld: number, limit?: number): Promise<DbTwilioWebhookEvent[]>;
+}
+
 export interface PlanTierRepository {
   findAll(): Promise<DbPlanTier[]>;
   findById(id: string): Promise<DbPlanTier | null>;
@@ -777,6 +792,7 @@ export interface UnitOfWork {
   subscriptions: SubscriptionRepository;
   invoices: InvoiceRepository;
   webhookEvents: WebhookEventRepository;
+  twilioWebhookEvents: TwilioWebhookEventRepository;
   planTiers: PlanTierRepository;
   exportMetadata: ExportMetadataRepository;
   exportMessageHashes: ExportMessageHashRepository;

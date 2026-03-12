@@ -13,6 +13,7 @@ import type {
   DbSubscription,
   DbInvoice,
   DbWebhookEvent,
+  DbTwilioWebhookEvent,
   DbPlanTier,
   SubscriptionStatus,
   InvoiceStatus,
@@ -23,6 +24,7 @@ import type {
   SubscriptionRepository,
   InvoiceRepository,
   WebhookEventRepository,
+  TwilioWebhookEventRepository,
   PlanTierRepository,
 } from "../repositories";
 import { sql, type SqlClient } from "./client";
@@ -549,6 +551,124 @@ export function createPlanTierRepository(tx?: SqlClient): PlanTierRepository {
     async findById(id) {
       const rows = await q<PlanTierRow[]>`SELECT * FROM plan_tiers WHERE id = ${id} LIMIT 1`;
       return rows[0] ? planTierRowToDb(rows[0]) : null;
+    },
+  };
+}
+
+// ─── Twilio Webhook Event impl ────────────────────────────────────────────
+
+type TwilioWebhookRow = {
+  id: string;
+  message_sid: string;
+  phone_number: string;
+  event_type: string;
+  timestamp: Date;
+  payload: Record<string, unknown>;
+  processed_at: Date | null;
+  error_message: string | null;
+  created_at: Date;
+};
+
+function twilioWebhookRowToDb(r: TwilioWebhookRow): DbTwilioWebhookEvent {
+  return {
+    id: r.id,
+    messageSid: r.message_sid,
+    phoneNumber: r.phone_number,
+    eventType: r.event_type,
+    timestamp: r.timestamp.toISOString(),
+    payload: r.payload,
+    processedAt: r.processed_at?.toISOString(),
+    errorMessage: r.error_message ?? undefined,
+    createdAt: r.created_at.toISOString(),
+  };
+}
+
+export function createTwilioWebhookEventRepository(tx?: SqlClient): TwilioWebhookEventRepository {
+  // Cast to postgres.Sql for TypeScript generic inference in template literals
+  // The union type (Sql | TransactionSql) causes generic type inference to fail
+  const q = (tx ?? sql) as typeof sql;
+
+  return {
+    async create(data) {
+      const rows = await q<TwilioWebhookRow[]>`
+        INSERT INTO twilio_webhook_events (
+          message_sid, phone_number, event_type, timestamp, payload
+        ) VALUES (
+          ${data.messageSid}, ${data.phoneNumber}, ${data.eventType},
+          ${new Date(data.timestamp)}, ${JSON.stringify(data.payload)}
+        )
+        RETURNING *
+      `;
+      return twilioWebhookRowToDb(rows[0]);
+    },
+
+    async findByMessageSid(messageSid) {
+      const rows = await q<TwilioWebhookRow[]>`
+        SELECT * FROM twilio_webhook_events WHERE message_sid = ${messageSid} LIMIT 1
+      `;
+      return rows[0] ? twilioWebhookRowToDb(rows[0]) : null;
+    },
+
+    async findByPhoneAndEventType(phoneNumber, eventType, timestamp?) {
+      if (timestamp) {
+        // Find exact match with timestamp
+        const rows = await q<TwilioWebhookRow[]>`
+          SELECT * FROM twilio_webhook_events
+          WHERE phone_number = ${phoneNumber}
+            AND event_type = ${eventType}
+            AND timestamp = ${new Date(timestamp)}
+          LIMIT 1
+        `;
+        return rows[0] ? twilioWebhookRowToDb(rows[0]) : null;
+      }
+      // Find most recent for phone + event type
+      const rows = await q<TwilioWebhookRow[]>`
+        SELECT * FROM twilio_webhook_events
+        WHERE phone_number = ${phoneNumber}
+          AND event_type = ${eventType}
+        ORDER BY timestamp DESC
+        LIMIT 1
+      `;
+      return rows[0] ? twilioWebhookRowToDb(rows[0]) : null;
+    },
+
+    async markProcessed(id, processedAt?) {
+      await q`
+        UPDATE twilio_webhook_events
+        SET processed_at = ${processedAt ? new Date(processedAt) : sql`NOW()`}
+        WHERE id = ${id}
+      `;
+    },
+
+    async markError(id, errorMessage) {
+      await q`
+        UPDATE twilio_webhook_events
+        SET error_message = ${errorMessage}
+        WHERE id = ${id}
+      `;
+    },
+
+    async findUnprocessed(limit = 50) {
+      const rows = await q<TwilioWebhookRow[]>`
+        SELECT * FROM twilio_webhook_events
+        WHERE processed_at IS NULL
+        ORDER BY created_at ASC
+        LIMIT ${limit}
+      `;
+      return rows.map(twilioWebhookRowToDb);
+    },
+
+    async findOlderThan(daysOld, limit = 100) {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      const rows = await q<TwilioWebhookRow[]>`
+        SELECT * FROM twilio_webhook_events
+        WHERE created_at < ${cutoffDate}
+        ORDER BY created_at ASC
+        LIMIT ${limit}
+      `;
+      return rows.map(twilioWebhookRowToDb);
     },
   };
 }
