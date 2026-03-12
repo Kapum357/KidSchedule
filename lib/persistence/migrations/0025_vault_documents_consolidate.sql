@@ -21,7 +21,10 @@
 -- - If data exists, migration will fail on DROP (intentional - requires manual review)
 -- - After migration, code using school-repository.ts works with new status values
 
--- Drop both conflicting vault tables and recreate authoritative one
+-- Drop both conflicting vault tables and their associated RLS policies
+-- Note: 0013_rls.sql created RLS policy on wrong table (vault_documents)
+-- This policy will be orphaned after drop, so remove it first
+DROP POLICY IF EXISTS vault_documents_isolation ON vault_documents;
 DROP TABLE IF EXISTS vault_documents CASCADE;
 DROP TABLE IF EXISTS school_vault_documents CASCADE;
 
@@ -68,7 +71,7 @@ CREATE TRIGGER school_vault_documents_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-ALTER TABLE school_vault_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS school_vault_documents ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY IF NOT EXISTS school_vault_documents_isolation
   ON school_vault_documents

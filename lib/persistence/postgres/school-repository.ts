@@ -188,6 +188,8 @@ type VaultDocumentRow = {
   statusLabel: string;
   addedAt: Date;
   addedBy: string;
+  updatedAt: Date;
+  isDeleted: boolean;
   sizeBytes: number | null;
   url: string | null;
   actionDeadline: Date | null;
@@ -203,6 +205,8 @@ function vaultDocRowToDb(row: VaultDocumentRow): DbSchoolVaultDocument {
     statusLabel: row.statusLabel,
     addedAt: row.addedAt.toISOString(),
     addedBy: row.addedBy,
+    updatedAt: row.updatedAt.toISOString(),
+    isDeleted: row.isDeleted,
     sizeBytes: row.sizeBytes ?? undefined,
     url: row.url ?? undefined,
     actionDeadline: row.actionDeadline?.toISOString(),

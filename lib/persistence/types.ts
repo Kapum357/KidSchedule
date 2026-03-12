@@ -299,6 +299,8 @@ export interface DbSchoolVaultDocument {
   statusLabel: string;
   addedAt: string;
   addedBy: string;
+  updatedAt: string;
+  isDeleted: boolean;
   sizeBytes?: number;
   url?: string;
   actionDeadline?: string;
