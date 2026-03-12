@@ -194,26 +194,55 @@ export async function POST(request: NextRequest) {
 // ─── GET /api/notifications/pending ───────────────────────────────────────────
 
 /**
- * Get pending notifications ready for delivery.
- * GET /api/notifications/pending
+ * Get pending notifications ready for delivery for the authenticated user's family.
+ * GET /api/notifications/pending?window=60
+ *
+ * Query Parameters:
+ * - window: Time window in minutes to look ahead (default: 60, max: 1440)
+ *
+ * Returns only notifications for the authenticated user's family.
+ * Requires authentication.
  */
 export async function GET(request: NextRequest) {
   try {
-    // Authenticate user (admin/system access)
+    // Authenticate user - return 401 if not authenticated
     const auth = await getAuthenticatedUser();
     if (!auth) {
       return unauthorized("Authentication required");
     }
 
-    const url = new URL(request.url);
-    const windowMinutes = parseInt(url.searchParams.get("window") || "60");
+    // Get user's family
+    const parent = await db.parents.findByUserId(auth.userId);
+    if (!parent) {
+      return forbidden("Parent profile not found");
+    }
 
-    // Get all pending notifications
-    const pendingNotifications = await db.scheduledNotifications.findPendingByTimeRange(
-      new Date().toISOString(),
-      new Date(Date.now() + windowMinutes * 60 * 1000).toISOString(),
-      100,
+    const url = new URL(request.url);
+    const windowMinutes = Math.min(
+      parseInt(url.searchParams.get("window") || "60"),
+      1440 // Maximum 24 hours
     );
+
+    // Validate window parameter
+    if (windowMinutes < 1 || isNaN(windowMinutes)) {
+      return badRequest("invalid_input", "window must be a positive integer");
+    }
+
+    // Get all pending notifications for this family within the time window
+    const allNotifications = await db.scheduledNotifications.findByFamilyId(parent.familyId);
+
+    const now = new Date();
+    const windowEnd = new Date(now.getTime() + windowMinutes * 60 * 1000);
+
+    // Filter for pending notifications within the time window
+    const pendingNotifications = allNotifications.filter(n => {
+      const scheduledAt = new Date(n.scheduledAt);
+      return (
+        n.deliveryStatus === "pending" &&
+        scheduledAt >= now &&
+        scheduledAt <= windowEnd
+      );
+    });
 
     return NextResponse.json({
       success: true,
