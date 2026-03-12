@@ -441,9 +441,11 @@ export interface MomentReactionRepository {
   findById(id: string): Promise<DbMomentReaction | null>;
   findByMomentId(momentId: string): Promise<DbMomentReaction[]>;
   findByMomentIdAndParentId(momentId: string, parentId: string): Promise<DbMomentReaction | null>;
+  findByMomentIdsWithReactions(momentIds: string[]): Promise<Map<string, DbMomentReaction[]>>;
   create(
     reaction: Omit<DbMomentReaction, "id">
   ): Promise<DbMomentReaction>;
+  addReaction(momentId: string, parentId: string, emoji: string): Promise<{ id: string; isNew: boolean }>;
   delete(id: string): Promise<boolean>;
   deleteByMomentIdAndParentId(momentId: string, parentId: string): Promise<boolean>;
 }

@@ -190,6 +190,10 @@ type MomentReactionRow = {
   reacted_at: string;
 };
 
+type MomentReactionWithIsNewRow = MomentReactionRow & {
+  is_new: boolean;
+};
+
 function reactionRowToDb(row: MomentReactionRow): DbMomentReaction {
   return {
     id: row.id,
@@ -231,6 +235,43 @@ export function createMomentReactionRepository(tx?: SqlClient): MomentReactionRe
       return rows[0] ? reactionRowToDb(rows[0]) : null;
     },
 
+    async findByMomentIdsWithReactions(momentIds: string[]): Promise<Map<string, DbMomentReaction[]>> {
+      if (momentIds.length === 0) return new Map();
+
+      // Single query with LEFT JOIN to get all reactions for moments efficiently
+      const rows = await query<Array<{
+        moment_id: string;
+        reactions: MomentReactionRow[];
+      }>>`
+        SELECT
+          m.id as moment_id,
+          COALESCE(
+            json_agg(
+              json_build_object(
+                'id', mr.id,
+                'moment_id', mr.moment_id,
+                'parent_id', mr.parent_id,
+                'emoji', mr.emoji,
+                'reacted_at', mr.reacted_at
+              ) ORDER BY mr.reacted_at DESC
+            ) FILTER (WHERE mr.id IS NOT NULL),
+            '[]'::json
+          ) as reactions
+        FROM moments m
+        LEFT JOIN moment_reactions mr ON m.id = mr.moment_id
+        WHERE m.id = ANY(${momentIds})
+        GROUP BY m.id
+      `;
+
+      const map = new Map<string, DbMomentReaction[]>();
+      rows.forEach(row => {
+        const reactions = row.reactions as unknown as MomentReactionRow[];
+        map.set(row.moment_id, reactions.map(reactionRowToDb));
+      });
+
+      return map;
+    },
+
     async create(
       reaction: Omit<DbMomentReaction, "id">
     ): Promise<DbMomentReaction> {
@@ -251,6 +292,33 @@ export function createMomentReactionRepository(tx?: SqlClient): MomentReactionRe
       return reactionRowToDb(rows[0]);
     },
 
+    async addReaction(momentId: string, parentId: string, emoji: string): Promise<{ id: string; isNew: boolean }> {
+      const now = new Date().toISOString();
+
+      // Use INSERT ON CONFLICT for atomic upsert (prevents race conditions)
+      // Note: constraint is on (moment_id, parent_id) - one emoji per parent per moment
+      const rows = await query<MomentReactionWithIsNewRow[]>`
+        INSERT INTO moment_reactions (id, moment_id, parent_id, emoji, reacted_at)
+        VALUES (
+          ${uuidv4()},
+          ${momentId},
+          ${parentId},
+          ${emoji},
+          ${now}
+        )
+        ON CONFLICT (moment_id, parent_id) DO UPDATE
+        SET emoji = EXCLUDED.emoji, reacted_at = EXCLUDED.reacted_at
+        RETURNING id, (xmax = 0) as is_new
+      `;
+
+      if (rows.length === 0) throw new Error('Failed to add reaction');
+
+      return {
+        id: rows[0].id,
+        isNew: rows[0].is_new,
+      };
+    },
+
     async delete(id: string): Promise<boolean> {
       const existing = await this.findById(id);
       if (!existing) {
@@ -264,11 +332,12 @@ export function createMomentReactionRepository(tx?: SqlClient): MomentReactionRe
       momentId: string,
       parentId: string
     ): Promise<boolean> {
-      await query`
+      const result = await query<{ id: string }[]>`
         DELETE FROM moment_reactions
         WHERE moment_id = ${momentId} AND parent_id = ${parentId}
+        RETURNING id
       `;
-      return true;
+      return result.length > 0;
     },
   };
 }

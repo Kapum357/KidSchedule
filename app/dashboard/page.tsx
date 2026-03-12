@@ -871,7 +871,7 @@ export default async function DashboardPage() {
   // If we don't have a secondary parent yet, create a dummy placeholder to avoid crashes
   const safePrimary = primaryParent ?? { id: "primary-placeholder", name: "Primary Parent (You)", email: "primary@example.com" };
   const safeSecondary = secondaryParent ?? { id: "secondary-placeholder", name: "Co-Parent (Pending Setup)", email: "secondary@example.com" };
-  
+
   if (dbFamily.scheduleId === "alternating-weeks") {
     scheduleBlocks = SchedulePresets.alternatingWeeks(safePrimary.id, safeSecondary.id);
   } else if (dbFamily.scheduleId === "3-4-4-3") {
@@ -894,6 +894,27 @@ export default async function DashboardPage() {
     children: (dbChildren as unknown as Family["children"]),
   };
 
+  // ── Batch load reactions for all moments (prevent N+1 queries) ──────────
+  const momentIds = dbMoments.map(m => m.id);
+  const reactionsMap = await db.momentReactions.findByMomentIdsWithReactions(momentIds);
+
+  // Attach reactions to moments with safe defaults
+  const momentsWithReactions: Moment[] = dbMoments.map(moment => ({
+    id: moment.id,
+    familyId: moment.familyId,
+    uploadedBy: moment.uploadedBy,
+    mediaUrl: moment.mediaUrl,
+    thumbnailUrl: moment.thumbnailUrl,
+    caption: moment.caption,
+    takenAt: moment.takenAt,
+    createdAt: moment.createdAt,
+    reactions: (reactionsMap.get(moment.id) ?? []).map(r => ({
+      parentId: r.parentId,
+      emoji: r.emoji,
+      reactedAt: r.reactedAt,
+    })),
+  }));
+
   const input = {
     currentParent: {
       id: parent.id,
@@ -906,7 +927,7 @@ export default async function DashboardPage() {
     changeRequests:   (dbChangeRequests  as unknown as ScheduleChangeRequest[]),
     messages:         (dbMessages        as unknown as Message[]),
     expenses:         (dbExpenses        as unknown as Expense[]),
-    moments:          (dbMoments         as unknown as Moment[]),
+    moments:          (momentsWithReactions as unknown as Moment[]),
     reminders:        [] as Reminder[],
   };
 
