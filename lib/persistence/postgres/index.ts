@@ -53,6 +53,7 @@ import {
   createExportMessageHashRepository,
   createExportVerificationAttemptRepository,
 } from "./export-repository";
+import { createExportShareTokenRepository } from "./export-share-token-repository";
 import {
   createStripeCustomerRepository,
   createPaymentMethodRepository,
@@ -123,6 +124,7 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     exportMetadata: createExportMetadataRepository(tx),
     exportMessageHashes: createExportMessageHashRepository(tx),
     exportVerificationAttempts: createExportVerificationAttemptRepository(tx),
+    exportShareTokens: createExportShareTokenRepository(tx),
     stripeCustomers: createStripeCustomerRepository(tx),
     paymentMethods: createPaymentMethodRepository(tx),
     subscriptions: createSubscriptionRepository(tx),

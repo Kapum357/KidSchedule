@@ -460,6 +460,18 @@ export interface DbExportVerificationAttempt {
   createdAt: string;
 }
 
+export interface DbExportShareToken {
+  id: string;
+  exportId: string; // Reference to export_jobs
+  token: string; // 64-char hex token
+  scope: "internal" | "external";
+  createdAt: string;
+  expiresAt: string;
+  lastAccessedAt?: string;
+  accessCount: number;
+  createdByUserId: string;
+}
+
 // ─── Moment Entities ──────────────────────────────────────────────────────────
 
 export interface DbMoment {

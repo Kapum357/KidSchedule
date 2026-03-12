@@ -48,6 +48,7 @@ import type {
   DbExportMetadata,
   DbExportMessageHash,
   DbExportVerificationAttempt,
+  DbExportShareToken,
   DbStripeCustomer,
   DbPaymentMethod,
   DbSubscription,
@@ -502,6 +503,22 @@ export interface ExportVerificationAttemptRepository {
   create(data: Omit<DbExportVerificationAttempt, "id" | "createdAt">): Promise<DbExportVerificationAttempt>;
 }
 
+// ─── Export Share Token Repository ────────────────────────────────────────────
+
+export interface ExportShareTokenRepository {
+  findByToken(token: string): Promise<DbExportShareToken | null>;
+  findByExportId(exportId: string): Promise<DbExportShareToken[]>;
+  create(
+    exportId: string,
+    userId: string,
+    expiresAt: Date,
+    scope?: "internal" | "external"
+  ): Promise<{ token: string; id: string }>;
+  updateAccessCount(tokenId: string): Promise<void>;
+  revoke(tokenId: string): Promise<void>;
+  deleteExpired(): Promise<number>;
+}
+
 // ─── Reminder Repository ──────────────────────────────────────────────────────
 
 export interface ReminderRepository {
@@ -664,6 +681,7 @@ export interface UnitOfWork {
   exportMetadata: ExportMetadataRepository;
   exportMessageHashes: ExportMessageHashRepository;
   exportVerificationAttempts: ExportVerificationAttemptRepository;
+  exportShareTokens: ExportShareTokenRepository;
   mediationTopics: MediationTopicRepository;
   mediationWarnings: MediationWarningRepository;
 
