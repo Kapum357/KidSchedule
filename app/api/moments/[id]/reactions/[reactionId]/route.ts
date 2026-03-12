@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; reactionId: string } }
+  { params }: { params: Promise<{ id: string; reactionId: string }> }
 ): Promise<NextResponse> {
   const requestId = crypto.randomUUID();
   const startedAt = Date.now();
@@ -22,10 +22,11 @@ export async function DELETE(
     // 1. Auth: Get current user (parent)
     const session = await getCurrentUser();
     if (!session) {
+      const { id: momentId, reactionId } = await params;
       logEvent("warn", "Reaction DELETE: unauthorized attempt", {
         requestId,
-        momentId: params.id,
-        reactionId: params.reactionId,
+        momentId,
+        reactionId,
       });
       return NextResponse.json(
         { error: "UNAUTHORIZED", message: "Authentication required" },
@@ -34,8 +35,7 @@ export async function DELETE(
     }
 
     const parentId = session.userId;
-    const momentId = params.id;
-    const reactionId = params.reactionId;
+    const { id: momentId, reactionId } = await params;
 
     // 2. Find the reaction to verify ownership
     const reaction = await db.momentReactions.findById(reactionId);
@@ -109,10 +109,11 @@ export async function DELETE(
     return NextResponse.json(null, { status: 204 });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const { id: momentId, reactionId } = await params;
     logEvent("error", "Reaction DELETE failed", {
       requestId,
-      momentId: params.id,
-      reactionId: params.reactionId,
+      momentId,
+      reactionId,
       error: errorMessage,
       durationMs: Date.now() - startedAt,
     });

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { OptimizedImage } from "@/components/optimized-image";
+import { MomentReactionPicker } from "@/components/moments/moment-reaction-picker";
+import { MomentReactionSummary } from "@/components/moments/moment-reaction-summary";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -9,6 +11,13 @@ type MemoryKind = "media" | "quote" | "document";
 type ChildTag = "Leo" | "Maya" | "Leo & Maya";
 type ChildFilter = "all" | "Leo" | "Maya";
 type SortOrder = "desc" | "asc";
+
+type GroupedReaction = {
+  emoji: string;
+  count: number;
+  byCurrentUser: boolean;
+  userIds: string[];
+};
 
 type MemoryItem = {
   id: string;
@@ -21,6 +30,7 @@ type MemoryItem = {
   videoLength?: string;
   likes?: number;
   ownerInitials: string;
+  reactions?: GroupedReaction[];
 };
 
 // ─── Demo Data ────────────────────────────────────────────────────────────────
@@ -37,6 +47,10 @@ const ALL_MEMORIES: readonly MemoryItem[] = [
     videoLength: "0:45",
     likes: 2,
     ownerInitials: "JD",
+    reactions: [
+      { emoji: '🔥', count: 2, byCurrentUser: true, userIds: ['parent1', 'parent2'] },
+      { emoji: '👍', count: 1, byCurrentUser: false, userIds: ['parent3'] },
+    ],
   },
   {
     id: "beach-photo",
@@ -48,6 +62,9 @@ const ALL_MEMORIES: readonly MemoryItem[] = [
       "https://lh3.googleusercontent.com/aida-public/AB6AXuC_TJhWR2wb97475hFwoPPGRxxUQvlH7PSxRV6NWTqWc2Osdk30z-IPradqCK7ky6-W-hLw1teFA2hV2hp5Z_UJklRTf5iBoMyraddPe3e8dCoYkM5hCvSi2QBndK85Pqp4iZFkGdBhPQtnISmg47LZlXR6X1HuQXGdAVmahhoiJd0ZC26S3AqleVhcHIpN3PEW-RLMLimT2LcCZYlm9ZMR64Fzkolen_n5-5-NVpJLa2SBXWkLeyDu7X6sq5cxLn1RzIZFqvkm0AA",
     likes: 1,
     ownerInitials: "SM",
+    reactions: [
+      { emoji: '😍', count: 3, byCurrentUser: true, userIds: ['parent1', 'parent2', 'parent3'] },
+    ],
   },
   {
     id: "science-fair",
@@ -60,6 +77,10 @@ const ALL_MEMORIES: readonly MemoryItem[] = [
     excerpt: "So proud of them both for working together on the volcano project.",
     likes: 3,
     ownerInitials: "JD",
+    reactions: [
+      { emoji: '🎉', count: 4, byCurrentUser: true, userIds: ['parent1', 'parent2', 'parent3', 'parent4'] },
+      { emoji: '❤️', count: 2, byCurrentUser: false, userIds: ['parent2', 'parent5'] },
+    ],
   },
   {
     id: "maya-quote",
@@ -119,12 +140,21 @@ function MemoryCard({
   liked,
   likeCount,
   onToggleLike,
+  reactions,
+  onReactionAdded,
+  onReactionRemoved,
+  onReactionError,
 }: Readonly<{
   item: MemoryItem;
   liked: boolean;
   likeCount: number;
   onToggleLike: (id: string) => void;
+  reactions: GroupedReaction[];
+  onReactionAdded: (momentId: string, emoji: string) => void;
+  onReactionRemoved: (momentId: string, emoji: string) => void;
+  onReactionError: (error: string) => void;
 }>) {
+  const [showPicker, setShowPicker] = useState(false);
   if (item.kind === "quote") {
     return (
       <article className="break-inside-avoid mb-6 rounded-xl border border-amber-100 bg-amber-50 p-6 shadow-sm transition hover:shadow-md dark:border-amber-800/30 dark:bg-amber-900/20">
@@ -137,21 +167,57 @@ function MemoryCard({
 
         <h3 className="font-serif text-lg italic text-amber-900 dark:text-amber-100">{item.title}</h3>
 
-        <div className="mt-4 flex justify-end">
-          <button
-            type="button"
-            aria-label="Like quote"
-            onClick={() => onToggleLike(item.id)}
-            className={`flex items-center gap-1 transition ${liked ? "text-rose-500 hover:text-rose-600" : "text-amber-700/60 hover:text-rose-500"}`}
-          >
-            {liked && <span className="text-xs font-medium">{likeCount}</span>}
-            <span
-              className="material-symbols-outlined text-[20px]"
-              style={liked ? { fontVariationSettings: "'FILL' 1" } : undefined}
+        <div className="mt-4 space-y-3">
+          {/* Reactions Summary */}
+          {reactions.length > 0 && (
+            <MomentReactionSummary
+              momentId={item.id}
+              reactions={reactions}
+              onReactionRemoved={(emoji) => onReactionRemoved(item.id, emoji)}
+              onError={onReactionError}
+              currentUserId="parent1"
+            />
+          )}
+
+          {/* Like and Picker Buttons */}
+          <div className="flex justify-between items-center">
+            <button
+              type="button"
+              onClick={() => setShowPicker(!showPicker)}
+              className="text-xs font-medium text-amber-700/60 hover:text-primary transition"
+              title="Add reaction"
             >
-              favorite
-            </span>
-          </button>
+              <span className="material-symbols-outlined text-sm">add_reaction</span>
+            </button>
+            <button
+              type="button"
+              aria-label="Like quote"
+              onClick={() => onToggleLike(item.id)}
+              className={`flex items-center gap-1 transition ${liked ? "text-rose-500 hover:text-rose-600" : "text-amber-700/60 hover:text-rose-500"}`}
+            >
+              {liked && <span className="text-xs font-medium">{likeCount}</span>}
+              <span
+                className="material-symbols-outlined text-[20px]"
+                style={liked ? { fontVariationSettings: "'FILL' 1" } : undefined}
+              >
+                favorite
+              </span>
+            </button>
+          </div>
+
+          {/* Reaction Picker */}
+          {showPicker && (
+            <div className="border-t border-amber-200 dark:border-amber-700/30 pt-3 mt-3">
+              <MomentReactionPicker
+                momentId={item.id}
+                onReactionAdded={(emoji) => {
+                  onReactionAdded(item.id, emoji);
+                  setShowPicker(false);
+                }}
+                onError={onReactionError}
+              />
+            </div>
+          )}
         </div>
       </article>
     );
@@ -181,25 +247,62 @@ function MemoryCard({
             <span className="material-symbols-outlined text-sm">download</span>
           </button>
 
+          {/* Reactions Summary */}
+          {reactions.length > 0 && (
+            <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+              <MomentReactionSummary
+                momentId={item.id}
+                reactions={reactions}
+                onReactionRemoved={(emoji) => onReactionRemoved(item.id, emoji)}
+                onError={onReactionError}
+                currentUserId="parent1"
+              />
+            </div>
+          )}
+
           <footer className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
             <div className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-white dark:ring-surface-dark ${avatarTone(item.ownerInitials)}`}>
               {item.ownerInitials}
             </div>
-            <button
-              type="button"
-              aria-label="Like document"
-              onClick={() => onToggleLike(item.id)}
-              className={`flex items-center gap-1 transition ${liked ? "text-rose-500 hover:text-rose-600" : "text-slate-400 hover:text-rose-500"}`}
-            >
-              {likeCount > 0 && <span className="text-xs font-medium">{likeCount}</span>}
-              <span
-                className="material-symbols-outlined text-[20px]"
-                style={liked ? { fontVariationSettings: "'FILL' 1" } : undefined}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPicker(!showPicker)}
+                className="text-xs font-medium text-slate-400 hover:text-primary transition"
+                title="Add reaction"
               >
-                favorite
-              </span>
-            </button>
+                <span className="material-symbols-outlined text-sm">add_reaction</span>
+              </button>
+              <button
+                type="button"
+                aria-label="Like document"
+                onClick={() => onToggleLike(item.id)}
+                className={`flex items-center gap-1 transition ${liked ? "text-rose-500 hover:text-rose-600" : "text-slate-400 hover:text-rose-500"}`}
+              >
+                {likeCount > 0 && <span className="text-xs font-medium">{likeCount}</span>}
+                <span
+                  className="material-symbols-outlined text-[20px]"
+                  style={liked ? { fontVariationSettings: "'FILL' 1" } : undefined}
+                >
+                  favorite
+                </span>
+              </button>
+            </div>
           </footer>
+
+          {/* Reaction Picker */}
+          {showPicker && (
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-3 mt-3">
+              <MomentReactionPicker
+                momentId={item.id}
+                onReactionAdded={(emoji) => {
+                  onReactionAdded(item.id, emoji);
+                  setShowPicker(false);
+                }}
+                onError={onReactionError}
+              />
+            </div>
+          )}
         </div>
       </article>
     );
@@ -256,25 +359,62 @@ function MemoryCard({
         <h3 className="mb-1 font-medium text-slate-900 dark:text-white">{item.title}</h3>
         {item.excerpt && <p className="line-clamp-2 text-sm text-slate-500 dark:text-slate-400">{item.excerpt}</p>}
 
+        {/* Reactions Summary */}
+        {reactions.length > 0 && (
+          <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+            <MomentReactionSummary
+              momentId={item.id}
+              reactions={reactions}
+              onReactionRemoved={(emoji) => onReactionRemoved(item.id, emoji)}
+              onError={onReactionError}
+              currentUserId="parent1"
+            />
+          </div>
+        )}
+
         <footer className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
           <div className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-white dark:ring-surface-dark ${avatarTone(item.ownerInitials)}`}>
             {item.ownerInitials}
           </div>
-          <button
-            type="button"
-            aria-label="Like memory"
-            onClick={() => onToggleLike(item.id)}
-            className={`flex items-center gap-1 transition ${liked ? "text-rose-500 hover:text-rose-600" : "text-slate-400 hover:text-rose-500"}`}
-          >
-            {likeCount > 0 && <span className="text-xs font-medium">{likeCount}</span>}
-            <span
-              className="material-symbols-outlined text-[20px]"
-              style={liked ? { fontVariationSettings: "'FILL' 1" } : undefined}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowPicker(!showPicker)}
+              className="text-xs font-medium text-slate-400 hover:text-primary transition"
+              title="Add reaction"
             >
-              favorite
-            </span>
-          </button>
+              <span className="material-symbols-outlined text-sm">add_reaction</span>
+            </button>
+            <button
+              type="button"
+              aria-label="Like memory"
+              onClick={() => onToggleLike(item.id)}
+              className={`flex items-center gap-1 transition ${liked ? "text-rose-500 hover:text-rose-600" : "text-slate-400 hover:text-rose-500"}`}
+            >
+              {likeCount > 0 && <span className="text-xs font-medium">{likeCount}</span>}
+              <span
+                className="material-symbols-outlined text-[20px]"
+                style={liked ? { fontVariationSettings: "'FILL' 1" } : undefined}
+              >
+                favorite
+              </span>
+            </button>
+          </div>
         </footer>
+
+        {/* Reaction Picker */}
+        {showPicker && (
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-3 mt-3">
+            <MomentReactionPicker
+              momentId={item.id}
+              onReactionAdded={(emoji) => {
+                onReactionAdded(item.id, emoji);
+                setShowPicker(false);
+              }}
+              onError={onReactionError}
+            />
+          </div>
+        )}
       </div>
     </article>
   );
@@ -290,6 +430,11 @@ export function MomentsGallery() {
   const [likedItems, setLikedItems] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>(() =>
     Object.fromEntries(ALL_MEMORIES.map((m) => [m.id, m.likes ?? 0]))
+  );
+  const [momentReactions, setMomentReactions] = useState<Record<string, GroupedReaction[]>>(() =>
+    Object.fromEntries(
+      ALL_MEMORIES.filter((m) => m.reactions).map((m) => [m.id, m.reactions || []])
+    )
   );
   const [mounted, setMounted] = useState(false);
 
@@ -331,6 +476,62 @@ export function MomentsGallery() {
       }));
       return next;
     });
+  };
+
+  const handleReactionAdded = (momentId: string, emoji: string) => {
+    setMomentReactions((prev) => {
+      const current = prev[momentId] || [];
+      const existing = current.find((r) => r.emoji === emoji);
+      if (existing) {
+        return {
+          ...prev,
+          [momentId]: current.map((r) =>
+            r.emoji === emoji
+              ? {
+                  ...r,
+                  count: r.count + 1,
+                  byCurrentUser: true,
+                  userIds: [...r.userIds, 'current-user'],
+                }
+              : r
+          ),
+        };
+      }
+      return {
+        ...prev,
+        [momentId]: [
+          ...current,
+          {
+            emoji,
+            count: 1,
+            byCurrentUser: true,
+            userIds: ['current-user'],
+          },
+        ],
+      };
+    });
+  };
+
+  const handleReactionRemoved = (momentId: string, emoji: string) => {
+    setMomentReactions((prev) => {
+      const current = prev[momentId] || [];
+      const updated = current
+        .map((r) =>
+          r.emoji === emoji
+            ? { ...r, count: r.count - 1, byCurrentUser: false }
+            : r
+        )
+        .filter((r) => r.count > 0);
+      return {
+        ...prev,
+        [momentId]: updated,
+      };
+    });
+  };
+
+  const handleReactionError = (error: string) => {
+    // In a real app, this would show a toast notification
+    console.error('Reaction error:', error);
   };
 
   // Derived: filtered + sorted items
@@ -501,6 +702,10 @@ export function MomentsGallery() {
                   liked={likedItems.has(item.id)}
                   likeCount={likeCounts[item.id] ?? 0}
                   onToggleLike={toggleLike}
+                  reactions={momentReactions[item.id] || []}
+                  onReactionAdded={handleReactionAdded}
+                  onReactionRemoved={handleReactionRemoved}
+                  onReactionError={handleReactionError}
                 />
               ))}
             </div>

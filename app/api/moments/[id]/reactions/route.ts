@@ -17,7 +17,7 @@ export const runtime = "nodejs";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const requestId = crypto.randomUUID();
   const startedAt = Date.now();
@@ -26,9 +26,10 @@ export async function POST(
     // 1. Auth: Get current user (parent)
     const session = await getCurrentUser();
     if (!session) {
+      const { id: momentId } = await params;
       logEvent("warn", "Reaction POST: unauthorized attempt", {
         requestId,
-        momentId: params.id,
+        momentId,
       });
       return NextResponse.json(
         { error: "UNAUTHORIZED", message: "Authentication required" },
@@ -37,7 +38,7 @@ export async function POST(
     }
 
     const parentId = session.userId;
-    const momentId = params.id;
+    const { id: momentId } = await params;
 
     // 2. Parse body: { emoji: string }
     let body: unknown;
@@ -73,7 +74,7 @@ export async function POST(
       );
     }
 
-    // 4. Check if moment exists
+    // 4. Check if moment exists (momentId already awaited above)
     const moment = await db.moments.findById(momentId);
     if (!moment) {
       logEvent("warn", "Reaction POST: moment not found", {
@@ -112,9 +113,10 @@ export async function POST(
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const { id: momentId } = await params;
     logEvent("error", "Reaction POST failed", {
       requestId,
-      momentId: params.id,
+      momentId,
       error: errorMessage,
       durationMs: Date.now() - startedAt,
     });
@@ -142,13 +144,13 @@ interface GroupedReactionsResponse {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const requestId = crypto.randomUUID();
   const startedAt = Date.now();
 
   try {
-    const momentId = params.id;
+    const { id: momentId } = await params;
 
     // Optional: Get current user to mark which reactions are by them
     const session = await getCurrentUser();
@@ -207,9 +209,10 @@ export async function GET(
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const { id: momentId } = await params;
     logEvent("error", "Reactions GET failed", {
       requestId,
-      momentId: params.id,
+      momentId,
       error: errorMessage,
       durationMs: Date.now() - startedAt,
     });
