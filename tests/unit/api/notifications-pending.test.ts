@@ -7,13 +7,13 @@
  * Uses Jest mocks — no real DB connection required.
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // ─── Setup Mocks ──────────────────────────────────────────────────────────────
 
 if (!global.crypto) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   global.crypto = {} as any;
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 global.crypto.randomUUID = jest.fn(() => "request-id-123") as any;
 
 const mockScheduledNotifications = {
@@ -77,7 +77,7 @@ jest.mock("next/server", () => ({
 // ─── Imports ──────────────────────────────────────────────────────────────────
 
 import { GET } from "@/app/api/notifications/schedule/route";
-import { getAuthenticatedUser, unauthorized, forbidden, badRequest, internalError, generateRequestId } from "@/app/api/calendar/utils";
+import { getAuthenticatedUser, unauthorized, forbidden, badRequest, internalError } from "@/app/api/calendar/utils";
 
 const mockGetAuthenticatedUser = getAuthenticatedUser as jest.Mock;
 const mockUnauthorized = unauthorized as jest.Mock;
@@ -93,7 +93,7 @@ function createMockRequest(url = "http://localhost:3000/api/notifications/pendin
   } as Request;
 }
 
-function createMockNotification(overrides = {}) {
+function createMockNotification(overrides: Record<string, unknown> = {}) {
   const now = new Date();
   return {
     id: "notif-123",
@@ -106,6 +106,7 @@ function createMockNotification(overrides = {}) {
     transitionAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
     fromParentId: "parent-123",
     toParentId: "parent-456",
+    retryCount: 0,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
     ...overrides,
