@@ -404,6 +404,33 @@ export function createSchoolVaultDocumentRepository(tx?: SqlClient): SchoolVault
           throw new Error("Failed to insert document");
         }
 
+        // Increment storage quota from subscription if size_bytes is not null
+        const sizeBytes = input.sizeBytes ?? null;
+        if (sizeBytes !== null && sizeBytes > 0) {
+          // Find the subscription for this family and increase used_storage_bytes
+          const familyRows = await (txQuery as typeof sql)<{ subscriptionId: string }[]>`
+            SELECT s.id as "subscriptionId"
+            FROM subscriptions s
+            INNER JOIN stripe_customers sc ON s.stripe_customer_id = sc.id
+            INNER JOIN family_members fm ON sc.user_id = fm.user_id
+            WHERE fm.family_id = ${input.familyId}
+              AND s.status IN ('active', 'trialing')
+            LIMIT 1
+          `;
+
+          if (familyRows[0]) {
+            const subscriptionId = familyRows[0].subscriptionId;
+
+            // Note: used_storage_bytes field needs to exist in subscriptions table
+            // This assumes migration has added it. If not present, query will fail gracefully.
+            await (txQuery as typeof sql)`
+              UPDATE subscriptions
+              SET used_storage_bytes = COALESCE(used_storage_bytes, 0) + ${sizeBytes}
+              WHERE id = ${subscriptionId}
+            `;
+          }
+        }
+
         return insertRows[0];
       });
 
