@@ -14,6 +14,7 @@ import type { HashedMessage, PdfGeneratorConfig } from "@/lib/pdf-generator";
 import { CustodyComplianceEngine } from "@/lib/custody-compliance-engine";
 import { generateCommunicationReport } from "@/lib/communication-report";
 import { formatCurrency } from "@/lib/expense-engine";
+import { logEvent } from "@/lib/observability/logger";
 import type { Readable } from "node:stream";
 
 /**
@@ -76,12 +77,11 @@ async function generateSchedulePdf(job: ExportJobRecord): Promise<ExportResult> 
 
   const pdfResult = await generateCustodyCompliancePdf(report, [], config);
 
-  console.info(
-    "[ExportEngine] Schedule PDF generated",
-    `family=${job.familyId}`,
-    `range=${startDate}:${endDate}`,
-    `${pdfResult.sizeBytes} bytes`
-  );
+  logEvent("info", "Schedule PDF generated", {
+    familyId: job.familyId,
+    range: `${startDate}:${endDate}`,
+    sizeBytes: pdfResult.sizeBytes,
+  });
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/schedule.pdf`,
@@ -319,13 +319,11 @@ async function generateInvoicesPdf(job: ExportJobRecord): Promise<ExportResult> 
     doc.end();
   });
 
-  console.info(
-    "[ExportEngine] Invoices PDF generated:",
-    sortedExpenses.length,
-    "expenses,",
-    buffer.length,
-    "bytes"
-  );
+  logEvent("info", "Invoices PDF generated", {
+    familyId: job.familyId,
+    expenseCount: sortedExpenses.length,
+    sizeBytes: buffer.length,
+  });
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/invoices.pdf`,
@@ -548,11 +546,10 @@ async function buildMomentsArchive(
               const imageBuffer = await downloadImageWithTimeout(moment.mediaUrl);
               archive.append(imageBuffer, { name: `images/${imageFilename}` });
             } catch (error) {
-              console.info(
-                "[ExportEngine] Warning: Failed to download image for moment",
-                moment.id,
-                error instanceof Error ? error.message : String(error),
-              );
+              logEvent("warn", "Failed to download image for moment", {
+                momentId: moment.id,
+                error: error instanceof Error ? error.message : String(error),
+              });
             }
           }
 
@@ -703,17 +700,12 @@ async function generateMessagesCsv(job: ExportJobRecord): Promise<ExportResult> 
   const csvContent = csvRows.join("\n");
   const csvBuffer = Buffer.from(csvContent, "utf-8");
 
-  const messageLabel = totalMessages === 1 ? "message" : "messages";
-  const threadLabel = threads.length === 1 ? "thread" : "threads";
-
-  console.info(
-    "[ExportEngine] Messages CSV generated:",
-    totalMessages,
-    messageLabel,
-    "from",
-    threads.length,
-    threadLabel,
-  );
+  logEvent("info", "Messages CSV generated", {
+    familyId: job.familyId,
+    messageCount: totalMessages,
+    threadCount: threads.length,
+    sizeBytes: csvBuffer.length,
+  });
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/messages.csv`,
@@ -739,13 +731,11 @@ async function generateMomentsArchive(job: ExportJobRecord): Promise<ExportResul
 
   const buffer = await buildMomentsArchive(moments, job.id, job.familyId);
 
-  console.info(
-    "[ExportEngine] Moments archive generated:",
-    moments.length,
-    moments.length === 1 ? "moment" : "moments",
-    buffer.length,
-    "bytes",
-  );
+  logEvent("info", "Moments archive generated", {
+    familyId: job.familyId,
+    momentCount: moments.length,
+    sizeBytes: buffer.length,
+  });
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/moments.zip`,
@@ -837,13 +827,11 @@ async function generateCustodyCompliancePdfExport(job: ExportJobRecord): Promise
     }))
   );
 
-  console.log(
-    "[ExportEngine] Custody compliance PDF generated:",
-    pdfResult.sizeBytes,
-    "bytes,",
-    messageHashes.length,
-    "messages verified"
-  );
+  logEvent("info", "Custody compliance PDF generated", {
+    familyId: job.familyId,
+    sizeBytes: pdfResult.sizeBytes,
+    messagesVerified: messageHashes.length,
+  });
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/custody-compliance.pdf`,
@@ -957,13 +945,11 @@ async function generateMessageTranscriptPdfExport(job: ExportJobRecord): Promise
     }))
   );
 
-  console.log(
-    "[ExportEngine] Message transcript PDF generated:",
-    pdfResult.sizeBytes,
-    "bytes,",
-    hashedMessages.length,
-    "messages"
-  );
+  logEvent("info", "Message transcript PDF generated", {
+    familyId: job.familyId,
+    sizeBytes: pdfResult.sizeBytes,
+    messageCount: hashedMessages.length,
+  });
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/message-transcript.pdf`,
@@ -1078,11 +1064,12 @@ async function generateCommunicationReportExport(job: ExportJobRecord): Promise<
     }))
   );
 
-  console.log(
-    `[ExportEngine] Communication report PDF generated: ${pdfResult.sizeBytes} bytes, ` +
-    `health score: ${report.toneSummary.overallHealthScore}, ` +
-    `chain valid: ${report.hashChainValid}`
-  );
+  logEvent("info", "Communication report PDF generated", {
+    familyId: job.familyId,
+    sizeBytes: pdfResult.sizeBytes,
+    healthScore: report.toneSummary.overallHealthScore,
+    hashChainValid: report.hashChainValid,
+  });
 
   return {
     resultUrl: `https://storage.example.com/exports/${job.id}/communication-report.pdf`,

@@ -163,25 +163,27 @@ export async function POST(
     let pdfHashMatch = false;
     let isValid = false;
 
-    // Optional: Verify PDF hash if provided
+    // Verify PDF hash if provided in request body
     const storedPdfHash = metadata.pdfHash;
     if (request.body) {
       const body = (await request.json()) as VerifyRequest;
 
-      if (body.pdfBuffer && body.storedHash) {
+      if (body.pdfBuffer && storedPdfHash) {
         try {
           const pdfBuffer = Buffer.from(body.pdfBuffer, "base64");
           const computedHash = computeHash(pdfBuffer);
-          pdfHashMatch = computedHash === body.storedHash;
+          pdfHashMatch = computedHash === storedPdfHash;
 
           if (!pdfHashMatch) {
             errors.push(
-              `PDF hash mismatch: computed ${computedHash}, stored ${body.storedHash}`
+              `PDF hash mismatch: computed ${computedHash}, stored ${storedPdfHash}`
             );
           }
         } catch (err) {
           errors.push(`Error verifying PDF hash: ${err instanceof Error ? err.message : String(err)}`);
         }
+      } else if (!storedPdfHash) {
+        errors.push("No stored PDF hash available for verification");
       }
     }
 
