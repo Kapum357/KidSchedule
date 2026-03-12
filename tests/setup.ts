@@ -107,6 +107,13 @@ if (!global.crypto) {
   global.crypto = webcrypto;
 }
 
+// Add randomUUID if not available
+if (!global.crypto.randomUUID) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { randomUUID } = require('crypto');
+  global.crypto.randomUUID = randomUUID;
+}
+
 // ─── Mock Next.js Server Functions ──────────────────────────────────────────
 // These functions require a request context that doesn't exist in Jest tests.
 // We mock them to prevent "called outside a request scope" errors.
