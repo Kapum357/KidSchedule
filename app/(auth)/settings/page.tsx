@@ -8,11 +8,38 @@ import { requireAuth } from "@/lib/auth";
 import { getDb } from "@/lib/persistence";
 import Link from "next/link";
 import type { DbParent, DbChild } from "@/lib/persistence/types";
+import { ConflictWindowSettings } from "@/components/conflict-window-settings";
 
 export const metadata = {
   title: "Settings — KidSchedule",
   description: "Manage your account settings and preferences",
 };
+
+/**
+ * Fetch the current conflict window value from the API server-side.
+ * Falls back to default (120 minutes) on any error to avoid blocking page render.
+ */
+async function getConflictWindowValue(): Promise<number> {
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/settings/conflict-window`,
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      return 120; // Default on HTTP error
+    }
+
+    const data = await response.json();
+    return data.windowMins ?? 120;
+  } catch {
+    // Default on network error or parsing error
+    return 120;
+  }
+}
 
 export default async function SettingsPage() {
   const user = await requireAuth();
@@ -20,13 +47,13 @@ export default async function SettingsPage() {
 
   // Fetch user profile
   const profile = await db.users.findById(user.userId);
-  
+
   // Fetch family and members
   const family = await db.families.findByParentUserId(user.userId);
-  
+
   let parents: DbParent[] = [];
   let children: DbChild[] = [];
-  
+
   if (family) {
     parents = await db.parents.findByFamilyId(family.id);
     children = await db.children.findByFamilyId(family.id);
@@ -37,6 +64,9 @@ export default async function SettingsPage() {
   if (stripeCustomer) {
     subscription = await db.subscriptions.findByCustomer(stripeCustomer.id);
   }
+
+  // Fetch conflict window setting server-side
+  const conflictWindowMins = await getConflictWindowValue();
 
   const otherParents = parents.filter((p) => p.userId !== user.userId);
 
@@ -82,6 +112,13 @@ export default async function SettingsPage() {
               >
                 <span className="material-symbols-outlined">credit_card</span>
                 <span>Subscription</span>
+              </a>
+              <a
+                className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-600 transition-colors hover:bg-primary/10 dark:text-slate-300"
+                href="#conflict-buffer"
+              >
+                <span className="material-symbols-outlined">schedule</span>
+                <span>Conflict Buffer</span>
               </a>
             </nav>
           </aside>
@@ -445,6 +482,27 @@ export default async function SettingsPage() {
                 )}
               </div>
             </section>
+
+            {/* Schedule Conflict Buffer Section */}
+            {family && (
+              <section
+                className="mb-12 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white shadow-sm dark:bg-neutral-dark"
+                id="conflict-buffer"
+              >
+                <div className="border-b border-slate-200 dark:border-slate-700 p-6">
+                  <h3 className="text-lg font-bold text-slate-600 dark:text-slate-900">Schedule Conflict Buffer</h3>
+                  <p className="text-sm text-slate-500">
+                    Set how far ahead the system looks for potential scheduling conflicts between parents.
+                  </p>
+                </div>
+                <div className="p-6">
+                  <ConflictWindowSettings
+                    defaultWindowMins={conflictWindowMins}
+                    familyId={family.id}
+                  />
+                </div>
+              </section>
+            )}
           </div>
         </div>
       </main>
