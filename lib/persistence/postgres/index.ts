@@ -119,7 +119,7 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     smsRelayParticipants: createSmsRelayParticipantRepository(tx),
     moments: createMomentRepository(),
     momentReactions: createMomentReactionRepository(),
-    scheduledNotifications: createScheduledNotificationRepository(),
+    scheduledNotifications: createScheduledNotificationRepository(tx),
     exportJobs: createExportJobsRepository(tx),
     exportMetadata: createExportMetadataRepository(tx),
     exportMessageHashes: createExportMessageHashRepository(tx),

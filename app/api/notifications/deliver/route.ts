@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/persistence";
+import { getDb, withTransaction, createPostgresUnitOfWork } from "@/lib/persistence";
 import { NotificationDeliveryService } from "@/lib/notification-delivery-service";
 import {
   getAuthenticatedUser,
@@ -58,83 +58,64 @@ export async function POST(request: NextRequest) {
       return badRequest("invalid_input", "maxDeliveries must be between 1 and 100");
     }
 
-    let notificationsToDeliver;
+    const results = [];
+    let successCount = 0;
+    let failureCount = 0;
 
     if (notificationIds && notificationIds.length > 0) {
-      // Deliver specific notifications
-      notificationsToDeliver = [];
+      // Deliver specific notifications (backward compatibility, no locking)
+      const notificationsToDeliver = [];
       for (const id of notificationIds) {
         const notification = await db.scheduledNotifications.findById(id);
         if (notification && notification.deliveryStatus === "pending") {
           notificationsToDeliver.push(notification);
         }
       }
-    } else {
-      // Get pending notifications within time window
-      const now = new Date();
-      const windowEnd = new Date(now.getTime() + windowMinutes * 60 * 1000);
 
-      notificationsToDeliver = await db.scheduledNotifications.findPendingByTimeRange(
-        now.toISOString(),
-        windowEnd.toISOString(),
-        maxDeliveries
-      );
-    }
-
-    const results = [];
-    let successCount = 0;
-    let failureCount = 0;
-
-    // Deliver each notification
-    for (const notification of notificationsToDeliver) {
-      try {
-        // Get parent information for delivery
-        const fromParent = await db.parents.findById(notification.fromParentId);
-        const toParent = await db.parents.findById(notification.toParentId);
-
-        if (!fromParent || !toParent) {
-          results.push({
-            notificationId: notification.id,
-            success: false,
-            error: "Parent information not found",
-          });
-          failureCount++;
-          continue;
-        }
-
-        // Deliver notification
-        const deliveryResult = await deliveryService.deliverNotification({
-          notificationId: notification.id,
-          parentId: notification.parentId,
-          notificationType: notification.notificationType,
-          deliveryMethod: notification.deliveryMethod,
-          transitionAt: notification.transitionAt,
-          fromParentName: fromParent.name,
-          toParentName: toParent.name,
-          location: notification.location,
-        });
-
-        results.push({
-          notificationId: notification.id,
-          success: deliveryResult.success,
-          messageId: deliveryResult.messageId,
-          error: deliveryResult.error,
-        });
-
-        if (deliveryResult.success) {
+      // Deliver each notification
+      for (const notification of notificationsToDeliver) {
+        const result = await deliverSingleNotification(notification);
+        results.push(result.result);
+        if (result.result.success) {
           successCount++;
         } else {
           failureCount++;
         }
+      }
+    } else {
+      // Get pending notifications within time window using transaction with row-level locking
+      const now = new Date();
+      const windowEnd = new Date(now.getTime() + windowMinutes * 60 * 1000);
 
-      } catch (error) {
-        console.error(`Failed to deliver notification ${notification.id}:`, error);
-        results.push({
-          notificationId: notification.id,
-          success: false,
-          error: error instanceof Error ? error.message : "Unknown error",
+      try {
+        await withTransaction(async (tx) => {
+          const txDb = createPostgresUnitOfWork(tx);
+
+          // Use FOR UPDATE SKIP LOCKED to prevent concurrent delivery attempts
+          const notificationsToDeliver =
+            await txDb.scheduledNotifications.findPendingByTimeRangeForDelivery(
+              now.toISOString(),
+              windowEnd.toISOString(),
+              maxDeliveries
+            );
+
+          // Deliver each notification
+          for (const notification of notificationsToDeliver) {
+            const result = await deliverSingleNotification(notification);
+            results.push(result.result);
+            if (result.result.success) {
+              successCount++;
+            } else {
+              failureCount++;
+            }
+          }
         });
-        failureCount++;
+      } catch (error) {
+        console.error("Transaction error during delivery:", error);
+        return NextResponse.json(
+          { error: "Failed to deliver notifications due to transaction error" },
+          { status: 500 }
+        );
       }
     }
 
@@ -142,7 +123,7 @@ export async function POST(request: NextRequest) {
       success: true,
       delivered: successCount,
       failed: failureCount,
-      total: notificationsToDeliver.length,
+      total: results.length,
       results,
     });
 
@@ -153,6 +134,51 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Helper function to deliver a single notification.
+ * This function handles the actual delivery logic without transaction management.
+ */
+async function deliverSingleNotification(notification: any) {
+  const result = {
+    notificationId: notification.id,
+    success: false,
+    error: undefined as string | undefined,
+    messageId: undefined as string | undefined,
+  };
+
+  try {
+    // Get parent information for delivery
+    const fromParent = await db.parents.findById(notification.fromParentId);
+    const toParent = await db.parents.findById(notification.toParentId);
+
+    if (!fromParent || !toParent) {
+      result.error = "Parent information not found";
+      return { result };
+    }
+
+    // Deliver notification
+    const deliveryResult = await deliveryService.deliverNotification({
+      notificationId: notification.id,
+      parentId: notification.parentId,
+      notificationType: notification.notificationType,
+      deliveryMethod: notification.deliveryMethod,
+      transitionAt: notification.transitionAt,
+      fromParentName: fromParent.name,
+      toParentName: toParent.name,
+      location: notification.location,
+    });
+
+    result.success = deliveryResult.success;
+    result.messageId = deliveryResult.messageId;
+    result.error = deliveryResult.error;
+  } catch (error) {
+    console.error(`Failed to deliver notification ${notification.id}:`, error);
+    result.error = error instanceof Error ? error.message : "Unknown error";
+  }
+
+  return { result };
 }
 
 // ─── POST /api/notifications/retry ───────────────────────────────────────────

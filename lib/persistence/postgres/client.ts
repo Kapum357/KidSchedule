@@ -155,7 +155,7 @@ export async function closeDatabaseConnection(): Promise<void> {
  * Callable SQL type that works for both main connection and transactions.
  * Both postgres.Sql and postgres.TransactionSql can be called as template literals.
  */
-export type SqlClient = postgres.Sql;
+export type SqlClient = postgres.Sql | postgres.TransactionSql;
 
 // For backwards compatibility
 export type Transaction = postgres.TransactionSql;

@@ -455,6 +455,7 @@ export interface MomentReactionRepository {
 export interface ScheduledNotificationRepository {
   findById(id: string): Promise<DbScheduledNotification | null>;
   findPendingByTimeRange(startTime: string, endTime: string, limit?: number): Promise<DbScheduledNotification[]>;
+  findPendingByTimeRangeForDelivery(startTime: string, endTime: string, limit?: number): Promise<DbScheduledNotification[]>;
   findByFamilyId(familyId: string): Promise<DbScheduledNotification[]>;
   findByParentId(parentId: string): Promise<DbScheduledNotification[]>;
   findFailed(limit?: number): Promise<DbScheduledNotification[]>;

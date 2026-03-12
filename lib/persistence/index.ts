@@ -72,6 +72,7 @@ export function _test_resetDbInstance(): void {
   _dbInstance = null;
 }
 
-// Re-export types
+// Re-export types and transaction helpers
 export * from "./types";
 export * from "./repositories";
+export { withTransaction, createPostgresUnitOfWork } from "./postgres";

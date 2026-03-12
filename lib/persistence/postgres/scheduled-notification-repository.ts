@@ -99,6 +99,35 @@ class PostgresScheduledNotificationRepository implements ScheduledNotificationRe
     return result.map(row => this.rowToDb(row as ScheduledNotificationRow));
   }
 
+  /**
+   * Find pending notifications for delivery with row-level locking.
+   * Uses FOR UPDATE SKIP LOCKED to prevent concurrent delivery attempts.
+   * SKIP LOCKED ensures only one worker processes each notification.
+   *
+   * This method MUST be called within a transaction.
+   */
+  async findPendingByTimeRangeForDelivery(
+    startTime: string,
+    endTime: string,
+    limit = 100,
+  ): Promise<DbScheduledNotification[]> {
+    if (!this.tx) {
+      throw new Error('findPendingByTimeRangeForDelivery must be called within a transaction');
+    }
+
+    const result = await this.tx`
+      SELECT * FROM scheduled_notifications
+      WHERE scheduled_at >= ${startTime}
+        AND scheduled_at <= ${endTime}
+        AND delivery_status = 'pending'
+      ORDER BY scheduled_at ASC
+      LIMIT ${limit}
+      FOR UPDATE SKIP LOCKED
+    `;
+
+    return result.map(row => this.rowToDb(row as ScheduledNotificationRow));
+  }
+
   async findByFamilyId(familyId: string): Promise<DbScheduledNotification[]> {
     const result = await this.db`
       SELECT * FROM scheduled_notifications
