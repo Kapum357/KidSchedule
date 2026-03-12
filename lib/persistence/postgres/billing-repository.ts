@@ -129,7 +129,9 @@ export function createPaymentMethodRepository(tx?: SqlClient): PaymentMethodRepo
 
     async findByStripeId(stripePaymentMethodId) {
       const rows = await q<PaymentMethodRow[]>`
-        SELECT * FROM payment_methods WHERE stripe_payment_method_id = ${stripePaymentMethodId} LIMIT 1
+        SELECT * FROM payment_methods
+        WHERE stripe_payment_method_id = ${stripePaymentMethodId} AND is_deleted = false
+        LIMIT 1
       `;
       return rows[0] ? paymentMethodRowToDb(rows[0]) : null;
     },
@@ -150,22 +152,88 @@ export function createPaymentMethodRepository(tx?: SqlClient): PaymentMethodRepo
     },
 
     async setDefault(id, stripeCustomerLocalId) {
-      // Clear existing default, then set new one
-      await q`
-        UPDATE payment_methods SET is_default = false, updated_at = NOW()
-        WHERE stripe_customer_id = ${stripeCustomerLocalId} AND is_default = true
-      `;
-      await q`
-        UPDATE payment_methods SET is_default = true, updated_at = NOW()
-        WHERE id = ${id} AND stripe_customer_id = ${stripeCustomerLocalId}
-      `;
+      // If using a transaction, use it directly; otherwise wrap in one
+      if (tx) {
+        // Already in a transaction, use it directly
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const txAny = tx as any;
+        await txAny`
+          UPDATE payment_methods SET is_default = false, updated_at = NOW()
+          WHERE stripe_customer_id = ${stripeCustomerLocalId} AND is_default = true
+        `;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (tx as any)`
+          UPDATE payment_methods SET is_default = true, updated_at = NOW()
+          WHERE id = ${id} AND stripe_customer_id = ${stripeCustomerLocalId}
+        `;
+      } else {
+        // Not in a transaction, create one
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (sql as any).begin(async (txInner: SqlClient) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (txInner as any)`
+            UPDATE payment_methods SET is_default = false, updated_at = NOW()
+            WHERE stripe_customer_id = ${stripeCustomerLocalId} AND is_default = true
+          `;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (txInner as any)`
+            UPDATE payment_methods SET is_default = true, updated_at = NOW()
+            WHERE id = ${id} AND stripe_customer_id = ${stripeCustomerLocalId}
+          `;
+        });
+      }
     },
 
     async softDelete(id) {
-      await q`
-        UPDATE payment_methods SET is_deleted = true, deleted_at = NOW(), is_default = false, updated_at = NOW()
-        WHERE id = ${id}
-      `;
+      // If using a transaction, use it directly; otherwise wrap in one
+      const performSoftDelete = async (txOrQ: SqlClient) => {
+        // Check if this is the default method before soft-delete
+        type MethodRow = { stripeCustomerId: string; isDefault: boolean };
+        const methodRows = await txOrQ<MethodRow[]>`
+          SELECT stripe_customer_id, is_default FROM payment_methods
+          WHERE id = ${id}
+          LIMIT 1
+        `;
+
+        if (!methodRows[0]) {
+          return; // Payment method not found
+        }
+
+        const { stripeCustomerId, isDefault: wasDefault } = methodRows[0];
+
+        // Soft delete
+        await txOrQ`
+          UPDATE payment_methods SET is_deleted = true, deleted_at = NOW(), is_default = false, updated_at = NOW()
+          WHERE id = ${id}
+        `;
+
+        // If was default, auto-select the oldest active method
+        if (wasDefault) {
+          const remainingMethods = await txOrQ<{ id: string }[]>`
+            SELECT id FROM payment_methods
+            WHERE stripe_customer_id = ${stripeCustomerId} AND is_deleted = false
+            ORDER BY created_at ASC
+            LIMIT 1
+          `;
+
+          if (remainingMethods[0]) {
+            await txOrQ`
+              UPDATE payment_methods
+              SET is_default = true, updated_at = NOW()
+              WHERE id = ${remainingMethods[0].id}
+            `;
+          }
+        }
+      };
+
+      if (tx) {
+        // Already in a transaction, use it directly
+        await performSoftDelete(tx);
+      } else {
+        // Not in a transaction, create one
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (sql as any).begin(performSoftDelete);
+      }
     },
   };
 }
