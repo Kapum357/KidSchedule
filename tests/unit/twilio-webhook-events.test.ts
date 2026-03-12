@@ -11,7 +11,6 @@
  * - findOlderThan() for log retention cleanup
  */
 
-import { createTwilioWebhookEventRepository } from "@/lib/persistence/postgres/billing-repository";
 import type { TwilioWebhookEventRepository } from "@/lib/persistence/repositories";
 import type { DbTwilioWebhookEvent } from "@/lib/persistence/types";
 
@@ -267,7 +266,7 @@ describe("TwilioWebhookEventRepository", () => {
       const phone = "+15551234567";
       const eventType = "DeliveryReceipt";
 
-      const older = await repo.create({
+      await repo.create({
         messageSid: "SM_OLD",
         phoneNumber: phone,
         eventType,
@@ -460,7 +459,7 @@ describe("TwilioWebhookEventRepository", () => {
         payload: {},
       });
 
-      const recent = await repo.create({
+      await repo.create({
         messageSid: "SM_RECENT",
         phoneNumber: "+15559876543",
         eventType: "DeliveryReceipt",
@@ -469,6 +468,7 @@ describe("TwilioWebhookEventRepository", () => {
       });
 
       // Manually adjust createdAt for testing (in real DB this is automatic)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (mockRows[0] as any).createdAt = oldDate.toISOString();
 
       const oldEvents = await repo.findOlderThan(5);
@@ -494,7 +494,7 @@ describe("TwilioWebhookEventRepository", () => {
       oldDate.setDate(oldDate.getDate() - 10);
 
       for (let i = 0; i < 20; i++) {
-        const event = await repo.create({
+        await repo.create({
           messageSid: `SM_CLEANUP_${i}`,
           phoneNumber: `+1555${i}${i}${i}${i}`,
           eventType: "MessageReceived",
@@ -502,6 +502,7 @@ describe("TwilioWebhookEventRepository", () => {
           payload: {},
         });
         // Manually set old createdAt
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (mockRows[i] as any).createdAt = oldDate.toISOString();
       }
 
