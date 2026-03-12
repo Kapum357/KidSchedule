@@ -178,10 +178,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Deduplicate notifications
     const deduplicated = scheduler.deduplicateNotifications(result.notifications);
 
-    // Save notifications to database
+    // Save notifications to database with deduplication check
     const savedNotifications = [];
+    const skippedNotifications = [];
+
     for (const notification of deduplicated) {
       try {
+        // Check if notification already exists (dedup check)
+        const existing = await db.scheduledNotifications.findExisting(
+          notification.transitionAt,
+          notification.parentId,
+          notification.notificationType
+        );
+
+        if (existing) {
+          logEvent("debug", "Schedule notifications: skipping duplicate notification", {
+            requestId,
+            familyId,
+            notificationId: existing.id,
+            transitionAt: notification.transitionAt,
+            parentId: notification.parentId,
+            type: notification.notificationType,
+          });
+          skippedNotifications.push(existing.id);
+          continue;
+        }
+
         const saved = await db.scheduledNotifications.create({
           familyId: notification.familyId,
           parentId: notification.parentId,
@@ -193,20 +215,42 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           fromParentId: notification.fromParentId,
           toParentId: notification.toParentId,
           location: notification.location,
+          retryCount: 0,
         });
         savedNotifications.push(saved);
       } catch (error) {
-        // Skip duplicates or handle errors
-        logEvent("warn", "Schedule notifications: failed to save notification", { requestId, familyId, error: error instanceof Error ? error.message : "unknown" });
+        // Handle unique constraint violations (duplicates from race conditions)
+        const errorMsg = error instanceof Error ? error.message : "unknown";
+        if (errorMsg.includes("unique_notification_per_transition_and_type")) {
+          logEvent("debug", "Schedule notifications: duplicate prevented by database constraint", {
+            requestId,
+            familyId,
+            error: errorMsg,
+          });
+          skippedNotifications.push("constraint-prevented-duplicate");
+        } else {
+          logEvent("warn", "Schedule notifications: failed to save notification", {
+            requestId,
+            familyId,
+            error: errorMsg,
+          });
+        }
       }
     }
 
-    logEvent("info", "Notifications scheduled", { requestId, familyId, userId: auth.userId, count: savedNotifications.length });
+    logEvent("info", "Notifications scheduled", {
+      requestId,
+      familyId,
+      userId: auth.userId,
+      scheduled: savedNotifications.length,
+      skipped: skippedNotifications.length,
+    });
     observeApiRequest({ route, method: "POST", status: 200, durationMs: Date.now() - startedAt });
 
     return NextResponse.json({
       success: true,
       scheduled: savedNotifications.length,
+      skipped: skippedNotifications.length,
       notifications: savedNotifications,
     });
 

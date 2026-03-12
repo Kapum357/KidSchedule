@@ -23,6 +23,8 @@ type ScheduledNotificationRow = {
   from_parent_id: string;
   to_parent_id: string;
   location: string | null;
+  retry_count: number;
+  last_retry_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -44,6 +46,8 @@ export interface UpdateScheduledNotificationData {
   deliveryStatus?: DbScheduledNotification["deliveryStatus"];
   messageId?: string;
   errorMessage?: string;
+  retryCount?: number;
+  lastRetryAt?: string;
 }
 
 export function createScheduledNotificationRepository(tx?: SqlClient): ScheduledNotificationRepository {
@@ -159,6 +163,44 @@ class PostgresScheduledNotificationRepository implements ScheduledNotificationRe
     return result.map(row => this.rowToDb(row as ScheduledNotificationRow));
   }
 
+  /**
+   * Check if a notification already exists for the same transition, parent, and type.
+   * Used to prevent duplicate notifications.
+   */
+  async findExisting(
+    transitionAt: string,
+    parentId: string,
+    notificationType: DbScheduledNotification["notificationType"],
+  ): Promise<DbScheduledNotification | null> {
+    const result = await this.db`
+      SELECT * FROM scheduled_notifications
+      WHERE transition_at = ${transitionAt}
+        AND parent_id = ${parentId}
+        AND notification_type = ${notificationType}
+      LIMIT 1
+    `;
+
+    if (result.length > 0) {
+      return this.rowToDb(result[0] as ScheduledNotificationRow);
+    }
+    return null;
+  }
+
+  /**
+   * Find notifications that need retry (failed with retryCount < 3).
+   */
+  async findFailedForRetry(limit = 50): Promise<DbScheduledNotification[]> {
+    const result = await this.db`
+      SELECT * FROM scheduled_notifications
+      WHERE delivery_status = 'failed'
+        AND retry_count < 3
+      ORDER BY last_retry_at ASC NULLS FIRST
+      LIMIT ${limit}
+    `;
+
+    return result.map(row => this.rowToDb(row as ScheduledNotificationRow));
+  }
+
   async update(id: string, data: UpdateScheduledNotificationData): Promise<DbScheduledNotification | null> {
     const updateFields = [];
     const values = [];
@@ -178,6 +220,14 @@ class PostgresScheduledNotificationRepository implements ScheduledNotificationRe
     if (data.errorMessage !== undefined) {
       updateFields.push('error_message = $' + (values.length + 1));
       values.push(data.errorMessage);
+    }
+    if (data.retryCount !== undefined) {
+      updateFields.push('retry_count = $' + (values.length + 1));
+      values.push(data.retryCount);
+    }
+    if (data.lastRetryAt !== undefined) {
+      updateFields.push('last_retry_at = $' + (values.length + 1));
+      values.push(data.lastRetryAt);
     }
 
     if (updateFields.length === 0) {
@@ -229,6 +279,8 @@ class PostgresScheduledNotificationRepository implements ScheduledNotificationRe
       fromParentId: row.from_parent_id,
       toParentId: row.to_parent_id,
       location: row.location || undefined,
+      retryCount: row.retry_count,
+      lastRetryAt: row.last_retry_at || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

@@ -459,6 +459,8 @@ export interface ScheduledNotificationRepository {
   findByFamilyId(familyId: string): Promise<DbScheduledNotification[]>;
   findByParentId(parentId: string): Promise<DbScheduledNotification[]>;
   findFailed(limit?: number): Promise<DbScheduledNotification[]>;
+  findExisting(transitionAt: string, parentId: string, notificationType: DbScheduledNotification["notificationType"]): Promise<DbScheduledNotification | null>;
+  findFailedForRetry(limit?: number): Promise<DbScheduledNotification[]>;
   create(notification: Omit<DbScheduledNotification, "id" | "createdAt" | "updatedAt">): Promise<DbScheduledNotification>;
   update(id: string, data: Partial<DbScheduledNotification>): Promise<DbScheduledNotification | null>;
   cancel(id: string): Promise<boolean>;

@@ -25,12 +25,18 @@ export interface NotificationDeliveryResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  retryable?: boolean; // Whether this error can be retried
+  nextRetryAt?: string; // When to retry next (ISO string)
 }
 
 export class NotificationDeliveryService {
   private readonly db = getDb();
   private readonly smsProvider = getSmsSender();
   private readonly emailProvider = getEmailSender();
+
+  // Exponential backoff schedule for retries (in minutes)
+  private readonly RETRY_BACKOFF_SCHEDULE = [1, 5, 30]; // 1min, 5min, 30min
+  private readonly MAX_RETRIES = 3;
 
   /**
    * Deliver a notification to a parent.
@@ -43,6 +49,7 @@ export class NotificationDeliveryService {
         return {
           success: false,
           error: `Parent not found: ${request.parentId}`,
+          retryable: false,
         };
       }
 
@@ -66,6 +73,7 @@ export class NotificationDeliveryService {
           return {
             success: false,
             error: `Unsupported delivery method: ${request.deliveryMethod}`,
+            retryable: false,
           };
       }
 
@@ -88,6 +96,7 @@ export class NotificationDeliveryService {
           }
           return "Unknown error";
         })(),
+        retryable: true, // Unexpected errors are retryable
       };
     }
   }
@@ -287,24 +296,76 @@ export class NotificationDeliveryService {
   }
 
   /**
-   * Retry failed notifications.
+   * Retry failed notifications with exponential backoff.
+   * Only retries notifications that haven't exceeded max retries.
+   * Uses exponential backoff: 1min, 5min, 30min for attempts 1, 2, 3.
    */
   async retryFailedNotifications(): Promise<number> {
     const FAILED_NOTIFICATION_BATCH_SIZE = 50;
-    const failedNotifications = await this.db.scheduledNotifications.findFailed(FAILED_NOTIFICATION_BATCH_SIZE);
+    const now = new Date();
+
+    // Find notifications that failed and need retry (retryCount < MAX_RETRIES)
+    const failedNotifications = await this.db.scheduledNotifications.findFailedForRetry(
+      FAILED_NOTIFICATION_BATCH_SIZE
+    );
 
     let retryCount = 0;
 
     for (const notification of failedNotifications) {
-      // Reset to pending for retry
+      // Check if notification is ready for retry based on exponential backoff
+      if (notification.lastRetryAt) {
+        const nextRetryAt = this.calculateNextRetryTime(notification.retryCount);
+        const lastRetryTime = new Date(notification.lastRetryAt);
+        const nextRetryTime = new Date(lastRetryTime.getTime() + nextRetryAt);
+
+        // Skip if not ready for retry yet
+        if (now < nextRetryTime) {
+          continue;
+        }
+      }
+
+      // Check if we've exceeded max retries
+      if (notification.retryCount >= this.MAX_RETRIES) {
+        // Log and skip - do not retry further
+        console.info(
+          `Notification ${notification.id} exceeded max retries (${this.MAX_RETRIES}). Marking as permanently failed.`
+        );
+        continue;
+      }
+
+      // Increment retry count and set last retry time
+      const newRetryCount = notification.retryCount + 1;
+      // Calculate next retry time based on current attempt (will be executed in newRetryCount attempt)
+      const nextRetryAt = this.calculateNextRetryTime(notification.retryCount);
+
+      // Update notification with retry metadata
       await this.db.scheduledNotifications.update(notification.id, {
         deliveryStatus: "pending",
-        errorMessage: undefined,
+        retryCount: newRetryCount,
+        lastRetryAt: now.toISOString(),
+        errorMessage: undefined, // Clear previous error
         messageId: undefined,
       });
+
+      console.info(
+        `Scheduled retry for notification ${notification.id}: attempt ${newRetryCount}/${this.MAX_RETRIES}, ` +
+        `next retry in ${nextRetryAt} minutes`
+      );
+
       retryCount++;
     }
 
     return retryCount;
+  }
+
+  /**
+   * Calculate the backoff delay in minutes for the next retry attempt.
+   * Uses exponential backoff: 1min, 5min, 30min.
+   */
+  private calculateNextRetryTime(retryAttempt: number): number {
+    if (retryAttempt < 0 || retryAttempt >= this.RETRY_BACKOFF_SCHEDULE.length) {
+      return 0; // Should not retry beyond max
+    }
+    return this.RETRY_BACKOFF_SCHEDULE[retryAttempt];
   }
 }

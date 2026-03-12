@@ -579,6 +579,8 @@ export interface DbScheduledNotification {
   fromParentId: string;
   toParentId: string;
   location?: string;
+  retryCount: number;
+  lastRetryAt?: string;
   createdAt: string;
   updatedAt: string;
 }
