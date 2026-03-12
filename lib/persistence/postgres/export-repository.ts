@@ -98,6 +98,30 @@ export function createExportJobsRepository(tx?: SqlClient): ExportJobsRepository
       return rows.map(rowToDb);
     },
 
+    async findByMessageId(messageId: string): Promise<ExportJobRecord[]> {
+      const rows = await q<ExportJobRow[]>`
+        SELECT j.* FROM export_jobs j
+        INNER JOIN export_metadata m ON m.export_id = j.id
+        WHERE m.included_message_ids @> $1::jsonb
+        ORDER BY j.created_at DESC
+      `;
+      // Bind message ID as JSONB array element
+      // Using raw SQL since complex JSONB queries need custom binding
+      try {
+        const result = await q.unsafe(
+          `SELECT j.* FROM export_jobs j
+           INNER JOIN export_metadata m ON m.export_id = j.id
+           WHERE m.included_message_ids @> $1::jsonb
+           ORDER BY j.created_at DESC`,
+          [JSON.stringify([messageId])]
+        ) as ExportJobRow[];
+        return result.map(rowToDb);
+      } catch {
+        // Fallback: if JSONB query fails, return empty array
+        return [];
+      }
+    },
+
     async create(data: {
       familyId: string;
       userId: string;

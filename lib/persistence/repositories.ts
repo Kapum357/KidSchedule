@@ -469,6 +469,7 @@ export interface ExportJobsRepository {
   findByFamilyId(familyId: string): Promise<ExportJobRecord[]>;
   findByUserId(userId: string): Promise<ExportJobRecord[]>;
   findByStatus(status: string): Promise<ExportJobRecord[]>;
+  findByMessageId(messageId: string): Promise<ExportJobRecord[]>;
   create(data: {
     familyId: string;
     userId: string;
