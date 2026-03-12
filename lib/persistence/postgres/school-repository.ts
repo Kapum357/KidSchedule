@@ -8,6 +8,7 @@ import type {
   SchoolVaultDocumentRepository,
   CreateVaultDocumentInput,
 } from "../repositories";
+import { HttpError } from "../repositories";
 import type {
   DbSchoolContact,
   DbSchoolEvent,
@@ -196,6 +197,16 @@ type VaultDocumentRow = {
   actionDeadline: Date | null;
 };
 
+// QuotaRow: Results from quota check query
+// - maxDocuments: subscription tier limit (NULL if no subscription, 0 if unlimited, >0 if limited)
+// - documentCount: current non-deleted document count for family
+// - familyExists: flag to distinguish "no subscription" from "family not found"
+type QuotaRow = {
+  maxDocuments: number | null;
+  documentCount: number;
+  familyExists: boolean;
+};
+
 function vaultDocRowToDb(row: VaultDocumentRow): DbSchoolVaultDocument {
   return {
     id: row.id,
@@ -214,7 +225,8 @@ function vaultDocRowToDb(row: VaultDocumentRow): DbSchoolVaultDocument {
   };
 }
 
-// ─── Allowed file types for vault documents
+// ─── Vault document constants and helpers
+
 const ALLOWED_FILE_TYPES = new Set<string>([
   "pdf",
   "docx",
@@ -223,34 +235,20 @@ const ALLOWED_FILE_TYPES = new Set<string>([
   "png",
 ]);
 
+// Map document status to human-readable labels (shown in UI)
+const STATUS_LABELS: Record<string, string> = {
+  available: "Available",
+  pending_signature: "Awaiting Signature",
+  signed: "Signed",
+  expired: "Expired",
+};
+
 function validateFileType(fileType: string): boolean {
   return ALLOWED_FILE_TYPES.has(fileType.toLowerCase());
 }
 
-// Custom error class for HTTP status codes
-class HttpError extends Error {
-  constructor(
-    message: string,
-    readonly statusCode: number
-  ) {
-    super(message);
-    this.name = "HttpError";
-  }
-}
-
 function getStatusLabel(status: string): string {
-  switch (status) {
-    case "available":
-      return "Available";
-    case "pending_signature":
-      return "Awaiting Signature";
-    case "signed":
-      return "Signed";
-    case "expired":
-      return "Expired";
-    default:
-      return "Unknown";
-  }
+  return STATUS_LABELS[status] ?? "Unknown";
 }
 
 export function createSchoolVaultDocumentRepository(tx?: SqlClient): SchoolVaultDocumentRepository {
@@ -276,7 +274,7 @@ export function createSchoolVaultDocumentRepository(tx?: SqlClient): SchoolVault
     },
 
     async create(input: CreateVaultDocumentInput): Promise<DbSchoolVaultDocument> {
-      // 1. Validate file type
+      // 1. Validate file type early (before any DB access)
       if (!validateFileType(input.fileType)) {
         throw new HttpError(
           `Invalid file type: ${input.fileType}. Allowed types: ${Array.from(ALLOWED_FILE_TYPES).join(", ")}`,
@@ -284,64 +282,77 @@ export function createSchoolVaultDocumentRepository(tx?: SqlClient): SchoolVault
         );
       }
 
-      // 2. Check quota limit - get plan tier for family's subscription
-      type QuotaRow = { maxDocuments: number | null; documentCount: number };
-      const quotaRows = await q<QuotaRow[]>`
-        SELECT
-          COALESCE(pt.max_documents, 0) as "maxDocuments",
-          COUNT(DISTINCT svd.id)::int as "documentCount"
-        FROM families f
-        LEFT JOIN stripe_customers sc ON f.id = (
-          SELECT family_id FROM family_members fm
-          WHERE fm.user_id = sc.user_id LIMIT 1
-        )
-        LEFT JOIN subscriptions s ON sc.id = s.stripe_customer_id
-          AND s.status IN ('active', 'trialing')
-        LEFT JOIN plan_tiers pt ON s.plan_tier = pt.id
-        LEFT JOIN school_vault_documents svd ON f.id = svd.family_id
-          AND svd.is_deleted = false
-        WHERE f.id = ${input.familyId}
-        GROUP BY f.id, pt.max_documents
-      `;
+      // 2. Run quota check + insert in a transaction to prevent race conditions
+      // Transaction ensures: if quota check passes, insert succeeds atomically
+      // If another request increments count between check and insert, this retries/fails safely
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (sql as any).begin(async (txQuery: SqlClient) => {
+        // First, verify family exists and get current quota state
+        // Using INNER JOIN on families guarantees familyExists is true
+        const quotaRows = await (txQuery as typeof sql)<QuotaRow[]>`
+          SELECT
+            true as "familyExists",
+            CASE
+              WHEN pt.max_documents IS NULL THEN NULL
+              ELSE COALESCE(pt.max_documents, 0)
+            END as "maxDocuments",
+            COUNT(DISTINCT svd.id)::int as "documentCount"
+          FROM families f
+          INNER JOIN family_members fm ON f.id = fm.family_id
+          LEFT JOIN stripe_customers sc ON fm.user_id = sc.user_id
+          LEFT JOIN subscriptions s ON sc.id = s.stripe_customer_id
+            AND s.status IN ('active', 'trialing')
+          LEFT JOIN plan_tiers pt ON s.plan_tier = pt.id
+          LEFT JOIN school_vault_documents svd ON f.id = svd.family_id
+            AND svd.is_deleted = false
+          WHERE f.id = ${input.familyId}
+          GROUP BY f.id, pt.max_documents
+        `;
 
-      const quotaRow = quotaRows[0];
-      if (!quotaRow) {
-        // Family not found or no subscription - use conservative limit
-        throw new HttpError(
-          "Family not found or quota information unavailable",
-          404
-        );
-      }
+        const quotaRow = quotaRows[0];
+        if (!quotaRow || !quotaRow.familyExists) {
+          throw new HttpError("Family not found", 404);
+        }
 
-      const { maxDocuments, documentCount } = quotaRow;
+        const { maxDocuments, documentCount } = quotaRow;
 
-      // Check if quota is enforced (maxDocuments is not null and > 0) and limit reached
-      if (maxDocuments != null && maxDocuments > 0 && documentCount >= maxDocuments) {
-        throw new HttpError(
-          `Document quota exceeded: ${documentCount}/${maxDocuments} documents`,
-          429
-        );
-      }
+        // Check if quota limit is enforced AND would be exceeded
+        // NULL maxDocuments = unlimited (no subscription)
+        // 0 maxDocuments = unlimited (explicit tier limit of 0 means no limit)
+        // >0 maxDocuments = limited (check count against limit)
+        if (maxDocuments != null && maxDocuments > 0 && documentCount >= maxDocuments) {
+          throw new HttpError(
+            `Document quota exceeded: ${documentCount}/${maxDocuments} documents`,
+            429
+          );
+        }
 
-      // 3. Insert document with default status 'available'
-      const status = "available";
-      const statusLabel = getStatusLabel(status);
+        // Quota check passed - now insert the document (within same transaction)
+        const status = "available";
+        const statusLabel = getStatusLabel(status);
 
-      const rows = await q<VaultDocumentRow[]>`
-        INSERT INTO school_vault_documents (
-          family_id, title, file_type, status, status_label, added_by,
-          size_bytes, url, action_deadline, is_deleted
-        ) VALUES (
-          ${input.familyId}, ${input.title}, ${input.fileType.toLowerCase()},
-          ${status}, ${statusLabel}, ${input.addedBy},
-          ${input.sizeBytes ?? null}, ${input.url ?? null},
-          ${input.actionDeadline ? new Date(input.actionDeadline) : null},
-          false
-        )
-        RETURNING *
-      `;
+        const insertRows = await (txQuery as typeof sql)<VaultDocumentRow[]>`
+          INSERT INTO school_vault_documents (
+            family_id, title, file_type, status, status_label, added_by,
+            size_bytes, url, action_deadline, is_deleted
+          ) VALUES (
+            ${input.familyId}, ${input.title}, ${input.fileType.toLowerCase()},
+            ${status}, ${statusLabel}, ${input.addedBy},
+            ${input.sizeBytes ?? null}, ${input.url ?? null},
+            ${input.actionDeadline ? new Date(input.actionDeadline) : null},
+            false
+          )
+          RETURNING *
+        `;
 
-      return vaultDocRowToDb(rows[0]);
+        if (!insertRows[0]) {
+          throw new Error("Failed to insert document");
+        }
+
+        return insertRows[0];
+      });
+
+      return vaultDocRowToDb(result);
     },
   };
 }

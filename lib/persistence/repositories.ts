@@ -323,6 +323,32 @@ export interface SchoolContactRepository {
 
 // ─── School Vault Document Repository ────────────────────────────────────────
 
+/**
+ * Error thrown during vault document operations that should result in specific HTTP status codes.
+ * API routes can catch this error and use statusCode to set the response status.
+ *
+ * Example:
+ * ```typescript
+ * try {
+ *   const doc = await db.schoolVaultDocuments.create(input);
+ * } catch (error) {
+ *   if (error instanceof HttpError) {
+ *     return NextResponse.json({ error: error.message }, { status: error.statusCode });
+ *   }
+ *   throw error;
+ * }
+ * ```
+ */
+export class HttpError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number
+  ) {
+    super(message);
+    this.name = "HttpError";
+  }
+}
+
 export type CreateVaultDocumentInput = {
   familyId: string;
   title: string;
