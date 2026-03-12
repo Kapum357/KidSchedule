@@ -11,7 +11,6 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/persistence";
 import { NotificationSchedulerEngine } from "@/lib/notification-scheduler-engine";
-import { NotificationDeliveryService } from "@/lib/notification-delivery-service";
 import { CustodyEngine } from "@/lib/custody-engine";
 import type { CustodySchedule, ScheduleBlock } from "@/lib";
 import {
@@ -22,8 +21,6 @@ import {
   forbidden,
   internalError,
   parseJson,
-  isValidEventCategory,
-  isValidConfirmationStatus,
   generateRequestId,
 } from "../../calendar/utils";
 import { logEvent } from "@/lib/observability/logger";
@@ -31,9 +28,6 @@ import { observeApiRequest } from "@/lib/observability/api-observability";
 
 const db = getDb();
 const scheduler = new NotificationSchedulerEngine();
-// keeping instance for future use; eslint disabled to avoid unused variable warning
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const deliveryService = new NotificationDeliveryService();
 
 // ─── GET /api/notifications/schedule ──────────────────────────────────────────
 
@@ -220,15 +214,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         savedNotifications.push(saved);
       } catch (error) {
         // Handle unique constraint violations (duplicates from race conditions)
-        const errorMsg = error instanceof Error ? error.message : "unknown";
-        if (errorMsg.includes("unique_notification_per_transition_and_type")) {
+        const isUniqueViolation =
+          error instanceof Error &&
+          ((error as unknown) as Record<string, unknown>).code === "23505";
+
+        if (isUniqueViolation) {
           logEvent("debug", "Schedule notifications: duplicate prevented by database constraint", {
             requestId,
             familyId,
-            error: errorMsg,
+            notificationType: notification.notificationType,
+            transitionAt: notification.transitionAt,
           });
           skippedNotifications.push("constraint-prevented-duplicate");
         } else {
+          const errorMsg = error instanceof Error ? error.message : "unknown";
           logEvent("warn", "Schedule notifications: failed to save notification", {
             requestId,
             familyId,

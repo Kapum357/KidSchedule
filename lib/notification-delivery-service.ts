@@ -9,6 +9,7 @@ import { getDb } from "@/lib/persistence";
 import type { Parent } from "@/lib";
 import { getSmsSender } from "@/lib/providers/sms";
 import { getEmailSender } from "@/lib/providers/email";
+import { logEvent } from "@/lib/observability/logger";
 
 export interface NotificationDeliveryRequest {
   notificationId: string;
@@ -87,15 +88,15 @@ export class NotificationDeliveryService {
 
       return result;
     } catch (error) {
-      console.info("Notification delivery failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      logEvent("error", "Notification delivery failed", {
+        notificationId: request.notificationId,
+        parentId: request.parentId,
+        error: errorMessage,
+      });
       return {
         success: false,
-        error: (() => {
-          if (error instanceof Error) {
-            return error.message;
-          }
-          return "Unknown error";
-        })(),
+        error: errorMessage,
         retryable: true, // Unexpected errors are retryable
       };
     }
@@ -327,9 +328,11 @@ export class NotificationDeliveryService {
       // Check if we've exceeded max retries
       if (notification.retryCount >= this.MAX_RETRIES) {
         // Log and skip - do not retry further
-        console.info(
-          `Notification ${notification.id} exceeded max retries (${this.MAX_RETRIES}). Marking as permanently failed.`
-        );
+        logEvent("info", "Notification exceeded max retries", {
+          notificationId: notification.id,
+          maxRetries: this.MAX_RETRIES,
+          retryCount: notification.retryCount,
+        });
         continue;
       }
 
@@ -347,10 +350,12 @@ export class NotificationDeliveryService {
         messageId: undefined,
       });
 
-      console.info(
-        `Scheduled retry for notification ${notification.id}: attempt ${newRetryCount}/${this.MAX_RETRIES}, ` +
-        `next retry in ${nextRetryAt} minutes`
-      );
+      logEvent("info", "Scheduled notification retry", {
+        notificationId: notification.id,
+        attempt: newRetryCount,
+        maxAttempts: this.MAX_RETRIES,
+        nextRetryMinutes: nextRetryAt,
+      });
 
       retryCount++;
     }

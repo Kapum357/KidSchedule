@@ -35,10 +35,12 @@ export interface CreateScheduledNotificationData {
   notificationType: DbScheduledNotification["notificationType"];
   scheduledAt: string;
   deliveryMethod: DbScheduledNotification["deliveryMethod"];
+  deliveryStatus: DbScheduledNotification["deliveryStatus"];
   transitionAt: string;
   fromParentId: string;
   toParentId: string;
   location?: string;
+  retryCount: number;
 }
 
 export interface UpdateScheduledNotificationData {
@@ -65,10 +67,11 @@ class PostgresScheduledNotificationRepository implements ScheduledNotificationRe
     const result = await this.db`
       INSERT INTO scheduled_notifications (
         family_id, parent_id, notification_type, scheduled_at, delivery_method,
-        transition_at, from_parent_id, to_parent_id, location
+        delivery_status, transition_at, from_parent_id, to_parent_id, location, retry_count
       ) VALUES (
         ${data.familyId}, ${data.parentId}, ${data.notificationType}, ${data.scheduledAt},
-        ${data.deliveryMethod}, ${data.transitionAt}, ${data.fromParentId}, ${data.toParentId}, ${data.location || null}
+        ${data.deliveryMethod}, ${data.deliveryStatus}, ${data.transitionAt}, ${data.fromParentId},
+        ${data.toParentId}, ${data.location || null}, ${data.retryCount}
       )
       RETURNING *
     `;
