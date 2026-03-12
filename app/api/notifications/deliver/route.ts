@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, withTransaction, createPostgresUnitOfWork } from "@/lib/persistence";
+import type { DbScheduledNotification } from "@/lib/persistence";
 import { NotificationDeliveryService } from "@/lib/notification-delivery-service";
 import {
   getAuthenticatedUser,
@@ -140,12 +141,19 @@ export async function POST(request: NextRequest) {
  * Helper function to deliver a single notification.
  * This function handles the actual delivery logic without transaction management.
  */
-async function deliverSingleNotification(notification: any) {
-  const result = {
+interface DeliveryResult {
+  notificationId: string;
+  success: boolean;
+  error?: string;
+  messageId?: string;
+}
+
+async function deliverSingleNotification(notification: DbScheduledNotification): Promise<{ result: DeliveryResult }> {
+  const result: DeliveryResult = {
     notificationId: notification.id,
     success: false,
-    error: undefined as string | undefined,
-    messageId: undefined as string | undefined,
+    error: undefined,
+    messageId: undefined,
   };
 
   try {
