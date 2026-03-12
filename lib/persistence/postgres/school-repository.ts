@@ -274,6 +274,60 @@ export function createSchoolVaultDocumentRepository(tx?: SqlClient): SchoolVault
       return rows.map(vaultDocRowToDb);
     },
 
+    async findByStatus(
+      familyId: string,
+      status: string,
+      limit?: number,
+      offset?: number
+    ): Promise<DbSchoolVaultDocument[]> {
+      const limitClause = limit !== undefined ? limit : 999999;
+      const offsetClause = offset !== undefined ? offset : 0;
+
+      const rows = await q<VaultDocumentRow[]>`
+        SELECT * FROM school_vault_documents
+        WHERE family_id = ${familyId} AND status = ${status} AND is_deleted = false
+        ORDER BY added_at DESC
+        LIMIT ${limitClause} OFFSET ${offsetClause}
+      `;
+      return rows.map(vaultDocRowToDb);
+    },
+
+    async findExpired(
+      familyId: string,
+      limit?: number,
+      offset?: number
+    ): Promise<DbSchoolVaultDocument[]> {
+      const limitClause = limit !== undefined ? limit : 999999;
+      const offsetClause = offset !== undefined ? offset : 0;
+
+      const rows = await q<VaultDocumentRow[]>`
+        SELECT * FROM school_vault_documents
+        WHERE family_id = ${familyId}
+          AND is_deleted = false
+          AND (status = 'expired' OR (action_deadline IS NOT NULL AND action_deadline < NOW()))
+        ORDER BY added_at DESC
+        LIMIT ${limitClause} OFFSET ${offsetClause}
+      `;
+      return rows.map(vaultDocRowToDb);
+    },
+
+    async findPending(
+      familyId: string,
+      limit?: number,
+      offset?: number
+    ): Promise<DbSchoolVaultDocument[]> {
+      const limitClause = limit !== undefined ? limit : 999999;
+      const offsetClause = offset !== undefined ? offset : 0;
+
+      const rows = await q<VaultDocumentRow[]>`
+        SELECT * FROM school_vault_documents
+        WHERE family_id = ${familyId} AND status = 'pending_signature' AND is_deleted = false
+        ORDER BY added_at DESC
+        LIMIT ${limitClause} OFFSET ${offsetClause}
+      `;
+      return rows.map(vaultDocRowToDb);
+    },
+
     async create(input: CreateVaultDocumentInput): Promise<DbSchoolVaultDocument> {
       // 1. Validate file type early (before any DB access)
       if (!validateFileType(input.fileType)) {

@@ -368,6 +368,36 @@ export type UpdateVaultDocumentInput = {
 export interface SchoolVaultDocumentRepository {
   findById(id: string): Promise<DbSchoolVaultDocument | null>;
   findByFamilyId(familyId: string): Promise<DbSchoolVaultDocument[]>;
+  /**
+   * Find documents with a specific status, optionally paginated.
+   *
+   * Respects soft-delete filter (is_deleted = false).
+   * Documents ordered by added_at DESC.
+   * Supports pagination via limit and offset.
+   *
+   * Valid statuses: 'available', 'pending_signature', 'signed', 'expired'
+   */
+  findByStatus(familyId: string, status: string, limit?: number, offset?: number): Promise<DbSchoolVaultDocument[]>;
+  /**
+   * Find documents with expired status OR past action_deadline.
+   *
+   * Respects soft-delete filter (is_deleted = false).
+   * Documents ordered by added_at DESC.
+   * Supports pagination via limit and offset.
+   *
+   * Returns documents that are either:
+   * - status = 'expired', OR
+   * - action_deadline < NOW() (for pending_signature documents)
+   */
+  findExpired(familyId: string, limit?: number, offset?: number): Promise<DbSchoolVaultDocument[]>;
+  /**
+   * Find documents awaiting signature (pending_signature status).
+   *
+   * Respects soft-delete filter (is_deleted = false).
+   * Documents ordered by added_at DESC.
+   * Supports pagination via limit and offset.
+   */
+  findPending(familyId: string, limit?: number, offset?: number): Promise<DbSchoolVaultDocument[]>;
   create(input: CreateVaultDocumentInput): Promise<DbSchoolVaultDocument>;
   update(id: string, input: UpdateVaultDocumentInput): Promise<DbSchoolVaultDocument | null>;
   /**
