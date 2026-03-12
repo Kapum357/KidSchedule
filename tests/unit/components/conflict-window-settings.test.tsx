@@ -208,6 +208,7 @@ describe('ConflictWindowSettings', () => {
   it('should show error toast and revert value when API call fails', async () => {
     // Mock useToast
     const mockToast = jest.fn();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mockUseToast = require('@/components/toast-notification').useToast as jest.Mock;
     mockUseToast.mockReturnValue({ add: mockToast });
 
