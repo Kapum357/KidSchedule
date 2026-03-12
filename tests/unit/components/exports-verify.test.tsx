@@ -7,7 +7,7 @@
  * 3. AuditLog - renders verification history table
  */
 
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import VerificationStatusPanel from "@/components/exports/verification-status-panel";
 import ShareModal from "@/components/exports/share-modal";
 import AuditLog from "@/components/exports/audit-log";
@@ -457,7 +457,7 @@ describe("AuditLog", () => {
       json: jest.fn().mockResolvedValue({ error: "server_error" }),
     });
 
-    const { container } = render(
+    render(
       <AuditLog
         exportId="export-1"
         metadataId="metadata-1"
@@ -478,7 +478,7 @@ describe("AuditLog", () => {
       json: jest.fn().mockResolvedValue([]),
     });
 
-    const { container } = render(
+    render(
       <AuditLog
         exportId="export-1"
         metadataId="metadata-1"

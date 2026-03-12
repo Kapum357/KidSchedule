@@ -73,6 +73,7 @@ export default function AuditLog({ exportId, metadataId }: AuditLogProps) {
   // Fetch audit log on mount
   useEffect(() => {
     fetchAuditLog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadataId]);
 
   async function fetchAuditLog() {
@@ -127,7 +128,7 @@ export default function AuditLog({ exportId, metadataId }: AuditLogProps) {
       window.URL.revokeObjectURL(url);
 
       addToast("Audit log exported successfully", "success");
-    } catch (err) {
+    } catch {
       addToast("Failed to export audit log", "error");
     }
   }

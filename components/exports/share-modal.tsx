@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useToast } from "@/components/toast-notification";
 
 interface ShareModalProps {
@@ -37,6 +38,7 @@ export default function ShareModal({ exportId, onClose }: ShareModalProps) {
   // Fetch share token on mount
   useEffect(() => {
     fetchToken();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exportId]);
 
   async function fetchToken() {
@@ -149,12 +151,13 @@ export default function ShareModal({ exportId, onClose }: ShareModalProps) {
                 {/* QR Code */}
                 <div className="flex justify-center">
                   <div className="rounded-lg border-2 border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800">
-                    <img
+                    <Image
                       src={token.qrUrl}
                       alt="Share QR Code"
                       width={200}
                       height={200}
                       className="rounded"
+                      unoptimized
                     />
                   </div>
                 </div>
