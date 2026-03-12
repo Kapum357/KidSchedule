@@ -14,6 +14,8 @@ module.exports = {
   testMatch: [
     '<rootDir>/tests/unit/**/*.test.{ts,tsx}',
     '<rootDir>/tests/unit/**/*.spec.{ts,tsx}',
+    '<rootDir>/tests/integration/**/*.test.{ts,tsx}',
+    '<rootDir>/tests/integration/**/*.spec.{ts,tsx}',
     '<rootDir>/lib/**/*.test.{ts,tsx}',
     '<rootDir>/lib/**/*.spec.{ts,tsx}',
   ],

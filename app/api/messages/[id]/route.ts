@@ -26,7 +26,7 @@ import { logEvent } from "@/lib/observability/logger";
  */
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = crypto.randomUUID();
   const startedAt = Date.now();
@@ -37,7 +37,7 @@ export async function PATCH(
       return unauthorized();
     }
 
-    const messageId = params.id;
+    const messageId = (await params).id;
     if (!messageId) {
       return badRequest(
         "invalid_request",
@@ -116,7 +116,7 @@ export async function PATCH(
  */
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = crypto.randomUUID();
 
@@ -126,7 +126,7 @@ export async function PUT(
       return unauthorized();
     }
 
-    const messageId = params.id;
+    const messageId = (await params).id;
     if (!messageId) {
       return badRequest(
         "invalid_request",
