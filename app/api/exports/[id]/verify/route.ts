@@ -12,6 +12,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getDb } from "@/lib/persistence";
+import { logEvent } from "@/lib/observability/logger";
 import crypto from "crypto";
 
 interface VerifyRequest {
@@ -128,8 +129,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<VerifyResponse | { error: string }>> {
+  let exportId = '';
   try {
-    const { id: exportId } = await params;
+    const { id } = await params;
+    exportId = id;
     const userId = await getAuthenticatedUser();
 
     if (!userId) {
@@ -163,11 +166,20 @@ export async function POST(
     let pdfHashMatch = false;
     let isValid = false;
 
+    // Log verification attempt
+    let body: VerifyRequest | null = null;
+    if (request.body) {
+      body = (await request.json()) as VerifyRequest;
+      logEvent('info', '[ExportVerify] Verification attempt', {
+        exportId,
+        verifyPdf: !!body.pdfBuffer,
+        verifyChain: !!body.storedHash,
+      });
+    }
+
     // Verify PDF hash if provided in request body
     const storedPdfHash = metadata.pdfHash;
-    if (request.body) {
-      const body = (await request.json()) as VerifyRequest;
-
+    if (body) {
       if (body.pdfBuffer && storedPdfHash) {
         try {
           const pdfBuffer = Buffer.from(body.pdfBuffer, "base64");
@@ -200,6 +212,14 @@ export async function POST(
       : chainValidation.tamperDetectedAtIndex !== undefined
         ? "tampered"
         : "incomplete";
+
+    // Log verification result
+    logEvent('info', '[ExportVerify] Verification complete', {
+      exportId,
+      pdfHashMatch,
+      chainValid: chainValidation.isValid,
+      allVerified: pdfHashMatch && chainValidation.isValid,
+    });
 
     // Record verification attempt for audit trail
     const messageHashes = await db.exportMessageHashes.findByExportMetadataId(
@@ -242,7 +262,10 @@ export async function POST(
       status: isValid ? 200 : 422,
     });
   } catch (error) {
-    console.error("[ExportVerify] Error:", error);
+    logEvent('error', '[ExportVerify] Verification failed', {
+      exportId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Verification failed",
@@ -260,8 +283,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<VerifyResponse | { error: string }>> {
+  let exportId = '';
   try {
-    const { id: exportId } = await params;
+    const { id } = await params;
+    exportId = id;
     const userId = await getAuthenticatedUser();
 
     if (!userId) {
@@ -327,7 +352,10 @@ export async function GET(
       status: response.isValid ? 200 : 422,
     });
   } catch (error) {
-    console.error("[ExportVerify] Error:", error);
+    logEvent('error', '[ExportVerify] Server error during verification', {
+      exportId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Verification failed",
