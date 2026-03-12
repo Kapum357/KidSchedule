@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { initDb, db, _test_resetDbInstance } from "@/lib/persistence";
 import type { UnitOfWork } from "@/lib/persistence/repositories";

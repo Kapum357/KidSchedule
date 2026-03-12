@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // Mock next/headers before importing route
 jest.mock('next/headers', () => ({
   cookies: jest.fn(() => Promise.resolve({

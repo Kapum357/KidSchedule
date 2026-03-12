@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { OptimizedImage } from "@/components/optimized-image";
 import { MomentReactionPicker } from "@/components/moments/moment-reaction-picker";
 import { MomentReactionSummary } from "@/components/moments/moment-reaction-summary";
@@ -10,7 +10,6 @@ import { MomentReactionSummary } from "@/components/moments/moment-reaction-summ
 type MemoryKind = "media" | "quote" | "document";
 type ChildTag = "Leo" | "Maya" | "Leo & Maya";
 type ChildFilter = "all" | "Leo" | "Maya";
-type SortOrder = "desc" | "asc";
 
 type GroupedReaction = {
   emoji: string;
@@ -423,9 +422,35 @@ function MemoryCard({
 // ─── Gallery ──────────────────────────────────────────────────────────────────
 
 export function MomentsGallery() {
-  const [childFilter, setChildFilter] = useState<ChildFilter>("all");
+  const [childFilter, setChildFilter] = useState<ChildFilter>(() => {
+    // Load from localStorage on client mount
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = localStorage.getItem("ks_moments_filters");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.child || "all";
+      }
+    } catch {
+      // ignore
+    }
+    return "all";
+  });
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortDesc, setSortDesc] = useState(true);
+  const [sortDesc, setSortDesc] = useState(() => {
+    // Load from localStorage on client mount
+    if (typeof window === "undefined") return true;
+    try {
+      const saved = localStorage.getItem("ks_moments_filters");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.sortDesc === "boolean") return parsed.sortDesc;
+      }
+    } catch {
+      // ignore
+    }
+    return true;
+  });
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [likedItems, setLikedItems] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>(() =>
@@ -436,30 +461,18 @@ export function MomentsGallery() {
       ALL_MEMORIES.filter((m) => m.reactions).map((m) => [m.id, m.reactions || []])
     )
   );
-  const [mounted, setMounted] = useState(false);
 
-  // Load filter preferences from localStorage
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  const mountedRef = useRef(false);
+
   useEffect(() => {
-    const saved = localStorage.getItem("ks_moments_filters");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // These setStates are intentional during hydration - set once on mount
-        if (parsed.child) setChildFilter(parsed.child);
-        if (typeof parsed.sortDesc === "boolean") setSortDesc(parsed.sortDesc);
-      } catch {
-        // ignore
-      }
-    }
-    setMounted(true);
+    mountedRef.current = true;
   }, []);
 
-  // Save filter preferences
+  // Save filter preferences after mount
   useEffect(() => {
-    if (!mounted) return;
+    if (!mountedRef.current) return;
     localStorage.setItem("ks_moments_filters", JSON.stringify({ child: childFilter, sortDesc }));
-  }, [childFilter, sortDesc, mounted]);
+  }, [childFilter, sortDesc]);
 
   const toggleLike = (id: string) => {
     setLikedItems((prev) => {
@@ -652,7 +665,7 @@ export function MomentsGallery() {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setSortDesc((d) => !d)}
+              onClick={() => setSortDesc((d: boolean) => !d)}
               className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-surface-dark dark:text-slate-300 dark:hover:bg-gray-800"
             >
               <span className="material-symbols-outlined text-lg">sort</span>

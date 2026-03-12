@@ -7,7 +7,7 @@ interface OtpFormProps {
   readonly action: (formData: FormData) => Promise<void>;
 }
 
-export function OtpForm({ phone, action }: OtpFormProps) {
+export function OtpForm({ action }: OtpFormProps) {
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
   const [countdown, setCountdown] = useState(30);
   const [canResend, setCanResend] = useState(false);
@@ -20,12 +20,8 @@ export function OtpForm({ phone, action }: OtpFormProps) {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  // Set canResend flag when countdown completes (intentional setState in effect)
   useEffect(() => {
-    if (countdown <= 0) {
-      setCanResend(true);
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCanResend(countdown <= 0);
   }, [countdown]);
 
   const handleDigitChange = (index: number, value: string) => {

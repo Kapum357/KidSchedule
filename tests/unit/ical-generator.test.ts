@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { generateICalFeed } from '@/lib/ical-generator';
 
 describe('ICS Generator', () => {

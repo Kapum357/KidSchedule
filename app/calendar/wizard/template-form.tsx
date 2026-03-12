@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getSegmentWidthPercent, type ScheduleTemplate, type TemplateId } from "@/lib/schedule-wizard-engine";
 
 interface TemplateFormProps {
@@ -16,30 +16,32 @@ export function TemplateForm({
   action,
   cancelAction,
 }: TemplateFormProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>(defaultTemplateId);
-  const [mounted, setMounted] = useState(false);
-
-  // Hydration guard: read from localStorage after mount
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => {
-    const saved = localStorage.getItem("ks_wizard_draft");
-    if (saved) {
-      try {
-        const draft = JSON.parse(saved);
-        if (draft.template) {
-          // This setState is intentional during hydration - set once on mount
-          setSelectedTemplate(draft.template);
-        }
-      } catch {
-        // Ignore parse errors
-      }
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>(() => {
+    // Hydration: read from localStorage only on client mount
+    if (typeof window === "undefined") {
+      return defaultTemplateId;
     }
-    setMounted(true);
+    try {
+      const saved = localStorage.getItem("ks_wizard_draft");
+      if (saved) {
+        const draft = JSON.parse(saved);
+        return draft.template || defaultTemplateId;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+    return defaultTemplateId;
+  });
+
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
   }, []);
 
-  // Write to localStorage whenever template changes
+  // Write to localStorage whenever template changes (only after mount)
   useEffect(() => {
-    if (!mounted) return;
+    if (!mountedRef.current) return;
     const draft = (() => {
       try {
         return JSON.parse(localStorage.getItem("ks_wizard_draft") || "{}");
@@ -49,7 +51,7 @@ export function TemplateForm({
     })();
     draft.template = selectedTemplate;
     localStorage.setItem("ks_wizard_draft", JSON.stringify(draft));
-  }, [selectedTemplate, mounted]);
+  }, [selectedTemplate]);
 
   const handleTemplateChange = (newTemplate: TemplateId) => {
     setSelectedTemplate(newTemplate);

@@ -1,5 +1,3 @@
- 
-/* eslint-disable sonarlint/S1192 */
 /*
  * Provider types smoke tests
  *
@@ -33,7 +31,7 @@ const validSmsOptions: SmsSendOptions<"otp-verification"> = {
 };
 
 // incorrect variable shape should trigger type errors
-// @ts-ignore missing required fields - intentionally invalid
+// @ts-expect-error missing required fields - intentionally invalid for test
 const invalidEmail: EmailSendOptions<"email-verification"> = {
   to: "user@example.com",
   subject: "Verify",

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * Unit tests for DELETE /api/moments/{id}/reactions/{reactionId}
  */

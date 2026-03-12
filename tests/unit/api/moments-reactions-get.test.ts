@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * Unit tests for GET /api/moments/{id}/reactions
  */
