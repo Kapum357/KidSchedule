@@ -496,8 +496,8 @@ export function verifyAndConstructStripeEvent(payload: string, signature: string
     throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
   }
 
-  if (!signature) {
-    throw new Error("Missing Stripe-Signature header");
+  if (!signature || signature.trim() === "") {
+    throw new Error("Missing or empty Stripe signature");
   }
 
   const stripe = getStripeClient();
