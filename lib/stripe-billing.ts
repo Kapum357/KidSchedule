@@ -112,6 +112,20 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription): 
     return;
   }
 
+  // Check for out-of-order event: skip if incoming event is older than existing record
+  const existingRow = await sql<{ updated_at: Date }[]>`
+    SELECT updated_at
+    FROM subscriptions
+    WHERE stripe_subscription_id = ${subscription.id}
+    LIMIT 1
+  `;
+
+  const eventTimestamp = new Date(subscription.created * 1000);
+  if (existingRow[0] && eventTimestamp < existingRow[0].updated_at) {
+    // This is a stale event, skip the update
+    return;
+  }
+
   const firstItem = subscription.items.data[0];
   const priceId = firstItem?.price?.id ?? "";
   const metadataTier =
@@ -566,7 +580,7 @@ async function handlePaymentMethodAttached(event: Stripe.Event): Promise<void> {
         ${cardData?.exp_month ?? null}, ${cardData?.exp_year ?? null},
         false, false
       )
-      ON CONFLICT (stripe_payment_method_id) DO NOTHING
+      ON CONFLICT (stripe_payment_method_id) DO UPDATE SET is_deleted = false
     `;
   });
 }
