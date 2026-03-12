@@ -192,6 +192,20 @@ async function upsertInvoiceFromStripe(invoice: Stripe.Invoice): Promise<void> {
     return;
   }
 
+  // Check for out-of-order event: skip if incoming event is older than existing record
+  const existingRow = await sql<{ updated_at: Date }[]>`
+    SELECT updated_at
+    FROM invoices
+    WHERE stripe_invoice_id = ${invoice.id}
+    LIMIT 1
+  `;
+
+  const eventTimestamp = new Date(invoice.created * 1000);
+  if (existingRow[0] && eventTimestamp < existingRow[0].updated_at) {
+    // This is a stale event, skip the update
+    return;
+  }
+
   const invoiceWithSubscription = invoice as Stripe.Invoice & {
     subscription?: string | Stripe.Subscription | null;
     parent?: {
