@@ -43,6 +43,8 @@ export async function PaymentMethodsSection() {
           last4: m.last4 || '****',
           expiry: `${String(m.expMonth).padStart(2, '0')}/${m.expYear}`,
           isDefault: m.isDefault,
+          expMonth: m.expMonth,
+          expYear: m.expYear,
         }))}
         onSetDefault={handleSetDefault}
         onDelete={handleDelete}
