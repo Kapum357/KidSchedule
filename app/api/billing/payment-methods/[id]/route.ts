@@ -13,10 +13,11 @@ import { observeApiRequest, observeApiException } from "@/lib/observability/api-
 import { logEvent } from "@/lib/observability/logger";
 
 type RouteParams = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export async function POST(request: Request, { params }: RouteParams): Promise<NextResponse> {
+  const resolvedParams = await params;
   const startedAt = Date.now();
 
   try {
@@ -43,7 +44,7 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
     }
 
     const method = await db.paymentMethods.findByCustomer(stripeCustomer.id);
-    const methodExists = method.some((m) => m.id === params.id);
+    const methodExists = method.some((m) => m.id === resolvedParams.id);
 
     if (!methodExists) {
       observeApiRequest({
@@ -58,11 +59,11 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       );
     }
 
-    await db.paymentMethods.setDefault(params.id, stripeCustomer.id);
+    await db.paymentMethods.setDefault(resolvedParams.id, stripeCustomer.id);
 
     logEvent("info", "Payment method set as default", {
       customerId: stripeCustomer.id,
-      methodId: params.id,
+      methodId: resolvedParams.id,
     });
 
     observeApiRequest({
@@ -76,7 +77,7 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
   } catch (error) {
     observeApiException("/api/billing/payment-methods/[id]/set-default", "POST", error);
     logEvent("error", "Set default payment method error", {
-      methodId: params.id,
+      methodId: resolvedParams.id,
       error: error instanceof Error ? error.message : "unknown",
     });
     observeApiRequest({
@@ -91,6 +92,7 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
 
 export async function DELETE(request: Request, { params }: RouteParams): Promise<NextResponse> {
   const startedAt = Date.now();
+  const resolvedParams = await params;
 
   try {
     const sessionUser = await getCurrentUser();
@@ -116,7 +118,7 @@ export async function DELETE(request: Request, { params }: RouteParams): Promise
     }
 
     const methods = await db.paymentMethods.findByCustomer(stripeCustomer.id);
-    const method = methods.find((m) => m.id === params.id);
+    const method = methods.find((m) => m.id === resolvedParams.id);
 
     if (!method) {
       observeApiRequest({
@@ -149,11 +151,11 @@ export async function DELETE(request: Request, { params }: RouteParams): Promise
       );
     }
 
-    await db.paymentMethods.softDelete(params.id);
+    await db.paymentMethods.softDelete(resolvedParams.id);
 
     logEvent("info", "Payment method deleted", {
       customerId: stripeCustomer.id,
-      methodId: params.id,
+      methodId: resolvedParams.id,
     });
 
     observeApiRequest({
@@ -167,7 +169,7 @@ export async function DELETE(request: Request, { params }: RouteParams): Promise
   } catch (error) {
     observeApiException("/api/billing/payment-methods/[id]", "DELETE", error);
     logEvent("error", "Delete payment method error", {
-      methodId: params.id,
+      methodId: resolvedParams.id,
       error: error instanceof Error ? error.message : "unknown",
     });
     observeApiRequest({

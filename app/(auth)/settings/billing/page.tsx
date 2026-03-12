@@ -1,12 +1,13 @@
 /**
  * Billing Settings Page
  *
- * Displays the user's current subscription plan and allows plan management.
+ * Displays the user's current subscription plan, payment methods, and allows plan management.
  */
 
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/persistence";
 import { BillingSection } from "@/components/billing-section";
+import { PaymentMethodsSection } from "@/components/billing/payment-methods-section";
 
 export const metadata = {
   title: "Billing Settings — KidSchedule",
@@ -34,12 +35,18 @@ export default async function BillingSettingsPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
-          <BillingSection
-            userId={user.userId}
-            currentPlanTier={currentPlanTier}
-            subscription={subscription ?? null}
-          />
+        <div className="space-y-6">
+          <div className="rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
+            <BillingSection
+              userId={user.userId}
+              currentPlanTier={currentPlanTier}
+              subscription={subscription ?? null}
+            />
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
+            <PaymentMethodsSection />
+          </div>
         </div>
       </div>
     </div>
