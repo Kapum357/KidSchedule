@@ -93,7 +93,9 @@ export type AuditAction =
   | "holiday.rule.propose"
   | "holiday.rule.confirm"
   | "holiday.rule.reject"
-  | "holiday.definition.create";
+  | "holiday.definition.create"
+  | "vault.document.download"
+  | "vault.document.delete";
 
 export interface DbAuditLog {
   id: string;
@@ -695,6 +697,7 @@ export interface DbPlanTier {
   features: string[];
   maxChildren?: number;
   maxDocuments?: number;
+  maxStorageBytes?: number;       // Storage limit in bytes (NULL = unlimited)
   isActive: boolean;
   createdAt: string;
 }

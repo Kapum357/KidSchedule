@@ -130,8 +130,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     });
 
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!authToken) {
+      logEvent("error", "Twilio auth token is not configured", {
+        route: "/api/webhooks/twilio/incoming",
+      });
+      return NextResponse.json({ error: "twilio_auth_token_not_configured" }, { status: 500 });
+    }
+
     const isValid = verifyTwilioWebhookSignature({
-      authToken: process.env.TWILIO_AUTH_TOKEN || "",
+      authToken,
       signature,
       url: webhookUrl,
       params,

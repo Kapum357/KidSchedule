@@ -40,17 +40,24 @@ export class TwilioAdapter implements SmsSender {
   private readonly baseBackoffMs: number;
 
   constructor() {
-    this.accountSid = process.env.TWILIO_ACCOUNT_SID ?? "";
-    this.authToken = process.env.TWILIO_AUTH_TOKEN ?? "";
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+    if (!accountSid) {
+      throw new Error("TWILIO_ACCOUNT_SID is not configured");
+    }
+    if (!authToken) {
+      throw new Error("TWILIO_AUTH_TOKEN is not configured");
+    }
+
+    this.accountSid = accountSid;
+    this.authToken = authToken;
     this.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID ?? null;
     this.fromNumber = process.env.TWILIO_FROM_NUMBER ?? null;
     this.statusCallbackUrl = process.env.TWILIO_STATUS_CALLBACK_URL ?? null;
     this.maxRetries = Number(process.env.TWILIO_MAX_RETRIES ?? "3");
     this.baseBackoffMs = Number(process.env.TWILIO_BACKOFF_BASE_MS ?? "250");
 
-    if (!this.accountSid || !this.authToken) {
-      console.warn("[TwilioAdapter] Twilio credentials not configured");
-    }
     if (!this.messagingServiceSid && !this.fromNumber) {
       console.warn("[TwilioAdapter] Either TWILIO_MESSAGING_SERVICE_SID or TWILIO_FROM_NUMBER required");
     }

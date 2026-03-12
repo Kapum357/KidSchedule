@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 
 /**
  * POST /api/school/vault/upload endpoint tests - Core logic validation

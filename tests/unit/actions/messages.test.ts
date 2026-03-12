@@ -79,7 +79,7 @@ jest.mock("@/lib/providers/ai", () => ({
 
 import { sendMessage } from "@/app/messages/actions";
 import { resolveMessageState } from "@/app/messages/page";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+ 
 const { requireAuth } = jest.requireMock("@/lib/auth") as { requireAuth: jest.Mock };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { db } = require("@/lib/persistence") as {

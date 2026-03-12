@@ -88,18 +88,19 @@ async function checkStripe(): Promise<HealthCheck> {
  * Check Twilio API availability.
  */
 async function checkTwilio(): Promise<HealthCheck> {
-  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+  if (!accountSid || !authToken) {
     return { name: "twilio", status: "degraded", error: "Not configured" };
   }
 
   const startedAt = Date.now();
   try {
-    const auth = Buffer.from(
-      `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
-    ).toString("base64");
+    const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
 
     const response = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}.json`,
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}.json`,
       {
         method: "GET",
         headers: { Authorization: `Basic ${auth}` },

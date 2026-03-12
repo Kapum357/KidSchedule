@@ -520,7 +520,7 @@ type PlanTierRow = {
   id: string; display_name: string; stripe_price_id: string | null;
   monthly_price_cents: number; annual_price_id: string | null; annual_price_cents: number;
   features: string[]; max_children: number | null; max_documents: number | null;
-  is_active: boolean; created_at?: Date;
+  max_storage_bytes: number | null; is_active: boolean; created_at?: Date;
 };
 
 function planTierRowToDb(r: PlanTierRow): DbPlanTier {
@@ -529,6 +529,7 @@ function planTierRowToDb(r: PlanTierRow): DbPlanTier {
     monthlyPriceCents: r.monthly_price_cents, annualPriceId: r.annual_price_id ?? undefined,
     annualPriceCents: r.annual_price_cents, features: r.features,
     maxChildren: r.max_children ?? undefined, maxDocuments: r.max_documents ?? undefined,
+    maxStorageBytes: r.max_storage_bytes ?? undefined,
     isActive: r.is_active, createdAt: (r.created_at ?? new Date()).toISOString(),
   };
 }

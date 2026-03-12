@@ -82,7 +82,7 @@ export function MediationInterface({
           action: {
             label: 'Retry',
             onClick: () => {
-              // eslint-disable-next-line @typescript-eslint/no-floating-promises
+               
               handleAdjustTone(adjustment);
             },
           },
@@ -105,7 +105,7 @@ export function MediationInterface({
           action: {
             label: 'Retry',
             onClick: () => {
-              // eslint-disable-next-line @typescript-eslint/no-floating-promises
+               
               handleAdjustTone(adjustment);
             },
           },

@@ -79,8 +79,16 @@ function isVerifyEnabled(): boolean {
 }
 
 function getBasicAuth(): string {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID ?? "";
-  const authToken = process.env.TWILIO_AUTH_TOKEN ?? "";
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+  if (!accountSid) {
+    throw new Error("TWILIO_ACCOUNT_SID is not configured");
+  }
+  if (!authToken) {
+    throw new Error("TWILIO_AUTH_TOKEN is not configured");
+  }
+
   return Buffer.from(`${accountSid}:${authToken}`).toString("base64");
 }
 
