@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/persistence";
 import { NotificationSchedulerEngine } from "@/lib/notification-scheduler-engine";
 import { NotificationDeliveryService } from "@/lib/notification-delivery-service";
+import { CustodyEngine } from "@/lib/custody-engine";
+import type { CustodySchedule, ScheduleBlock } from "@/lib";
 import {
   getAuthenticatedUser,
   userBelongsToFamily,
@@ -77,32 +79,74 @@ export async function POST(request: NextRequest) {
     }
 
     const parents = await db.parents.findByFamilyId(familyId);
-    const calendarEvents = await db.calendarEvents.findByFamilyId(familyId);
+    if (!parents || parents.length < 2) {
+      return NextResponse.json(
+        { error: "Family must have at least 2 parents" },
+        { status: 400 },
+      );
+    }
 
-    // convert DB events to domain CalendarEvent with proper typing
-    const mappedEvents = calendarEvents.map(event => {
-      let category: import("@/lib").EventCategory = "other";
-      if (isValidEventCategory(event.category)) {
-        category = event.category;
-      }
+    // Get active custody schedule
+    const dbSchedule = await db.custodySchedules.findActiveByFamilyId(familyId);
+    if (!dbSchedule) {
+      return NextResponse.json(
+        { error: "No active custody schedule found" },
+        { status: 400 },
+      );
+    }
 
-      let confirmationStatus: import("@/lib").ConfirmationStatus = "pending";
-      if (isValidConfirmationStatus(event.confirmationStatus)) {
-        confirmationStatus = event.confirmationStatus;
-      }
-      return {
-        ...event,
-        category,
-        confirmationStatus,
-      } as import("@/lib").CalendarEvent;
-    });
+    // Parse custody schedule blocks from JSON
+    let blocks: ScheduleBlock[];
+    try {
+      blocks = JSON.parse(dbSchedule.blocks);
+    } catch (error) {
+      console.error("Failed to parse custody schedule blocks:", error);
+      return NextResponse.json(
+        { error: "Invalid custody schedule format" },
+        { status: 500 },
+      );
+    }
 
-    // Schedule notifications
+    // Build Family object for CustodyEngine
+    const schedule: CustodySchedule = {
+      id: dbSchedule.id,
+      name: dbSchedule.name,
+      blocks,
+      transitionHour: dbSchedule.transitionHour,
+    };
+
+    // Convert DbParent to Parent interface (extract only needed fields)
+    const parentsForEngine = parents.map(p => ({
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      phone: p.phone,
+      avatarUrl: p.avatarUrl,
+    }));
+
+    const familyForEngine = {
+      id: family.id,
+      parents: parentsForEngine as [typeof parentsForEngine[0], typeof parentsForEngine[0]],
+      children: [],
+      custodyAnchorDate: family.custodyAnchorDate,
+      schedule,
+    };
+
+    // Use CustodyEngine to get real transitions
+    const custodyEngine = new CustodyEngine(familyForEngine);
+    const now = new Date();
+    const lookAheadMs = lookAheadHours * 60 * 60 * 1000;
+    const lookaheadEnd = new Date(now.getTime() + lookAheadMs);
+
+    // Get upcoming transitions from the custody schedule
+    const transitions = custodyEngine.getTransitionsInRange(now, lookaheadEnd);
+
+    // Schedule notifications using real custody transitions
     const result = scheduler.scheduleNotifications({
       familyId,
-      parents,
-      calendarEvents: mappedEvents,
-      now: new Date(),
+      parents: parentsForEngine,
+      transitions,
+      now,
       timeZone: ((family as unknown) as { timeZone?: string }).timeZone || "UTC",
     });
 

@@ -3,9 +3,12 @@
  *
  * Pure function engine for scheduling custody transition notifications.
  * Generates 24-hour advance alerts and same-day notifications.
+ *
+ * Uses CustodyEngine to determine real parent-to-parent transitions
+ * from the family's custody schedule, eliminating hardcoded parent IDs.
  */
 
-import type { Parent, CalendarEvent } from "@/lib";
+import type { Parent, ScheduleTransition } from "@/lib";
 
 export interface ScheduledNotification {
   id: string;
@@ -23,7 +26,8 @@ export interface ScheduledNotification {
 export interface NotificationScheduleInput {
   familyId: string;
   parents: Parent[];
-  calendarEvents: CalendarEvent[];
+  /** Transitions from CustodyEngine.getUpcomingTransitions() - source of truth */
+  transitions: ScheduleTransition[];
   now: Date;
   timeZone?: string;
 }
@@ -33,30 +37,34 @@ export interface NotificationScheduleResult {
   existingNotificationIds: string[];
 }
 
-export interface TransitionInfo {
+interface TransitionInfo {
   familyId: string;
-  startTime: string;
+  transitionAt: Date;
   fromParentId: string;
   toParentId: string;
-  location?: string;
 }
 
 export class NotificationSchedulerEngine {
 
   /**
    * Generate scheduled notifications for upcoming custody transitions.
-   * Creates 24h advance alerts and same-day notifications.
+   * Creates 24h advance alerts and same-day notifications based on real
+   * custody transitions from CustodyEngine.
    */
   scheduleNotifications(input: NotificationScheduleInput): NotificationScheduleResult {
-    const { familyId, calendarEvents, now } = input;
+    const { familyId, transitions, now } = input;
 
-    // Find upcoming transitions from calendar events
-    const upcomingTransitions = this.findTransitionsFromCalendarEvents(calendarEvents, now, familyId);
+    // Convert ScheduleTransition[] to internal TransitionInfo[]
+    const transitionInfos = transitions.map(transition => ({
+      familyId,
+      transitionAt: transition.at,
+      fromParentId: transition.fromParent.id,
+      toParentId: transition.toParent.id,
+    }));
 
     const notifications: ScheduledNotification[] = [];
-    const existingNotificationIds: string[] = [];
 
-    for (const transition of upcomingTransitions) {
+    for (const transition of transitionInfos) {
       // Create 24-hour advance notification
       const advanceNotification = this.createAdvanceNotification(transition, now);
       if (advanceNotification) {
@@ -78,52 +86,19 @@ export class NotificationSchedulerEngine {
 
     return {
       notifications,
-      existingNotificationIds,
+      existingNotificationIds: [],
     };
   }
 
   /**
-   * Find transitions from calendar events.
-   * This is a simplified implementation - in a real system, this would
-   * analyze the custody schedule to identify actual transitions.
-   */
-  private findTransitionsFromCalendarEvents(
-    calendarEvents: CalendarEvent[],
-    now: Date,
-    familyId: string,
-  ): TransitionInfo[] {
-    const transitions: TransitionInfo[] = [];
-    const futureEvents = calendarEvents
-      .filter(event => new Date(event.startAt) > now)
-      .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
-      .slice(0, 10); // Next 10 events
-
-    // For now, create mock transitions from events
-    // In a real implementation, this would analyze the custody schedule
-    for (const event of futureEvents) {
-      if (event.category === "custody") {
-        transitions.push({
-          familyId,
-          startTime: event.startAt,
-          fromParentId: "parent1", // Would be determined from schedule
-          toParentId: event.parentId || "parent2", // Would be determined from schedule
-          location: event.location,
-        });
-      }
-    }
-
-    return transitions;
-  }
-
-  /**
    * Create 24-hour advance notification for a transition.
+   * Notifies the receiving parent 24 hours before the transition.
    */
   private createAdvanceNotification(
     transition: TransitionInfo,
     now: Date,
   ): ScheduledNotification | null {
-    const transitionTime = new Date(transition.startTime);
-    const advanceTime = new Date(transitionTime.getTime() - 24 * 60 * 60 * 1000); // 24 hours before
+    const advanceTime = new Date(transition.transitionAt.getTime() - 24 * 60 * 60 * 1000);
 
     // Only create if advance time is in the future
     if (advanceTime <= now) {
@@ -137,22 +112,21 @@ export class NotificationSchedulerEngine {
       notificationType: "transition_24h",
       scheduledAt: advanceTime.toISOString(),
       deliveryMethod: "sms", // Default to SMS, can be configured per parent
-      transitionAt: transitionTime.toISOString(),
+      transitionAt: transition.transitionAt.toISOString(),
       fromParentId: transition.fromParentId,
       toParentId: transition.toParentId,
-      location: transition.location,
     };
   }
 
   /**
    * Create same-day notification for a transition (2 hours before).
+   * Notifies the sending parent 2 hours before the transition.
    */
   private createSameDayNotification(
     transition: TransitionInfo,
     now: Date,
   ): ScheduledNotification | null {
-    const transitionTime = new Date(transition.startTime);
-    const sameDayTime = new Date(transitionTime.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
+    const sameDayTime = new Date(transition.transitionAt.getTime() - 2 * 60 * 60 * 1000);
 
     // Only create if same-day time is in the future
     if (sameDayTime <= now) {
@@ -166,23 +140,22 @@ export class NotificationSchedulerEngine {
       notificationType: "transition_same_day",
       scheduledAt: sameDayTime.toISOString(),
       deliveryMethod: "sms",
-      transitionAt: transitionTime.toISOString(),
+      transitionAt: transition.transitionAt.toISOString(),
       fromParentId: transition.fromParentId,
       toParentId: transition.toParentId,
-      location: transition.location,
     };
   }
 
   /**
    * Create reminder notification for a transition (15 minutes before).
+   * Notifies the receiving parent 15 minutes before the transition.
    */
   private createReminderNotification(
     transition: TransitionInfo,
     now: Date,
   ): ScheduledNotification | null {
-    const transitionTime = new Date(transition.startTime);
     const REMINDER_MINUTES_BEFORE = 15;
-    const reminderTime = new Date(transitionTime.getTime() - REMINDER_MINUTES_BEFORE * 60 * 1000); // 15 minutes before
+    const reminderTime = new Date(transition.transitionAt.getTime() - REMINDER_MINUTES_BEFORE * 60 * 1000);
 
     // Only create if reminder time is in the future
     if (reminderTime <= now) {
@@ -196,10 +169,9 @@ export class NotificationSchedulerEngine {
       notificationType: "transition_reminder",
       scheduledAt: reminderTime.toISOString(),
       deliveryMethod: "push", // Use push for reminders
-      transitionAt: transitionTime.toISOString(),
+      transitionAt: transition.transitionAt.toISOString(),
       fromParentId: transition.fromParentId,
       toParentId: transition.toParentId,
-      location: transition.location,
     };
   }
 
@@ -207,7 +179,7 @@ export class NotificationSchedulerEngine {
    * Generate a unique notification ID based on transition and type.
    */
   private generateNotificationId(transition: TransitionInfo, type: string): string {
-    const timestamp = new Date(transition.startTime).getTime();
+    const timestamp = transition.transitionAt.getTime();
     return `notification_${transition.familyId}_${transition.fromParentId}_${transition.toParentId}_${timestamp}_${type}`;
   }
 
