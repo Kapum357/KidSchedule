@@ -40,20 +40,25 @@ jest.mock("@/app/api/calendar/utils", () => {
     badRequest: jest.fn((error: string, message: string) =>
       NextResponse.json({ error, message }, { status: 400 })
     ),
-    unauthorized: jest.fn(() =>
-      NextResponse.json({ error: "unauthorized", message: "Authentication required" }, { status: 401 })
+    unauthorized: jest.fn((error: string = "unauthorized", message: string = "Authentication required") =>
+      NextResponse.json({ error, message }, { status: 401 })
     ),
-    forbidden: jest.fn((message: string) =>
-      NextResponse.json({ error: "forbidden", message }, { status: 403 })
+    forbidden: jest.fn((error: string = "forbidden", message: string = "Access denied") =>
+      NextResponse.json({ error, message }, { status: 403 })
     ),
-    internalError: jest.fn((message: string) =>
-      NextResponse.json({ error: "internal_server_error", message }, { status: 500 })
+    internalError: jest.fn((error: string = "internal_server_error", message: string = "An unexpected error occurred") =>
+      NextResponse.json({ error, message }, { status: 500 })
     ),
+    generateRequestId: jest.fn(() => "request-id-123"),
   };
 });
 
 jest.mock("@/lib/observability/logger", () => ({
   logEvent: jest.fn(),
+}));
+
+jest.mock("@/lib/observability/api-observability", () => ({
+  observeApiRequest: jest.fn(),
 }));
 
 jest.mock("next/server", () => ({
@@ -72,7 +77,7 @@ jest.mock("next/server", () => ({
 // ─── Imports ──────────────────────────────────────────────────────────────────
 
 import { GET } from "@/app/api/notifications/schedule/route";
-import { getAuthenticatedUser, unauthorized, forbidden, badRequest, internalError } from "@/app/api/calendar/utils";
+import { getAuthenticatedUser, unauthorized, forbidden, badRequest, internalError, generateRequestId } from "@/app/api/calendar/utils";
 
 const mockGetAuthenticatedUser = getAuthenticatedUser as jest.Mock;
 const mockUnauthorized = unauthorized as jest.Mock;
@@ -122,7 +127,7 @@ describe("GET /api/notifications/pending", () => {
       await GET(request as any);
 
       expect(mockGetAuthenticatedUser).toHaveBeenCalled();
-      expect(mockUnauthorized).toHaveBeenCalledWith("Authentication required");
+      expect(mockUnauthorized).toHaveBeenCalledWith("unauthenticated", "Authentication required");
     });
 
     it("should return 403 when authenticated user has no parent profile", async () => {
@@ -137,7 +142,7 @@ describe("GET /api/notifications/pending", () => {
       await GET(request as any);
 
       expect(mockParents.findByUserId).toHaveBeenCalledWith("user-123");
-      expect(mockForbidden).toHaveBeenCalledWith("Parent profile not found");
+      expect(mockForbidden).toHaveBeenCalledWith("parent_not_found", "Parent profile not found");
     });
   });
 
@@ -454,7 +459,7 @@ describe("GET /api/notifications/pending", () => {
       const request = createMockRequest();
       await GET(request as any);
 
-      expect(mockInternalError).toHaveBeenCalledWith("Failed to get pending notifications");
+      expect(mockInternalError).toHaveBeenCalledWith("internal_server_error", "Failed to get pending notifications");
     });
   });
 });

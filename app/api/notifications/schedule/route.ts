@@ -6,6 +6,7 @@
  * Handles scheduling, delivery, and status updates.
  */
 
+export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/persistence";
@@ -23,7 +24,10 @@ import {
   parseJson,
   isValidEventCategory,
   isValidConfirmationStatus,
+  generateRequestId,
 } from "../../calendar/utils";
+import { logEvent } from "@/lib/observability/logger";
+import { observeApiRequest } from "@/lib/observability/api-observability";
 
 const db = getDb();
 const scheduler = new NotificationSchedulerEngine();
@@ -37,17 +41,25 @@ const deliveryService = new NotificationDeliveryService();
  * Schedule notifications for a family.
  * POST /api/notifications/schedule
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const startedAt = Date.now();
+  const requestId = generateRequestId();
+  const route = "/api/notifications/schedule";
+
   try {
     // Authenticate user
     const auth = await getAuthenticatedUser();
     if (!auth) {
-      return unauthorized("Authentication required");
+      logEvent("warn", "Schedule notifications: unauthenticated request", { requestId });
+      observeApiRequest({ route, method: "POST", status: 401, durationMs: Date.now() - startedAt });
+      return unauthorized("unauthenticated", "Authentication required");
     }
 
     // Parse request body
     const parseResult = await parseJson<{ familyId: string; lookAheadHours?: number }>(request);
     if (!parseResult.success) {
+      logEvent("warn", "Schedule notifications: invalid JSON", { requestId, error: parseResult.error });
+      observeApiRequest({ route, method: "POST", status: 400, durationMs: Date.now() - startedAt });
       return badRequest("invalid_json", parseResult.error);
     }
 
@@ -56,32 +68,42 @@ export async function POST(request: NextRequest) {
 
     // Validate input
     if (!familyId || typeof familyId !== "string") {
+      logEvent("warn", "Schedule notifications: missing familyId", { requestId });
+      observeApiRequest({ route, method: "POST", status: 400, durationMs: Date.now() - startedAt });
       return badRequest("invalid_input", "familyId is required and must be a string");
     }
 
     if (lookAheadHours < 1 || lookAheadHours > MAX_LOOK_AHEAD) {
+      logEvent("warn", "Schedule notifications: invalid lookAheadHours", { requestId, lookAheadHours });
+      observeApiRequest({ route, method: "POST", status: 400, durationMs: Date.now() - startedAt });
       return badRequest("invalid_input", `lookAheadHours must be between 1 and ${MAX_LOOK_AHEAD}`);
     }
 
     // Verify user has access to this family
     const hasAccess = await userBelongsToFamily(auth.userId, familyId);
     if (!hasAccess) {
-      return forbidden("Access denied");
+      logEvent("warn", "Schedule notifications: unauthorized family access", { requestId, userId: auth.userId, familyId });
+      observeApiRequest({ route, method: "POST", status: 403, durationMs: Date.now() - startedAt });
+      return forbidden("forbidden", "Access denied");
     }
 
     // Get family data for scheduling
     const family = await db.families.findById(familyId);
     if (!family) {
+      logEvent("warn", "Schedule notifications: family not found", { requestId, familyId });
+      observeApiRequest({ route, method: "POST", status: 404, durationMs: Date.now() - startedAt });
       return NextResponse.json(
-        { error: "Family not found" },
+        { error: "not_found", message: "Family not found" },
         { status: 404 },
       );
     }
 
     const parents = await db.parents.findByFamilyId(familyId);
     if (!parents || parents.length < 2) {
+      logEvent("warn", "Schedule notifications: insufficient parents", { requestId, familyId, parentCount: parents?.length });
+      observeApiRequest({ route, method: "POST", status: 400, durationMs: Date.now() - startedAt });
       return NextResponse.json(
-        { error: "Family must have at least 2 parents" },
+        { error: "invalid_family_setup", message: "Family must have at least 2 parents" },
         { status: 400 },
       );
     }
@@ -89,8 +111,10 @@ export async function POST(request: NextRequest) {
     // Get active custody schedule
     const dbSchedule = await db.custodySchedules.findActiveByFamilyId(familyId);
     if (!dbSchedule) {
+      logEvent("warn", "Schedule notifications: no active custody schedule", { requestId, familyId });
+      observeApiRequest({ route, method: "POST", status: 400, durationMs: Date.now() - startedAt });
       return NextResponse.json(
-        { error: "No active custody schedule found" },
+        { error: "missing_custody_schedule", message: "No active custody schedule found" },
         { status: 400 },
       );
     }
@@ -100,9 +124,10 @@ export async function POST(request: NextRequest) {
     try {
       blocks = JSON.parse(dbSchedule.blocks);
     } catch (error) {
-      console.error("Failed to parse custody schedule blocks:", error);
+      logEvent("error", "Schedule notifications: failed to parse custody schedule", { requestId, familyId, error: error instanceof Error ? error.message : "unknown" });
+      observeApiRequest({ route, method: "POST", status: 500, durationMs: Date.now() - startedAt });
       return NextResponse.json(
-        { error: "Invalid custody schedule format" },
+        { error: "invalid_schedule_format", message: "Invalid custody schedule format" },
         { status: 500 },
       );
     }
@@ -172,9 +197,12 @@ export async function POST(request: NextRequest) {
         savedNotifications.push(saved);
       } catch (error) {
         // Skip duplicates or handle errors
-        console.info("Failed to save notification:", error);
+        logEvent("warn", "Schedule notifications: failed to save notification", { requestId, familyId, error: error instanceof Error ? error.message : "unknown" });
       }
     }
+
+    logEvent("info", "Notifications scheduled", { requestId, familyId, userId: auth.userId, count: savedNotifications.length });
+    observeApiRequest({ route, method: "POST", status: 200, durationMs: Date.now() - startedAt });
 
     return NextResponse.json({
       success: true,
@@ -183,9 +211,10 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.info("Schedule notifications error:", error);
+    logEvent("error", "Schedule notifications error", { requestId, error: error instanceof Error ? error.message : "unknown" });
+    observeApiRequest({ route, method: "POST", status: 500, durationMs: Date.now() - startedAt });
     return NextResponse.json(
-      { error: "Failed to schedule notifications" },
+      { error: "internal_server_error", message: "Failed to schedule notifications" },
       { status: 500 },
     );
   }
@@ -203,46 +232,74 @@ export async function POST(request: NextRequest) {
  * Returns only notifications for the authenticated user's family.
  * Requires authentication.
  */
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const startedAt = Date.now();
+  const requestId = generateRequestId();
+  const route = "/api/notifications/pending";
+
   try {
     // Authenticate user - return 401 if not authenticated
     const auth = await getAuthenticatedUser();
     if (!auth) {
-      return unauthorized("Authentication required");
+      logEvent("warn", "Get pending notifications: unauthenticated request", { requestId });
+      observeApiRequest({ route, method: "GET", status: 401, durationMs: Date.now() - startedAt });
+      return unauthorized("unauthenticated", "Authentication required");
     }
 
     // Get user's family
     const parent = await db.parents.findByUserId(auth.userId);
     if (!parent) {
-      return forbidden("Parent profile not found");
+      logEvent("warn", "Get pending notifications: parent profile not found", { requestId, userId: auth.userId });
+      observeApiRequest({ route, method: "GET", status: 403, durationMs: Date.now() - startedAt });
+      return forbidden("parent_not_found", "Parent profile not found");
     }
 
+    // Parse and validate window parameter BEFORE applying Math.min()
     const url = new URL(request.url);
-    const windowMinutes = Math.min(
-      parseInt(url.searchParams.get("window") || "60"),
-      1440 // Maximum 24 hours
-    );
+    const windowParam = url.searchParams.get("window") || "60";
+    const windowMinutes = parseInt(windowParam, 10);
 
-    // Validate window parameter
-    if (windowMinutes < 1 || isNaN(windowMinutes)) {
+    if (isNaN(windowMinutes) || windowMinutes < 1) {
+      logEvent("warn", "Get pending notifications: invalid window parameter", { requestId, windowParam });
+      observeApiRequest({ route, method: "GET", status: 400, durationMs: Date.now() - startedAt });
       return badRequest("invalid_input", "window must be a positive integer");
     }
+
+    // Cap window at maximum (1440 minutes = 24 hours)
+    const cappedWindowMinutes = Math.min(windowMinutes, 1440);
 
     // Get all pending notifications for this family within the time window
     const allNotifications = await db.scheduledNotifications.findByFamilyId(parent.familyId);
 
-    const now = new Date();
-    const windowEnd = new Date(now.getTime() + windowMinutes * 60 * 1000);
+    // Parse dates with error handling
+    let now: Date;
+    let windowEnd: Date;
+    try {
+      now = new Date();
+      windowEnd = new Date(now.getTime() + cappedWindowMinutes * 60 * 1000);
+    } catch (error) {
+      logEvent("error", "Get pending notifications: date parsing error", { requestId, error: error instanceof Error ? error.message : "unknown" });
+      observeApiRequest({ route, method: "GET", status: 500, durationMs: Date.now() - startedAt });
+      return internalError("date_error", "Failed to parse notification times");
+    }
 
     // Filter for pending notifications within the time window
     const pendingNotifications = allNotifications.filter(n => {
-      const scheduledAt = new Date(n.scheduledAt);
-      return (
-        n.deliveryStatus === "pending" &&
-        scheduledAt >= now &&
-        scheduledAt <= windowEnd
-      );
+      try {
+        const scheduledAt = new Date(n.scheduledAt);
+        return (
+          n.deliveryStatus === "pending" &&
+          scheduledAt >= now &&
+          scheduledAt <= windowEnd
+        );
+      } catch (error) {
+        logEvent("warn", "Get pending notifications: failed to parse notification date", { requestId, notificationId: n.id, error: error instanceof Error ? error.message : "unknown" });
+        return false;
+      }
     });
+
+    logEvent("info", "Pending notifications retrieved", { requestId, userId: auth.userId, familyId: parent.familyId, count: pendingNotifications.length });
+    observeApiRequest({ route, method: "GET", status: 200, durationMs: Date.now() - startedAt });
 
     return NextResponse.json({
       success: true,
@@ -250,7 +307,8 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.info("Get pending notifications error:", error);
-    return internalError("Failed to get pending notifications");
+    logEvent("error", "Get pending notifications error", { requestId, error: error instanceof Error ? error.message : "unknown" });
+    observeApiRequest({ route, method: "GET", status: 500, durationMs: Date.now() - startedAt });
+    return internalError("internal_server_error", "Failed to get pending notifications");
   }
 }
