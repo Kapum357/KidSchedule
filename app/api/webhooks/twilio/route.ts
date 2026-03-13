@@ -10,9 +10,7 @@ import { logEvent } from "@/lib/observability/logger";
 import { getTwilioAuthToken, getTwilioAccountSid } from "@/lib/providers/sms/twilio-config";
 import { getDb } from "@/lib/persistence";
 import {
-  classifyError,
   formatErrorLog,
-  getStatusCodeForError,
 } from "@/lib/providers/webhook-error-handler";
 
 export const runtime = "nodejs";
@@ -112,12 +110,10 @@ function extractTimestamp(params: Record<string, string>): string {
  * 3. Log the bidirectional sync
  *
  * @param phoneNumber E.164 formatted phone number
- * @param payload Original Twilio webhook payload
  * @returns void (errors logged but not thrown)
  */
 async function handleOptOutSync(
-  phoneNumber: string,
-  payload: Record<string, string>
+  phoneNumber: string
 ): Promise<void> {
   const db = getDb();
 
@@ -156,7 +152,6 @@ async function handleOptOutSync(
         reason: "stop_message",
       });
     } catch (error) {
-      const classification = classifyError(error);
       const errorLog = formatErrorLog(error, {
         phoneNumber,
         subscriptionId: subscription.id,
@@ -224,7 +219,6 @@ async function handleOptOutSync(
       throw error;
     }
   } catch (error) {
-    const classification = classifyError(error);
     const errorLog = formatErrorLog(error, {
       phoneNumber,
       operation: "twilio_opt_out_api_call",
@@ -292,8 +286,7 @@ async function processWebhookIdempotently(
         logEvent("error", "Twilio webhook validation failed during event creation", errorLog as unknown as Record<string, unknown>);
         return { success: false, statusCode: 400, reason: "validation_error" };
       }
-      // For non-Zod errors, classify and rethrow
-      const classification = classifyError(error);
+      // For non-Zod errors, rethrow
       const errorLog = formatErrorLog(error, {
         requestId,
         messageSid,
@@ -335,7 +328,6 @@ async function processWebhookIdempotently(
       return { success: true, statusCode: 200, reason: "processed" };
     } catch (processingError) {
       // Step 4b: Mark as error on processing failure
-      const classification = classifyError(processingError);
       const errorLog = formatErrorLog(processingError, {
         requestId,
         eventId: event.id,
@@ -368,7 +360,6 @@ async function processWebhookIdempotently(
       return { success: false, statusCode, reason: "processing_failed" };
     }
   } catch (error) {
-    const classification = classifyError(error);
     const errorLog = formatErrorLog(error, {
       requestId,
       messageSid,
@@ -474,7 +465,6 @@ export async function POST(request: Request): Promise<NextResponse> {
             errorMessage: params.ErrorMessage,
           });
         } catch (error) {
-          const classification = classifyError(error);
           const errorLog = formatErrorLog(error, {
             requestId,
             messageSid,
@@ -499,9 +489,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       async () => {
         // Task #59: Handle opt-out sync
         try {
-          await handleOptOutSync(phoneNumber, params);
+          await handleOptOutSync(phoneNumber);
         } catch (error) {
-          const classification = classifyError(error);
           const errorLog = formatErrorLog(error, {
             requestId,
             messageSid,
