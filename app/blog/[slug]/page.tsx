@@ -17,7 +17,7 @@
  */
 
 import type { ArticleReadingSession, BlogCategory, BlogPost } from "@/lib";
-import { BlogArticleEngine } from "@/lib/blog-article-engine";
+import { BlogArticleEngine } from "@/lib/blog-engine";
 import { db } from "@/lib/persistence";
 import type { DbBlogPost } from "@/lib/persistence/types";
 import { getCurrentUser } from "@/lib/auth";

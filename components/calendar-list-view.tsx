@@ -1,6 +1,6 @@
 'use client';
 
-import type { CalendarListData, ListViewEvent } from '@/lib/calendar-list-engine';
+import type { CalendarListData, ListViewEvent } from '@/lib/calendar-engine';
 
 interface CalendarListViewProps {
   readonly data: CalendarListData;

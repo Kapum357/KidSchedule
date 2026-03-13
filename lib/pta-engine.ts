@@ -72,7 +72,7 @@ import type {
   ScheduleTransition,
   SearchDoc,
 } from "@/lib";
-import { createSearchAdapter } from "@/lib/search-adapter";
+import { createSearchAdapter } from "@/lib/search";
 
 // ─── Configuration ─────────────────────────────────────────────────────────────
 

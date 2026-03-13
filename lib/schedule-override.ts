@@ -1,35 +1,5 @@
 /**
  * KidSchedule – ScheduleOverrideEngine (CAL-008)
- *
- * ALGORITHM OVERVIEW
- * ─────────────────────────────────────────────────────────────────────────────
- * The override system allows temporary or permanent modifications to the base
- * custody schedule. It handles four types of overrides:
- *
- *   1. HOLIDAY EXCEPTIONS – Statutory holidays override normal schedule
- *   2. SWAP REQUESTS     – Approved change requests modify custody periods
- *   3. MEDIATION CHANGES – Court-ordered or mediated schedule adjustments
- *   4. MANUAL OVERRIDES  – One-time schedule changes for special circumstances
- *
- * CONFLICT DETECTION
- * ─────────────────────────────────────────────────────────────────────────────
- * When multiple overrides apply to the same time period, conflicts are resolved
- * by priority order (highest to lowest):
- *
- *   1. COURT ORDERS (mediation-driven) – Highest priority
- *   2. HOLIDAY EXCEPTIONS – Override normal schedule
- *   3. APPROVED SWAPS – Modify custody periods
- *   4. MANUAL OVERRIDES – One-time changes
- *
- * If conflicts exist within the same priority level, the most recently created
- * override takes precedence.
- *
- * VALIDATION RULES
- * ─────────────────────────────────────────────────────────────────────────────
- * • No override can create custody gaps (child must always have a custodian)
- * • No override can exceed maximum consecutive days per parent
- * • All overrides must respect transition hour constraints
- * • Holiday exceptions only apply to statutory holidays
  */
 
 import type {
@@ -408,5 +378,189 @@ export class ScheduleOverrideEngine {
       throw new Error(`Could not find other parent for requestedBy: ${requestedBy}`);
     }
     return otherParent.id;
+  }
+}
+
+/**
+ * KidSchedule – Holiday Override Generator (CAL-008)
+ *
+ * Responsibilities:
+ * 1. Fetch approved holiday exception rules (approvalStatus === "approved" && isEnabled === true)
+ * 2. Fetch holiday definitions for the family's jurisdiction
+ * 3. Call ScheduleOverrideEngine.createHolidayOverrides() with fetched data
+ * 4. Persist generated overrides via scheduleOverrideRepository.create()
+ * 5. Return generated overrides
+ * 6. Handle errors gracefully without blocking schedule generation
+ */
+
+import { getDb } from "@/lib/persistence";
+import { logEvent } from "@/lib/observability/logger";
+import type { Parent } from "@/lib";
+import type { DbScheduleOverride } from "@/lib/persistence";
+
+/**
+ * Generate and persist holiday overrides for a family within a date range.
+ *
+ * This function:
+ * 1. Fetches approved holiday exception rules for the family
+ * 2. Fetches holiday definitions for the family's jurisdiction
+ * 3. Generates override records using ScheduleOverrideEngine
+ * 4. Persists overrides to the database
+ * 5. Returns the persisted overrides
+ *
+ * Errors are logged but do not block schedule generation (graceful degradation).
+ *
+ * @param familyId - The family ID to generate overrides for
+ * @param startDate - Start date in ISO format (YYYY-MM-DD)
+ * @param endDate - End date in ISO format (YYYY-MM-DD)
+ * @returns Array of persisted schedule overrides, empty array on error
+ */
+export async function generateAndPersistHolidayOverrides(
+  familyId: string,
+  startDate: string,
+  endDate: string,
+): Promise<ScheduleOverride[]> {
+  const db = getDb();
+
+  // ─── Fetch approved and enabled rules ────────────────────────────────────
+  let approvedRules;
+  try {
+    const allRules = await db.holidayExceptionRules.findByFamilyId(familyId);
+    approvedRules = allRules.filter(
+      (r) => r.approvalStatus === "approved" && r.isEnabled === true,
+    );
+
+    if (approvedRules.length === 0) {
+      return [];
+    }
+  } catch (error) {
+    logEvent("warn", "Failed to fetch approved rules, continuing without", {
+      familyId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+
+  // ─── Fetch family, parents, and holiday definitions ──────────────────────
+  let dbFamily;
+  let parents;
+  let holidays;
+  try {
+    dbFamily = await db.families.findById(familyId);
+    if (!dbFamily) {
+      logEvent("warn", "Family not found", { familyId });
+      return [];
+    }
+
+    // Fetch parents to compose full Family domain object
+    parents = await db.parents.findByFamilyId(familyId);
+    if (!parents || parents.length < 2) {
+      logEvent("warn", "Family does not have both parents configured", { familyId });
+      return [];
+    }
+
+    // Fetch holiday definitions for jurisdiction (default to "US")
+    const jurisdiction = "US";
+    holidays = await db.holidays.findByDateRange(jurisdiction, startDate, endDate);
+  } catch (error) {
+    logEvent("warn", "Failed to fetch family data or holiday definitions", {
+      familyId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+
+  // ─── Compose domain Family object from database entities ────────────────
+  const family: Family = {
+    id: dbFamily.id,
+    parents: parents.map(p => ({
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      avatarUrl: p.avatarUrl ?? undefined,
+      phone: p.phone ?? undefined,
+    })) as [Parent, Parent],
+    children: [],
+    custodyAnchorDate: dbFamily.custodyAnchorDate,
+    schedule: {
+      id: "",
+      name: "Schedule",
+      blocks: [],
+      transitionHour: 17,
+    },
+  };
+
+  // ─── Generate overrides using engine ────────────────────────────────────
+  // Note: This is synchronous, no error handling needed
+  // Filter to only standard holiday types (exclude "custom" which is storage-only)
+  const standardHolidays = holidays.filter((h) => h.type !== "custom") as HolidayDefinition[];
+
+  const overrides = ScheduleOverrideEngine.createHolidayOverrides(
+    standardHolidays,
+    approvedRules.map((rule) => ({
+      familyId: rule.familyId,
+      holidayId: rule.holidayId,
+      custodianParentId: rule.custodianParentId,
+      isEnabled: rule.isEnabled,
+      notes: rule.notes,
+    })),
+    startDate,
+    endDate,
+    family
+  );
+
+  if (overrides.length === 0) {
+    return [];
+  }
+
+  // ─── Persist overrides to database ──────────────────────────────────────
+  try {
+    const persistedOverrides: DbScheduleOverride[] = [];
+
+    for (const override of overrides) {
+      const persisted = await db.scheduleOverrides.create({
+        familyId: override.familyId,
+        type: override.type,
+        overrideType: override.type,
+        title: override.title,
+        description: override.description,
+        effectiveStart: override.effectiveStart,
+        effectiveEnd: override.effectiveEnd,
+        custodianParentId: override.custodianParentId,
+        sourceEventId: override.sourceEventId,
+        priority: override.priority,
+        status: override.status,
+        createdBy: override.createdBy,
+        notes: override.notes,
+      });
+      persistedOverrides.push(persisted);
+    }
+
+    // Transform DbScheduleOverride to ScheduleOverride for return
+    return persistedOverrides.map((override) => ({
+      id: override.id,
+      familyId: override.familyId,
+      type: override.overrideType,
+      title: override.title,
+      description: override.description,
+      effectiveStart: override.effectiveStart,
+      effectiveEnd: override.effectiveEnd,
+      custodianParentId: override.custodianParentId,
+      sourceEventId: override.sourceEventId,
+      priority: override.priority,
+      status: override.status,
+      createdAt: override.createdAt,
+      createdBy: override.createdBy,
+      notes: override.notes,
+    }));
+  } catch (error) {
+    logEvent("error", "Failed to persist holiday overrides, using in-memory overrides", {
+      familyId,
+      overrideCount: overrides.length,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    // Return in-memory overrides despite persistence failure
+    // This allows the schedule to still apply them for the current request
+    return overrides;
   }
 }

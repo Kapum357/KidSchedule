@@ -6,13 +6,7 @@
  */
 
 import { getDb } from "@/lib/persistence";
-import { dequeueExport, getQueueLength } from "./export-queue";
-import {
-  getWorkerState,
-  setWorkerRunning,
-  incrementProcessed,
-  incrementFailed,
-} from "./export-worker-state";
+import { dequeueExport, getQueueLength } from "./export";
 import type { ExportJobStatus, ExportJobRecord } from "@/lib";
 
 // Worker configuration
@@ -55,7 +49,39 @@ export async function startWorker(): Promise<void> {
       }
 
       // Process the job
-      await processExportJob(jobId);
+      const db = getDb();
+
+      try {
+        // 1. Fetch job record
+        const job = await db.exportJobs?.findById(jobId);
+        if (!job) {
+          console.warn(`[Worker] Job not found: ${jobId}`);
+          continue;
+        }
+
+        console.log(`[Worker] Processing job ${jobId} (${job.type})...`);
+
+        // 2. Update status to processing
+        await updateJobStatus(jobId, "processing");
+
+        // 3. Generate export (dynamic import to avoid bundling pdfkit in API routes)
+        const { generateExport } = await import("./export");
+        const result = await generateExport(job);
+
+        // 4. Update job with result
+        await db.exportJobs?.update(jobId, {
+          status: "complete" as ExportJobStatus,
+          resultUrl: result.resultUrl,
+          mimeType: result.mimeType,
+          sizeBytes: result.sizeBytes,
+          completedAt: new Date().toISOString(),
+        });
+
+        console.log(`[Worker] Job completed: ${jobId}`);
+        incrementProcessed();
+      } catch (error) {
+        await handleJobFailure(jobId, error);
+      }
     } catch (error) {
       console.error("[Worker] Unexpected error in worker loop:", error);
       // Continue running despite errors
@@ -63,10 +89,10 @@ export async function startWorker(): Promise<void> {
     }
 
     // Log metrics periodically
-    const { processedCount, failedCount } = getWorkerState();
+    const { processedCount: processed, failedCount: failed } = getWorkerState();
     const queueLength = await getQueueLength();
     console.log(
-      `[Worker] Stats - Processed: ${processedCount}, Failed: ${failedCount}, Queue: ${queueLength}`
+      `[Worker] Stats - Processed: ${processed}, Failed: ${failed}, Queue: ${queueLength}`,
     );
   }
 
@@ -79,45 +105,6 @@ export async function startWorker(): Promise<void> {
 export async function stopWorker(): Promise<void> {
   setWorkerRunning(false);
   console.log("[Worker] Stopping worker gracefully...");
-}
-
-/**
- * Process a single export job
- */
-async function processExportJob(jobId: string): Promise<void> {
-  const db = getDb();
-
-  try {
-    // 1. Fetch job record
-    const job = await db.exportJobs?.findById(jobId);
-    if (!job) {
-      console.warn(`[Worker] Job not found: ${jobId}`);
-      return;
-    }
-
-    console.log(`[Worker] Processing job ${jobId} (${job.type})...`);
-
-    // 2. Update status to processing
-    await updateJobStatus(jobId, "processing");
-
-    // 3. Generate export (dynamic import to avoid bundling pdfkit in API routes)
-    const { generateExport } = await import("./export-engine");
-    const result = await generateExport(job);
-
-    // 4. Update job with result
-    await db.exportJobs?.update(jobId, {
-      status: "complete" as ExportJobStatus,
-      resultUrl: result.resultUrl,
-      mimeType: result.mimeType,
-      sizeBytes: result.sizeBytes,
-      completedAt: new Date().toISOString(),
-    });
-
-    console.log(`[Worker] Job completed: ${jobId}`);
-    incrementProcessed();
-  } catch (error) {
-    await handleJobFailure(jobId, error);
-  }
 }
 
 /**
@@ -151,7 +138,7 @@ async function handleJobFailure(jobId: string, error: unknown): Promise<void> {
       await sleep(RETRY_BACKOFF_MS);
 
       // Requeue by enqueuing again
-      const { enqueueExport } = await import("./export-queue");
+      const { enqueueExport } = await import("./export");
       await enqueueExport(jobId);
     } else {
       // No more retries: mark as failed
@@ -192,7 +179,36 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Re-export metrics from the lightweight state module
-// This allows the metrics API route to import only this module
-// without pulling in pdfkit transitively
-export { getWorkerState as getWorkerMetrics } from "./export-worker-state";
+// Re-export metrics from the lightweight state module so external
+// callers can import metrics without pulling in heavyweight deps.
+// Export the local getWorkerState (not from ./export which doesn't
+// export this symbol).
+export { getWorkerState as getWorkerMetrics };
+
+/**
+ * Export Worker State
+ *
+ * Lightweight module that holds shared worker process state.
+ * Intentionally separated from export-worker.ts so the metrics API
+ * endpoint can read state without importing pdfkit transitively.
+ */
+
+let isRunning = false;
+let processedCount = 0;
+let failedCount = 0;
+
+export function getWorkerState() {
+  return { isRunning, processedCount, failedCount };
+}
+
+export function setWorkerRunning(value: boolean) {
+  isRunning = value;
+}
+
+export function incrementProcessed() {
+  processedCount++;
+}
+
+export function incrementFailed() {
+  failedCount++;
+}

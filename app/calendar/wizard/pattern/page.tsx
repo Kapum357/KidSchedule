@@ -8,7 +8,7 @@ import {
   type PreviewMode,
   type RotationStarter,
   type TemplateId,
-} from "@/lib/schedule-wizard-engine";
+} from "@/lib/schedule";
 import { PatternConfigForm } from "./pattern-config-form";
 
 const WEEKDAY_HEADERS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;

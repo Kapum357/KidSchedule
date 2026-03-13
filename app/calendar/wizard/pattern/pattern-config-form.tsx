@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type PatternConfigInput, type RotationStarter } from "@/lib/schedule-wizard-engine";
+import { type PatternConfigInput, type RotationStarter } from "@/lib/schedule";
 
 interface PatternConfigFormProps {
   readonly config: PatternConfigInput;

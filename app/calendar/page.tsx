@@ -7,12 +7,11 @@
  * icon guide, side-by-side split custody cells, and a mobile FAB.
  */
 
-import { CalendarMonthEngine } from "@/lib/calendar-engine";
-import { CalendarWeekEngine } from "@/lib/calendar-week-engine";
-import { CalendarListEngine } from "@/lib/calendar-list-engine";
-import { SchedulePresets } from "@/lib/custody-engine";
-import { generateCompleteSchedule } from "@/lib/schedule-generator";
-import { ScheduleOverrideEngine } from "@/lib/schedule-override-engine";
+import { CalendarMonthEngine, CalendarWeekEngine, CalendarWeekData, CalendarListData } from "@/lib/calendar-engine";
+import { CalendarListEngine } from "@/lib/calendar-engine";
+import { SchedulePresets } from "@/lib/custody";
+import { generateCompleteSchedule } from "@/lib/schedule";
+import { ScheduleOverrideEngine } from "@/lib/schedule-override";
 import { ensureParentExists } from "@/lib/parent-setup-engine";
 import { db } from "@/lib/persistence";
 import { ThemeToggle } from "@/app/theme-toggle";
@@ -31,8 +30,6 @@ import type {
   CalendarMonthData,
   TransitionListItem,
 } from "@/lib/calendar-engine";
-import type { CalendarWeekData } from "@/lib/calendar-week-engine";
-import type { CalendarListData } from "@/lib/calendar-list-engine";
 import type {
   CalendarEvent,
   Child,

@@ -11,7 +11,7 @@
  * This service replaces the mock implementations in page components.
  */
 
-import { AuthEngine, validatePasswordStrength } from "../auth-engine";
+import { AuthEngine, validatePasswordStrength } from "../auth";
 import { createSession, revokeAllSessions } from "../auth";
 // Dynamic import for audit to avoid circular dependency
 const getAudit = () => import("../auth").then(m => m.audit);

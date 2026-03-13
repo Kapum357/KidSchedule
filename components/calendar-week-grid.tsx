@@ -1,6 +1,6 @@
 'use client';
 
-import type { CalendarWeekData } from '@/lib/calendar-week-engine';
+import type { CalendarWeekData } from '@/lib/calendar-engine';
 
 interface CalendarWeekGridProps {
   readonly data: CalendarWeekData;

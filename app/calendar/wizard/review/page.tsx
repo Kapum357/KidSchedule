@@ -7,7 +7,7 @@ import {
   type PreviewMode,
   type RotationStarter,
   type TemplateId,
-} from "@/lib/schedule-wizard-engine";
+} from "@/lib/schedule";
 
 type ReviewSearchParams = {
   template?: string;

@@ -1,30 +1,8 @@
 /**
  * KidSchedule – DashboardAggregator
- *
- * Composes the DashboardData object that drives the parent dashboard UI.
- * The aggregator is a pure function – it accepts raw domain records and
- * returns a single DashboardData snapshot with no side-effects.
- *
- * DESIGN RATIONALE
- * ─────────────────────────────────────────────────────────────────────────────
- * The dashboard needs data from multiple independent domains (custody engine,
- * communication climate, activity feed, reminders, etc.).  Fetching these
- * simultaneously in a Server Component (Promise.all) and then composing them
- * here keeps each domain's logic isolated while giving the UI a single
- * well-typed aggregate to render.
- *
- * PERFORMANCE
- * ─────────────────────────────────────────────────────────────────────────────
- * All CustodyEngine and ConflictClimateAnalyzer computations run in O(B)
- * and O(M × P) respectively (B = schedule blocks, M = messages in window,
- * P = pattern list length – both constant and small).  The aggregator itself
- * is O(E log E) for the event sort – dominated by the number of future events
- * in the calendar query window.
- *
- * This entire module is safe to run on the server (no browser APIs).
  */
 
-import { CustodyEngine } from "@/lib/custody-engine";
+import { CustodyEngine } from "@/lib/custody";
 import { CalendarMonthEngine } from "@/lib/calendar-engine";
 import { ConflictClimateAnalyzer } from "@/lib/conflict-analyzer";
 import { SettingsEngine } from "@/lib/settings-engine";

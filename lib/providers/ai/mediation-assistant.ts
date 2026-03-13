@@ -1,4 +1,4 @@
-import { MediationSuggestionEngine } from "@/lib/mediation-suggestion-engine";
+import { MediationSuggestionEngine } from "@/lib/mediation";
 import type { Message } from "@/lib";
 import { redactPIIForClaude, runClaudeJsonWithGuardrails } from "./claude-adapter";
 import { logEvent } from "@/lib/observability/logger";

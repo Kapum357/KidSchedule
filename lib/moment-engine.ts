@@ -1,10 +1,6 @@
 /**
  * KidSchedule – Moment Engine
- *
  * Pure helpers for the Share a Moment flow.
- *
- * Complexity:
- * - Parsing and validation are O(1) per submission.
  */
 
 export type MomentVisibility = "shared" | "private";

@@ -1,3 +1,5 @@
+"use server";
+
 /**
  * KidSchedule – PostgreSQL Client
  *

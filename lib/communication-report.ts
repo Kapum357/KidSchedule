@@ -1,18 +1,9 @@
-/**
- * Communication Report (EXP-003)
- *
- * Aggregates messages, tone analysis, mediation signals, and custody
- * compliance data into a consolidated report for mediation and court use.
- *
- * Pure function: no side-effects, fully testable.
- */
-
 import { getDb } from "@/lib/persistence";
-import { MediationAnalyzer } from "@/lib/mediation-analyzer";
-import { CustodyComplianceEngine } from "@/lib/custody-compliance-engine";
+import { MediationAnalyzer } from "@/lib/mediation";
+import { CustodyComplianceEngine } from "@/lib/custody";
 import { verifyChain } from "@/lib/hash-chain-engine";
-import type { WarningSignal, WarningSeverity } from "@/lib/mediation-analyzer";
-import type { CustodyComplianceReport } from "@/lib/custody-compliance-engine";
+import type { WarningSignal, WarningSeverity } from "@/lib/mediation";
+import type { CustodyComplianceReport } from "@/lib/custody";
 import type { DbMessage } from "@/lib/persistence/types";
 
 // ─── Report shape ─────────────────────────────────────────────────────────────

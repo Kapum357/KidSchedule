@@ -1,6 +1,5 @@
 import Fuse from "fuse.js";
 import type { SearchAdapter as SearchAdapterContract, SearchDoc, SearchHit, SearchOptions } from "@/lib";
-import { SEARCH_BACKEND, SEARCH_DEFAULTS } from "@/lib/search-config";
 
 export type SearchAdapter = SearchAdapterContract;
 
@@ -144,3 +143,21 @@ export function createSearchAdapter(): SearchAdapter {
   if (SEARCH_BACKEND === "trigram") return new TrigramSearchAdapter();
   return new FuseSearchAdapter();
 }
+
+import type { SearchBackend } from "@/lib";
+
+const DEFAULT_BACKEND: SearchBackend = "fuse";
+
+function parseBackend(value: string | undefined): SearchBackend {
+  if (value === "trigram" || value === "fuse") return value;
+  return DEFAULT_BACKEND;
+}
+
+export const SEARCH_BACKEND: SearchBackend = parseBackend(process.env.SEARCH_BACKEND);
+
+export const SEARCH_DEFAULTS = {
+  threshold: 0.38,
+  minMatchCharLength: 2,
+  limit: 20,
+  debounceMs: 250,
+} as const;

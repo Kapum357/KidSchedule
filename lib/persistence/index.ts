@@ -5,10 +5,11 @@
  * Provides a clean abstraction over the underlying database.
  *
  * Usage:
- *   import { db } from "@/lib/persistence";
- *   const user = await db.users.findByEmail("user@example.com");
+ *   import { db } from \"@/lib/persistence\";
+ *   const user = await db.users.findByEmail(\"user@example.com\");
  *
  * The persistence layer uses PostgreSQL in production via postgres.js.
+ * @internal Server-only module – should not be imported in client components.
  */
 
 import type { UnitOfWork } from "./repositories";

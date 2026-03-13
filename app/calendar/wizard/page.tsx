@@ -3,7 +3,7 @@ import {
   getWizardSteps,
   isTemplateId,
   type TemplateId,
-} from "@/lib/schedule-wizard-engine";
+} from "@/lib/schedule";
 import { redirect } from "next/navigation";
 import { TemplateForm } from "./template-form";
 

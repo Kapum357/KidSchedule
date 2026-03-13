@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getSegmentWidthPercent, type ScheduleTemplate, type TemplateId } from "@/lib/schedule-wizard-engine";
+import { getSegmentWidthPercent, type ScheduleTemplate, type TemplateId } from "@/lib/schedule";
 
 interface TemplateFormProps {
   readonly templates: readonly ScheduleTemplate[];

@@ -39,6 +39,8 @@ import { ThemeToggle } from "@/app/theme-toggle";
 import { MobileNavOverlay } from "@/components/mobile-nav-overlay";
 import { LogoutButton } from "./logout-button";
 import { NotificationButton } from "@/components/notification-button";
+import { VolunteeringClient } from "./volunteering-client";
+import { VaultClient } from "./vault-client";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/persistence";
 import { redirect } from "next/navigation";
@@ -326,87 +328,7 @@ function EventCard({
 
 // ── Volunteer Task Row ────────────────────────────────────────────────────────
 
-function VolunteerTaskRow({
-  task,
-  suggestedParentId,
-  currentParentId,
-  parentNames,
-}: Readonly<{
-  task: VolunteerTask;
-  suggestedParentId: string | null;
-  currentParentId: string;
-  parentNames: Record<string, string>;
-}>) {
-  const isOpen = task.status === "open";
-  const isAssignedToCurrentUser = task.assignedParentId === currentParentId;
-  const assigneeName = task.assignedParentId
-    ? (parentNames[task.assignedParentId] ?? task.assignedParentId)
-    : "Unassigned";
-
-  const iconBgMap: Record<string, string> = {
-    teal:   "bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400",
-    blue:   "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400",
-    purple: "bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400",
-    amber:  "bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400",
-  };
-  const iconCls = iconBgMap[task.iconColor ?? ""] ?? "bg-white dark:bg-slate-700 text-slate-600";
-
-  return (
-    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-      <div className="flex items-center gap-3">
-        <div className={`p-2 rounded shadow-sm ${iconCls}`}>
-          <span aria-hidden="true" className="material-symbols-outlined text-xl">
-            {task.icon ?? "volunteer_activism"}
-          </span>
-        </div>
-        <div>
-          <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-            {task.title}
-          </h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {task.estimatedHours}h · {new Date(task.scheduledFor).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        {isOpen ? (
-          <>
-            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 opacity-60">
-              <div className="size-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">
-                ?
-              </div>
-              <span className="text-xs font-medium text-slate-500">
-                {suggestedParentId
-                  ? `Suggested: ${parentNames[suggestedParentId] ?? suggestedParentId}`
-                  : "Unassigned"}
-              </span>
-            </div>
-            <button className="text-xs font-bold text-primary hover:text-primary-hover uppercase tracking-wide transition-colors">
-              Sign Up
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700">
-              <div className="size-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
-                {(parentNames[task.assignedParentId ?? ""] ?? "?")[0]}
-              </div>
-              <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                {assigneeName}
-              </span>
-            </div>
-            {isAssignedToCurrentUser && (
-              <span aria-hidden="true" className="material-symbols-outlined text-green-500 text-lg">
-                check_circle
-              </span>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+// Moved to volunteering-client.tsx
 
 // ── School Contact Card ───────────────────────────────────────────────────────
 
@@ -460,95 +382,11 @@ function ContactCard({ contact }: Readonly<{ contact: SchoolContact }>) {
 
 // ── Vault Document Row ────────────────────────────────────────────────────────
 
-function VaultDocumentRow({
-  doc,
-  engine,
-}: Readonly<{ doc: SchoolVaultDocument; engine: PTAEngine }>) {
-  const isPending = doc.status === "pending_signature";
-
-  const colorMap: Record<string, string> = {
-    red:     "bg-red-50 text-red-500",
-    green:   "bg-green-50 text-green-500",
-    yellow:  "bg-yellow-50 text-yellow-600",
-    blue:    "bg-blue-50 text-blue-500",
-    emerald: "bg-emerald-50 text-emerald-500",
-    slate:   "bg-slate-50 text-slate-500",
-  };
-  const iconColor = engine.getDocumentIconColor(doc.fileType);
-  const iconCls = colorMap[iconColor] ?? "bg-slate-50 text-slate-500";
-
-  return (
-    <div className="group flex items-center p-3 bg-white dark:bg-[#101922] rounded-lg border border-slate-100 dark:border-slate-800 hover:border-primary/30 shadow-sm transition-all cursor-pointer">
-      <div className={`p-2 rounded mr-3 ${iconCls}`}>
-        <span aria-hidden="true" className="material-symbols-outlined text-xl">
-          {engine.getDocumentIcon(doc.fileType)}
-        </span>
-      </div>
-      <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-          {doc.title}
-        </h4>
-        <p className="text-[10px] text-slate-500 uppercase tracking-wide">
-          {doc.statusLabel}
-        </p>
-      </div>
-      {isPending ? (
-        <span className="size-2 rounded-full bg-orange-400 animate-pulse" />
-      ) : (
-        <span aria-hidden="true" className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">
-          download
-        </span>
-      )}
-    </div>
-  );
-}
+// Moved to vault-client.tsx
 
 // ── Volunteer Balance Bar ─────────────────────────────────────────────────────
 
-function VolunteerBalanceBar({
-  balances,
-  currentParentId,
-  parentNames,
-}: Readonly<{
-  balances: VolunteerBalance[];
-  currentParentId: string;
-  parentNames: Record<string, string>;
-}>) {
-  if (balances.length < 2) return null;
-
-  const total = balances.reduce((s, b) => s + b.totalHoursCommitted, 0);
-  if (total === 0) return null;
-
-  const pct = (b: VolunteerBalance) =>
-    Math.round((b.totalHoursCommitted / total) * 100);
-
-  return (
-    <div className="mb-5 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
-      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
-        Volunteer Balance
-      </p>
-      <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
-        {balances.map((b) => (
-          <div
-            key={b.parentId}
-            className={`h-full rounded-full transition-all ${
-              b.parentId === currentParentId ? "bg-primary" : "bg-slate-300 dark:bg-slate-600"
-            }`}
-            style={{ width: `${pct(b)}%` }}
-            title={`${parentNames[b.parentId] ?? b.parentId}: ${b.totalHoursCommitted}h`}
-          />
-        ))}
-      </div>
-      <div className="flex justify-between mt-1">
-        {balances.map((b) => (
-          <span key={b.parentId} className="text-[10px] text-slate-500">
-            {parentNames[b.parentId] ?? b.parentId}: {b.totalHoursCommitted}h
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
+// Moved to volunteering-client.tsx
 
 // ── Lunch Widget ──────────────────────────────────────────────────────────────
 
@@ -687,16 +525,8 @@ export default async function SchoolPortalPage({
   // Volunteer balances across family parents
   const balances = engine.calculateVolunteerBalances(allTasks, parentIdsForBalances);
 
-  // Pre-compute suggested assignee for each open task
-  const taskSuggestions = new Map<string, string | null>(
-    allTasks.map((t) => [
-      t.id,
-      t.status === "open" ? engine.suggestAssignee(t, balances) : null,
-    ])
-  );
-
   // Vault: pending-signature docs first, then newest
-  const sortedDocs = engine.getVaultDocuments(allDocs);
+  // (used by VaultClient component)
 
   // Today's lunch
   const todayLunch = engine.getDailyLunch(allMenus, todayStr);
@@ -794,11 +624,16 @@ export default async function SchoolPortalPage({
           </a>
           <div className="flex items-center gap-3 px-4 py-3 mt-2">
             <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm border-2 border-slate-100 dark:border-slate-700">
-              AM
+              {activeParent.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()}
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                Alex M.
+                {activeParent.name}
               </span>
               <LogoutButton />
             </div>
@@ -933,36 +768,14 @@ export default async function SchoolPortalPage({
 
               {/* ── Volunteering Sync ──────────────────────────────────────── */}
               {showVolunteering && (
-              <div className="bg-white dark:bg-[#1A2633] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-slate-900 dark:text-white text-lg">
-                    Volunteering Sync
-                  </h3>
-                  <button className="text-sm text-primary font-medium hover:underline flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded">
-                    <span aria-hidden="true" className="material-symbols-outlined text-base">add_circle</span>{" "}
-                    Add Task
-                  </button>
-                </div>
-
-                {/* Fairness balance bar */}
-                <VolunteerBalanceBar
+                <VolunteeringClient
+                  familyId={activeParent.familyId}
+                  tasks={allTasks}
                   balances={balances}
                   currentParentId={activeParent.id}
                   parentNames={parentNames}
+                  upcomingEventIds={upcomingEvents.map((e) => e.id)}
                 />
-
-                <div className="space-y-3">
-                  {allTasks.map((task) => (
-                    <VolunteerTaskRow
-                      key={task.id}
-                      task={task}
-                      suggestedParentId={taskSuggestions.get(task.id) ?? null}
-                      currentParentId={activeParent.id}
-                      parentNames={parentNames}
-                    />
-                  ))}
-                </div>
-              </div>
               )}
 
               {/* ── School Contacts ─────────────────────────────────────────── */}
@@ -1006,34 +819,7 @@ export default async function SchoolPortalPage({
             <div className="lg:col-span-1 flex flex-col gap-6">
 
               {/* ── School Vault ───────────────────────────────────────────── */}
-              {showVault && (
-              <div className="bg-gradient-to-br from-primary-light/50 to-white dark:from-primary/10 dark:to-[#1A2633] p-6 rounded-xl border border-primary-light dark:border-primary/20 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2">
-                    <span aria-hidden="true" className="material-symbols-outlined text-primary">folder_open</span>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-lg">
-                      School Vault
-                    </h3>
-                  </div>
-                  <button 
-                    className="bg-white dark:bg-slate-800 p-2.5 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 text-slate-600 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                    aria-label="Upload document"
-                  >
-                    <span aria-hidden="true" className="material-symbols-outlined text-lg">upload</span>
-                  </button>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  {sortedDocs.map((doc) => (
-                    <VaultDocumentRow key={doc.id} doc={doc} engine={engine} />
-                  ))}
-                </div>
-
-                <button className="w-full mt-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-primary hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 rounded transition-all">
-                  View All Documents
-                </button>
-              </div>
-              )}
+              {showVault && <VaultClient familyId={activeParent.familyId} docs={allDocs} />}
 
               {/* ── Today's Lunch ─────────────────────────────────────────── */}
               {todayLunch ? (

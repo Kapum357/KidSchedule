@@ -10,8 +10,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/persistence";
-import { NotificationSchedulerEngine } from "@/lib/notification-scheduler-engine";
-import { CustodyEngine } from "@/lib/custody-engine";
+import { NotificationSchedulerEngine } from "@/lib/notification";
+import { CustodyEngine } from "@/lib/custody";
 import type { CustodySchedule, ScheduleBlock } from "@/lib";
 import {
   getAuthenticatedUser,

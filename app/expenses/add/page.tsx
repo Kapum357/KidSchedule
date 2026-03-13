@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import {
   EXPENSE_CATEGORY_OPTIONS,
-  SPLIT_PRESETS,
   amountTextToCents,
   computeSplitSummary,
   formatCurrency,
@@ -15,6 +14,8 @@ import type { ExpenseCategory } from "@/lib";
 import { requireAuth } from "@/lib/auth";
 import { setCurrentFamilyId } from "@/lib/persistence/postgres/client";
 import { db } from "@/lib/persistence";
+import { SplitSelector } from "./split-selector";
+import { SplitPreview } from "./split-preview";
 
 type ExpenseSearchParams = {
   name?: string;
@@ -244,8 +245,6 @@ export default async function AddExpensePage({
   const state = resolvePageState(resolvedSearchParams);
 
   const amountCents = amountTextToCents(state.amountText) ?? 0;
-  const splitSummary = computeSplitSummary(amountCents, state.splitType, state.customYouPercent);
-  const normalizedCustom = resolveYouPercent(state.splitType, state.customYouPercent);
 
   return (
     <main id="main-content" className="bg-background-light dark:bg-background-dark font-display antialiased text-text-main h-screen flex flex-col overflow-hidden">
@@ -423,74 +422,20 @@ export default async function AddExpensePage({
 
               <div className="border-t border-slate-100 dark:border-slate-800 my-6"></div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Split Arrangement</p>
-                  <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded-full font-medium">Default: 50/50</span>
-                </div>
+              <SplitSelector
+                defaultSplitType={state.splitType}
+                defaultCustomPercent={state.customYouPercent}
+              />
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {SPLIT_PRESETS.map((preset) => (
-                    <label
-                      key={preset.id}
-                      className="split-preset-option relative flex cursor-pointer rounded-lg border p-4 shadow-sm focus:outline-none"
-                    >
-                      <input
-                        className="sr-only"
-                        name="splitType"
-                        type="radio"
-                        value={preset.id}
-                        defaultChecked={state.splitType === preset.id}
-                      />
-                      <span className="flex flex-1">
-                        <span className="flex flex-col">
-                          <span className="block text-sm font-medium text-slate-900 dark:text-white">
-                            {preset.label}
-                          </span>
-                          <span className="mt-1 flex items-center text-xs text-slate-500 dark:text-slate-400">
-                            {preset.subtitle}
-                          </span>
-                        </span>
-                      </span>
-                      <span className="split-preset-icon material-symbols-outlined">
-                        check_circle
-                      </span>
-                    </label>
-                  ))}
-                </div>
+              <SplitPreview
+                amountCents={amountCents}
+                splitType={state.splitType}
+                customPercent={state.customYouPercent}
+              />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-2 sm:col-span-1">
-                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide" htmlFor="customYouPercent">
-                      Custom split (your %)
-                    </label>
-                    <input
-                      id="customYouPercent"
-                      name="customYouPercent"
-                      type="number"
-                      min={1}
-                      max={99}
-                      step={1}
-                      defaultValue={state.splitType === "custom" ? normalizedCustom : 50}
-                      className={`block w-full rounded-lg border border-slate-400 dark:border-slate-600
-                        bg-white dark:bg-background-dark py-2.5 px-4 text-slate-900
-                        placeholder-slate-600 dark:placeholder-slate-300
-                        focus:border-primary focus:ring-primary sm:text-sm`}
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 mt-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600 dark:text-slate-300">Your Share ({splitSummary.youPercent}%)</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(splitSummary.youShareCents)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-600 dark:text-slate-300">Other Parent&apos;s Share ({splitSummary.otherPercent}%)</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(splitSummary.otherShareCents)}</span>
-                  </div>
-                </div>
-              </div>
+              {/* Hidden inputs for form submission */}
+              <input type="hidden" name="splitType" defaultValue={state.splitType} />
+              <input type="hidden" name="customYouPercent" defaultValue={state.customYouPercent ?? ''} />
 
               <div className="border-t border-slate-100 dark:border-slate-800 my-6"></div>
 

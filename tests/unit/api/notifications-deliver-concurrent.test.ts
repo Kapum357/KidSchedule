@@ -42,7 +42,7 @@ jest.mock("@/lib/persistence", () => ({
   createPostgresUnitOfWork: mockCreatePostgresUnitOfWork,
 }));
 
-jest.mock("@/lib/notification-delivery-service", () => ({
+jest.mock("@/lib/notification", () => ({
   NotificationDeliveryService: jest.fn().mockImplementation(() => ({
     deliverNotification: jest.fn() as MockFunction,
     retryFailedNotifications: jest.fn() as MockFunction,
@@ -76,7 +76,7 @@ jest.mock("next/server", () => ({
 
 import { POST } from "@/app/api/notifications/deliver/route";
 import { getAuthenticatedUser, parseJson } from "@/app/api/calendar/utils";
-import { NotificationDeliveryService } from "@/lib/notification-delivery-service";
+import { NotificationDeliveryService } from "@/lib/notification";
 import type { DbScheduledNotification, DbParent } from "@/lib/persistence";
 
 const mockGetAuthenticatedUser = getAuthenticatedUser as MockFunction;

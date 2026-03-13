@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { dismissWarning } from '@/app/mediation/page-actions';
-import type { WarningSignal } from '@/lib/mediation-analyzer';
+import type { WarningSignal } from '@/lib/mediation';
 
 interface WarningsPanelProps {
   warnings: WarningSignal[];

@@ -1,11 +1,6 @@
 /**
  * KidSchedule – Expense Engine
- *
  * Pure domain helpers for the Add Expense flow.
- *
- * Complexity:
- * - Parsing and validation are O(1) per submission.
- * - Split calculation is O(1).
  */
 
 import type { ExpenseCategory } from "@/lib";

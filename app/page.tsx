@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { AudienceDetector } from "./landing-client";
-import { HERO_IMAGE_CONFIG } from "@/lib/image-optimization";
 
 export const revalidate = 86400; // 24 hours — landing page content changes rarely
 
@@ -72,12 +71,13 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative pt-32 pb-16 px-4 sm:px-6 lg:px-8 min-h-[600px] overflow-hidden">
         <Image
-          src={HERO_IMAGE_CONFIG.src}
-          alt={HERO_IMAGE_CONFIG.alt}
+          src="/archive/family.png"
+          alt="Happy family using KidSchedule calendar"
+          width={1200}
+          height={675}
+          priority={true}
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover"
-          priority
-          fill
           fetchPriority="high"
           loading="eager"
         />

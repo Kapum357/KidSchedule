@@ -7,7 +7,7 @@
 
 import PDFDocument from "pdfkit";
 import crypto from "crypto";
-import type { CustodyComplianceReport } from "./custody-compliance-engine";
+import type { CustodyComplianceReport } from "./custody";
 
 export interface HashedMessage {
   index: number;

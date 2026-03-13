@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Ensure pdfkit is only used server-side (not bundled for client)
-  serverExternalPackages: ["pdfkit", "fontkit", "pdf-lib"],
+  // Ensure server-only packages are not bundled for client
+  serverExternalPackages: ["pdfkit", "fontkit", "pdf-lib", "postgres"],
 
   images: {
     loader: "default",

@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/persistence";
 import { requireAuth } from "@/lib/auth";
 import { ValidationError, ServerError } from "@/lib";
-import { MediationAnalyzer } from "@/lib/mediation-analyzer";
+import { MediationAnalyzer } from "@/lib/mediation";
 import { logEvent } from "@/lib/observability/logger";
 import { adjustSuggestion } from "@/lib/providers/ai";
 import { getDeescalationTips as getDeescalationTipsFromAssistant } from "@/lib/providers/ai/mediation-assistant";

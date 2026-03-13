@@ -1,33 +1,5 @@
 /**
  * KidSchedule – Feature Flags Engine
- *
- * ALGORITHM OVERVIEW
- * ─────────────────────────────────────────────────────────────────────────────
- * Feature flags enable gradual rollout, A/B testing, and safe feature deployment.
- * This engine supports:
- *
- *   • Environment-based toggles: Simple on/off via env vars
- *   • Percentage rollouts: Gradual enablement based on user ID hash
- *   • User-specific overrides: Force enable/disable for specific users
- *
- * USAGE
- * ─────────────────────────────────────────────────────────────────────────────
- * import { isFeatureEnabled } from '@/lib/feature-flags';
- *
- * if (isFeatureEnabled('new-dashboard', userId)) {
- *   // Show new feature
- * }
- *
- * ENVIRONMENT VARIABLES
- * ─────────────────────────────────────────────────────────────────────────────
- * FEATURE_NEW_DASHBOARD=50  // 50% rollout
- * FEATURE_NEW_DASHBOARD_USERS=user1,user2  // Specific users
- * FEATURE_EXPERIMENTAL=on  // Simple toggle
- *
- * COMPLEXITY
- * ─────────────────────────────────────────────────────────────────────────────
- *   • Flag check: O(1) env lookup + O(1) hash for percentage
- *   • User override: O(n) where n = number of override users (typically small)
  */
 
 import { createHash } from 'crypto';

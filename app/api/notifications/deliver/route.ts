@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, withTransaction, createPostgresUnitOfWork } from "@/lib/persistence";
 import type { DbScheduledNotification } from "@/lib/persistence";
-import { NotificationDeliveryService } from "@/lib/notification-delivery-service";
+import { NotificationDeliveryService } from "@/lib/notification";
 import {
   getAuthenticatedUser,
   badRequest,
