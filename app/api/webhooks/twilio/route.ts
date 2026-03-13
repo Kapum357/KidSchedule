@@ -9,6 +9,7 @@ import { observeApiRequest } from "@/lib/observability/api-observability";
 import { logEvent } from "@/lib/observability/logger";
 import { getTwilioAuthToken, getTwilioAccountSid } from "@/lib/providers/sms/twilio-config";
 import { getDb } from "@/lib/persistence";
+import { HttpError } from "@/lib/persistence/repositories";
 import {
   classifyError,
   formatErrorLog,
@@ -279,6 +280,7 @@ async function processWebhookIdempotently(
         eventType,
         timestamp,
         payload,
+        processingState: "pending",
       });
     } catch (error) {
       if (error instanceof ZodError) {
@@ -300,6 +302,34 @@ async function processWebhookIdempotently(
         operation: "create_webhook_event",
       }, 500);
       logEvent("error", "Failed to store Twilio webhook event", errorLog as unknown as Record<string, unknown>);
+      throw error;
+    }
+
+    // Step 2b: Mark event as processing (atomic state transition from pending)
+    // If markProcessing fails, event is already being processed or doesn't exist
+    try {
+      event = await db.twilioWebhookEvents.markProcessing(event.id);
+    } catch (error) {
+      if (error instanceof HttpError && error.statusCode === 409) {
+        // Event already being processed - skip handler and return 200
+        logEvent("info", "Twilio webhook already being processed (in-flight)", {
+          messageSid,
+          eventType,
+          phoneNumber,
+          eventId: event.id,
+          requestId,
+        });
+        return { success: true, statusCode: 200, reason: "already_processing" };
+      }
+      // Other errors are unexpected
+      const errorLog = formatErrorLog(error, {
+        requestId,
+        eventId: event.id,
+        messageSid,
+        phoneNumber,
+        operation: "mark_webhook_processing",
+      }, 500);
+      logEvent("error", "Failed to mark Twilio webhook as processing", errorLog as unknown as Record<string, unknown>);
       throw error;
     }
 

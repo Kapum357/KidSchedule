@@ -568,6 +568,7 @@ type TwilioWebhookRow = {
   payload: Record<string, unknown>;
   processed_at: Date | null;
   error_message: string | null;
+  processing_state: string;
   created_at: Date;
 };
 
@@ -581,6 +582,7 @@ function twilioWebhookRowToDb(r: TwilioWebhookRow): DbTwilioWebhookEvent {
     payload: r.payload,
     processedAt: r.processed_at?.toISOString(),
     errorMessage: r.error_message ?? undefined,
+    processingState: r.processing_state,
     createdAt: r.created_at.toISOString(),
   };
 }
@@ -603,10 +605,10 @@ export function createTwilioWebhookEventRepository(tx?: SqlClient): TwilioWebhoo
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rows = await (q as any)<TwilioWebhookRow[]>`
         INSERT INTO twilio_webhook_events (
-          message_sid, phone_number, event_type, timestamp, payload
+          message_sid, phone_number, event_type, timestamp, payload, processing_state
         ) VALUES (
           ${validated.messageSid}, ${validated.phoneNumber}, ${validated.eventType},
-          ${timestamp}, ${validated.payload}
+          ${timestamp}, ${validated.payload}, 'pending'
         )
         RETURNING *
       `;
@@ -643,10 +645,28 @@ export function createTwilioWebhookEventRepository(tx?: SqlClient): TwilioWebhoo
       return rows[0] ? twilioWebhookRowToDb(rows[0]) : null;
     },
 
+    async markProcessing(id) {
+      // Atomically set state to 'processing' and return updated row
+      // This prevents concurrent handlers from processing the same event
+      const rows = await q<TwilioWebhookRow[]>`
+        UPDATE twilio_webhook_events
+        SET processing_state = 'processing'
+        WHERE id = ${id} AND processing_state = 'pending'
+        RETURNING *
+      `;
+      if (rows.length === 0) {
+        // Event either not found or already being processed
+        throw new HttpError(`Twilio webhook event with id ${id} not found or already processing`, 409);
+      }
+      return twilioWebhookRowToDb(rows[0]);
+    },
+
     async markProcessed(id, processedAt?) {
       const rows = await q<TwilioWebhookRow[]>`
         UPDATE twilio_webhook_events
-        SET processed_at = ${processedAt ? new Date(processedAt) : sql`NOW()`}
+        SET
+          processed_at = ${processedAt ? new Date(processedAt) : sql`NOW()`},
+          processing_state = 'processed'
         WHERE id = ${id}
         RETURNING *
       `;
@@ -659,7 +679,9 @@ export function createTwilioWebhookEventRepository(tx?: SqlClient): TwilioWebhoo
     async markError(id, errorMessage) {
       const rows = await q<TwilioWebhookRow[]>`
         UPDATE twilio_webhook_events
-        SET error_message = ${errorMessage}
+        SET
+          error_message = ${errorMessage},
+          processing_state = 'failed'
         WHERE id = ${id}
         RETURNING *
       `;
@@ -690,6 +712,100 @@ export function createTwilioWebhookEventRepository(tx?: SqlClient): TwilioWebhoo
         LIMIT ${limit}
       `;
       return rows.map(twilioWebhookRowToDb);
+    },
+
+    async archiveOldEvents(daysOld = 90, limit = 10000) {
+      // Find events older than daysOld with state NOT 'processing'
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      // Use transaction to ensure atomic INSERT + DELETE
+      if (tx) {
+        // Already in a transaction, use it directly
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const txAny = tx as any;
+
+        // Step 1: Count how many events will be archived
+        type CountRow = { count: string };
+        const countRows = await txAny<CountRow[]>`
+          SELECT COUNT(*) as count FROM twilio_webhook_events
+          WHERE created_at < ${cutoffDate} AND processing_state != 'processing'
+          LIMIT ${limit}
+        `;
+        const count = parseInt(countRows[0]?.count ?? "0", 10);
+
+        if (count > 0) {
+          // Step 2: INSERT into archive table
+          await txAny`
+            INSERT INTO archive_twilio_webhook_events (
+              id, message_sid, phone_number, event_type, timestamp, payload,
+              processed_at, error_message, processing_state, created_at
+            )
+            SELECT id, message_sid, phone_number, event_type, timestamp, payload,
+                   processed_at, error_message, processing_state, created_at
+            FROM twilio_webhook_events
+            WHERE created_at < ${cutoffDate} AND processing_state != 'processing'
+            LIMIT ${limit}
+          `;
+
+          // Step 3: DELETE from main table (same WHERE clause)
+          await txAny`
+            DELETE FROM twilio_webhook_events
+            WHERE id IN (
+              SELECT id FROM twilio_webhook_events
+              WHERE created_at < ${cutoffDate} AND processing_state != 'processing'
+              LIMIT ${limit}
+            )
+          `;
+        }
+
+        return count;
+      } else {
+        // Not in a transaction, create one for atomicity
+        let archivedCount = 0;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (sql as any).begin(async (txInner: SqlClient) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const txAny = txInner as any;
+
+          // Step 1: Count how many events will be archived
+          type CountRow = { count: string };
+          const countRows = await txAny<CountRow[]>`
+            SELECT COUNT(*) as count FROM twilio_webhook_events
+            WHERE created_at < ${cutoffDate} AND processing_state != 'processing'
+            LIMIT ${limit}
+          `;
+          archivedCount = parseInt(countRows[0]?.count ?? "0", 10);
+
+          if (archivedCount > 0) {
+            // Step 2: INSERT into archive table
+            await txAny`
+              INSERT INTO archive_twilio_webhook_events (
+                id, message_sid, phone_number, event_type, timestamp, payload,
+                processed_at, error_message, processing_state, created_at
+              )
+              SELECT id, message_sid, phone_number, event_type, timestamp, payload,
+                     processed_at, error_message, processing_state, created_at
+              FROM twilio_webhook_events
+              WHERE created_at < ${cutoffDate} AND processing_state != 'processing'
+              LIMIT ${limit}
+            `;
+
+            // Step 3: DELETE from main table (same WHERE clause)
+            await txAny`
+              DELETE FROM twilio_webhook_events
+              WHERE id IN (
+                SELECT id FROM twilio_webhook_events
+                WHERE created_at < ${cutoffDate} AND processing_state != 'processing'
+                LIMIT ${limit}
+              )
+            `;
+          }
+        });
+
+        return archivedCount;
+      }
     },
   };
 }

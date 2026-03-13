@@ -698,6 +698,7 @@ export interface DbTwilioWebhookEvent {
   payload: Record<string, unknown>; // Full webhook body
   processedAt?: string;           // NULL until successfully processed
   errorMessage?: string;          // NULL unless processing failed
+  processingState: string;        // 'pending' | 'processing' | 'processed' | 'failed'
   createdAt: string;
 }
 

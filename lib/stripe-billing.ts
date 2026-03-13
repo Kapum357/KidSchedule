@@ -569,11 +569,13 @@ async function handlePaymentMethodAttached(event: Stripe.Event): Promise<void> {
 
   // Wrap all database operations in a transaction for atomicity
   await withTransaction(async (tx) => {
+    const q = tx as unknown as typeof sql;
+
     // Find customer in DB by Stripe ID
     type CustomerRow = { id: string };
-    const customer = await tx<CustomerRow[]>`
+    const customer = (await q`
       SELECT id FROM stripe_customers WHERE stripe_customer_id = ${stripeCustomerId} LIMIT 1
-    `;
+    `) as CustomerRow[];
 
     if (!customer[0]) {
       // Ignore unknown customer
@@ -584,7 +586,7 @@ async function handlePaymentMethodAttached(event: Stripe.Event): Promise<void> {
 
     // Add payment method to DB
     const cardData = paymentMethod.card;
-    await tx`
+    await q`
       INSERT INTO payment_methods (
         stripe_customer_id, stripe_payment_method_id, type,
         last4, brand, exp_month, exp_year, is_default, is_deleted
@@ -609,11 +611,13 @@ async function handlePaymentMethodDetached(event: Stripe.Event): Promise<void> {
 
   // Wrap all database operations in a transaction for atomicity
   await withTransaction(async (tx) => {
+    const q = tx as unknown as typeof sql;
+
     // Find customer in DB by Stripe ID
     type CustomerRow = { id: string };
-    const customer = await tx<CustomerRow[]>`
+    const customer = (await q`
       SELECT id FROM stripe_customers WHERE stripe_customer_id = ${stripeCustomerId} LIMIT 1
-    `;
+    `) as CustomerRow[];
 
     if (!customer[0]) {
       // Ignore unknown customer
@@ -623,16 +627,16 @@ async function handlePaymentMethodDetached(event: Stripe.Event): Promise<void> {
     const customerId = customer[0].id;
 
     // Check if this is the default method before soft-delete
-    const methodRows = await tx<{ is_default: boolean }[]>`
+    const methodRows = (await q`
       SELECT is_default FROM payment_methods
       WHERE stripe_payment_method_id = ${paymentMethod.id} AND stripe_customer_id = ${customerId}
       LIMIT 1
-    `;
+    `) as { is_default: boolean }[];
 
     const wasDefault = methodRows[0]?.is_default ?? false;
 
     // Soft delete the payment method
-    await tx`
+    await q`
       UPDATE payment_methods
       SET is_deleted = true, deleted_at = NOW(), is_default = false, updated_at = NOW()
       WHERE stripe_payment_method_id = ${paymentMethod.id}
@@ -640,15 +644,15 @@ async function handlePaymentMethodDetached(event: Stripe.Event): Promise<void> {
 
     // If was default, auto-select the oldest active method
     if (wasDefault) {
-      const remainingMethods = await tx<{ id: string }[]>`
+      const remainingMethods = (await q`
         SELECT id FROM payment_methods
         WHERE stripe_customer_id = ${customerId} AND is_deleted = false
         ORDER BY created_at ASC
         LIMIT 1
-      `;
+      `) as { id: string }[];
 
       if (remainingMethods[0]) {
-        await tx`
+        await q`
           UPDATE payment_methods
           SET is_default = true, updated_at = NOW()
           WHERE id = ${remainingMethods[0].id}

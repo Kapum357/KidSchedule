@@ -711,10 +711,12 @@ export interface TwilioWebhookEventRepository {
     eventType: string,
     timestamp?: string
   ): Promise<DbTwilioWebhookEvent | null>;
+  markProcessing(id: string): Promise<DbTwilioWebhookEvent>;
   markProcessed(id: string, processedAt?: string): Promise<DbTwilioWebhookEvent>;
   markError(id: string, errorMessage: string): Promise<DbTwilioWebhookEvent>;
   findUnprocessed(limit?: number): Promise<DbTwilioWebhookEvent[]>;
   findOlderThan(daysOld: number, limit?: number): Promise<DbTwilioWebhookEvent[]>;
+  archiveOldEvents(daysOld: number, limit?: number): Promise<number>;
 }
 
 export interface PlanTierRepository {
