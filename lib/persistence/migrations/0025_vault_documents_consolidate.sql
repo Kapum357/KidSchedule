@@ -12,7 +12,6 @@
 -- IDEMPOTENCY:
 -- - Uses DROP TABLE IF EXISTS (safe because school_vault_documents is read-only/unused)
 -- - Follows pattern from 0020_billing.sql
--- - RLS policies created with IF NOT EXISTS (safe on re-run)
 -- - Indexes use IF NOT EXISTS (safe on re-run)
 --
 -- MIGRATION SAFETY:
@@ -21,7 +20,6 @@
 -- - After migration, code using school-repository.ts works with new status values
 
 -- Drop both conflicting vault tables and their associated RLS policies
--- Note: 0013_rls.sql created RLS policy on wrong table (vault_documents)
 -- This policy will be orphaned after drop, so remove it first
 DROP POLICY IF EXISTS vault_documents_isolation ON vault_documents;
 DROP TABLE IF EXISTS vault_documents CASCADE;

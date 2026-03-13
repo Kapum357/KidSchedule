@@ -10,10 +10,15 @@ import { logEvent } from "@/lib/observability/logger";
 import { getTwilioAuthToken, getTwilioAccountSid } from "@/lib/providers/sms/twilio-config";
 import { getDb } from "@/lib/persistence";
 import {
+  classifyError,
   formatErrorLog,
 } from "@/lib/providers/webhook-error-handler";
+import { checkRateLimit } from "@/lib/providers/redis-rate-limiter";
 
 export const runtime = "nodejs";
+
+// Rate limiting constants
+const LIMIT_PER_WINDOW = 100;
 
 function getCanonicalWebhookUrl(request: Request): string {
   const configuredBaseUrl = process.env.TWILIO_WEBHOOK_BASE_URL;
@@ -328,6 +333,9 @@ async function processWebhookIdempotently(
       return { success: true, statusCode: 200, reason: "processed" };
     } catch (processingError) {
       // Step 4b: Mark as error on processing failure
+      // Classify the error to determine if it's retryable
+      const classification = classifyError(processingError);
+
       const errorLog = formatErrorLog(processingError, {
         requestId,
         eventId: event.id,
@@ -443,6 +451,57 @@ export async function POST(request: Request): Promise<NextResponse> {
     return response;
   }
 
+  // Task #61: Check rate limit (100 webhooks/min per family)
+  // First, resolve familyId from phone number via SMS subscription
+  const db = getDb();
+  const subscription = await db.smsSubscriptions.findByPhoneNumber(phoneNumber);
+
+  let rateLimitResult;
+  if (subscription) {
+    const familyId = subscription.familyId;
+
+    // Check rate limit for this family
+    rateLimitResult = await checkRateLimit(familyId);
+
+    if (!rateLimitResult.allowed) {
+      // Rate limited - return 429 Too Many Requests
+      logEvent("warn", "Twilio webhook rate limited", {
+        requestId,
+        familyId,
+        phoneNumber,
+        messageSid,
+        remaining: rateLimitResult.remaining,
+      });
+
+      const retryAfterSeconds = Math.ceil((rateLimitResult.resetAt.getTime() - Date.now()) / 1000);
+      const response = NextResponse.json(
+        {
+          error: "RATE_LIMITED",
+          message: "Too many webhook requests",
+          retryAfter: rateLimitResult.resetAt.toISOString(),
+        },
+        {
+          status: 429,
+          headers: {
+            "X-RateLimit-Limit": LIMIT_PER_WINDOW.toString(),
+            "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
+            "X-RateLimit-Reset": rateLimitResult.resetAt.toISOString(),
+            "Retry-After": retryAfterSeconds.toString(),
+          },
+        }
+      );
+      observeApiRequest({
+        route: "/api/webhooks/twilio",
+        method: "POST",
+        status: 429,
+        durationMs: Date.now() - startedAt,
+      });
+      return response;
+    }
+
+    // Rate limit check passed - we'll add headers to success response below
+  }
+
   // Handle different event types with idempotency
   let result;
 
@@ -536,9 +595,18 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // Return response based on result
   const statusCode = result.statusCode;
+
+  // Add rate limit headers if we have rate limit data
+  const responseHeaders: Record<string, string> = {};
+  if (rateLimitResult) {
+    responseHeaders["X-RateLimit-Limit"] = LIMIT_PER_WINDOW.toString();
+    responseHeaders["X-RateLimit-Remaining"] = rateLimitResult.remaining.toString();
+    responseHeaders["X-RateLimit-Reset"] = rateLimitResult.resetAt.toISOString();
+  }
+
   const response = NextResponse.json(
     { ok: statusCode === 200, reason: result.reason },
-    { status: statusCode }
+    { status: statusCode, headers: responseHeaders }
   );
   observeApiRequest({ route: "/api/webhooks/twilio", method: "POST", status: statusCode, durationMs: Date.now() - startedAt });
   return response;
