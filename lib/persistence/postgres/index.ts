@@ -45,6 +45,7 @@ import {
   createHashChainVerificationRepository,
 } from "./messaging-repository";
 import { createSmsRelayParticipantRepository } from "./sms-relay-repository";
+import { createSmsSubscriptionRepository } from "./sms-subscriptions-repository";
 import { createMomentRepository, createMomentReactionRepository } from "./moments-repository";
 import { createScheduledNotificationRepository } from "./scheduled-notification-repository";
 import {
@@ -118,6 +119,7 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     messages: createMessageRepository(),
     hashChainVerifications: createHashChainVerificationRepository(),
     smsRelayParticipants: createSmsRelayParticipantRepository(tx),
+    smsSubscriptions: createSmsSubscriptionRepository(tx),
     moments: createMomentRepository(),
     momentReactions: createMomentReactionRepository(),
     scheduledNotifications: createScheduledNotificationRepository(tx),

@@ -774,6 +774,16 @@ export interface DbMediationWarning {
   updatedAt: string;
 }
 
+export interface DbSmsSubscription {
+  id: string;
+  familyId: string;
+  phoneNumber: string;
+  optedOut: boolean;
+  optedOutAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Validation Schemas ───────────────────────────────────────────────────────
 
 /**

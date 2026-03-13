@@ -42,6 +42,7 @@ import type {
   DbMessage,
   DbHashChainVerification,
   DbSmsRelayParticipant,
+  DbSmsSubscription,
   DbMoment,
   DbMomentReaction,
   DbScheduledNotification,
@@ -515,6 +516,26 @@ export interface SmsRelayParticipantRepository {
   deactivate(parentId: string): Promise<void>;
 }
 
+// ─── SMS Subscription Repository ────────────────────────────────────────────────
+
+export interface SmsSubscriptionRepository {
+  findByPhoneNumber(phoneNumber: string): Promise<DbSmsSubscription | null>;
+  findByFamilyAndPhone(familyId: string, phoneNumber: string): Promise<DbSmsSubscription | null>;
+  findById(id: string): Promise<DbSmsSubscription | null>;
+  create(data: {
+    familyId: string;
+    phoneNumber: string;
+  }): Promise<DbSmsSubscription>;
+  update(
+    id: string,
+    data: {
+      optedOut?: boolean;
+      optedOutAt?: string | null;
+    }
+  ): Promise<DbSmsSubscription | null>;
+  findOptedOut(limit?: number): Promise<DbSmsSubscription[]>;
+}
+
 // ─── Moment Repository ────────────────────────────────────────────────────────
 
 export interface MomentRepository {
@@ -783,6 +804,7 @@ export interface UnitOfWork {
   messages: MessageRepository;
   hashChainVerifications: HashChainVerificationRepository;
   smsRelayParticipants: SmsRelayParticipantRepository;
+  smsSubscriptions: SmsSubscriptionRepository;
   moments: MomentRepository;
   momentReactions: MomentReactionRepository;
   scheduledNotifications: ScheduledNotificationRepository;

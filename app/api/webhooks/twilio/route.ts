@@ -7,7 +7,7 @@ import {
 } from "@/lib/providers/sms";
 import { observeApiRequest } from "@/lib/observability/api-observability";
 import { logEvent } from "@/lib/observability/logger";
-import { getTwilioAuthToken } from "@/lib/providers/sms/twilio-config";
+import { getTwilioAuthToken, getTwilioAccountSid } from "@/lib/providers/sms/twilio-config";
 import { getDb } from "@/lib/persistence";
 
 export const runtime = "nodejs";
@@ -97,6 +97,128 @@ function extractTimestamp(params: Record<string, string>): string {
     return parsed;
   }
   return new Date().toISOString();
+}
+
+/**
+ * Handle Twilio opt-out sync.
+ * When a user texts "STOP" to any Twilio number:
+ * 1. Mark SMS subscription as opted-out (if exists)
+ * 2. Call Twilio API to confirm the opt-out
+ * 3. Log the bidirectional sync
+ *
+ * @param phoneNumber E.164 formatted phone number
+ * @param payload Original Twilio webhook payload
+ * @returns void (errors logged but not thrown)
+ */
+async function handleOptOutSync(
+  phoneNumber: string,
+  payload: Record<string, string>
+): Promise<void> {
+  const db = getDb();
+
+  // Step 1: Find SMS subscription by phone number
+  const subscription = await db.smsSubscriptions.findByPhoneNumber(phoneNumber);
+
+  if (!subscription) {
+    logEvent("warn", "Twilio opt-out: SMS subscription not found", {
+      phoneNumber,
+      reason: "User may have deleted subscription",
+    });
+    // Continue to Twilio API call even if subscription not found
+  } else {
+    // Step 2: Check idempotency - if already opted out, skip Twilio API call (optimization)
+    if (subscription.optedOut && subscription.optedOutAt) {
+      logEvent("info", "Twilio opt-out: Already opted out (idempotent)", {
+        phoneNumber,
+        subscriptionId: subscription.id,
+        optedOutAt: subscription.optedOutAt,
+      });
+      // Already opted out - skip Twilio API call
+      return;
+    }
+
+    // Step 2b: Mark SMS subscription as opted-out
+    try {
+      await db.smsSubscriptions.update(subscription.id, {
+        optedOut: true,
+        optedOutAt: new Date().toISOString(),
+      });
+
+      logEvent("info", "Twilio opt-out: Marked SMS subscription as opted-out", {
+        phoneNumber,
+        subscriptionId: subscription.id,
+        familyId: subscription.familyId,
+      });
+    } catch (error) {
+      logEvent("error", "Twilio opt-out: Failed to mark subscription as opted-out", {
+        phoneNumber,
+        subscriptionId: subscription.id,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+      // Continue to Twilio API call even if update fails
+    }
+  }
+
+  // Step 3: Call Twilio API to confirm opt-out
+  try {
+    const accountSid = getTwilioAccountSid();
+    const authToken = getTwilioAuthToken();
+
+    // Encode phone number for URL (remove +)
+    const encodedPhone = phoneNumber.replace("+", "");
+
+    // Build the Twilio API endpoint
+    // https://api.twilio.com/2010-04-01/Accounts/{ACCOUNT_SID}/IncomingPhoneNumbers/{phone_number}/OptInOutStatus
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/IncomingPhoneNumbers/${encodedPhone}/OptInOutStatus`;
+
+    // Create Basic Auth header
+    const authString = `${accountSid}:${authToken}`;
+    const encodedAuth = Buffer.from(authString).toString("base64");
+
+    const response = await fetch(twilioUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${encodedAuth}`,
+      },
+      body: "OptInStatus=OptOut",
+    });
+
+    // Step 3b: Handle response
+    if (response.ok) {
+      const responseData = await response.json();
+      logEvent("info", "Twilio opt-out: API call successful", {
+        phoneNumber,
+        twilioStatus: responseData.OptInStatus,
+        statusCode: response.status,
+      });
+    } else if (response.status >= 400 && response.status < 500) {
+      // 4xx: Client error - log but don't retry
+      const responseText = await response.text();
+      logEvent("error", "Twilio opt-out: Client error from API", {
+        phoneNumber,
+        statusCode: response.status,
+        responseText: responseText.substring(0, 500), // Truncate for logging
+        reason: "Invalid phone number or already opted out",
+      });
+      // Return 200 to Twilio (don't retry 4xx errors)
+    } else if (response.status >= 500) {
+      // 5xx: Server error - return 500 to Twilio for retry
+      logEvent("error", "Twilio opt-out: Server error from API", {
+        phoneNumber,
+        statusCode: response.status,
+      });
+      throw new Error(`Twilio API returned ${response.status}`);
+    }
+  } catch (error) {
+    logEvent("error", "Twilio opt-out: API call failed", {
+      phoneNumber,
+      error: error instanceof Error ? error.message : "unknown",
+      reason: "Network error or auth failure",
+    });
+    // Return 500 to Twilio for network errors
+    throw new Error(`Failed to call Twilio opt-out API: ${error instanceof Error ? error.message : "unknown"}`);
+  }
 }
 
 /**
@@ -303,7 +425,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
     );
   } else if (eventType === "OptOutChange") {
-    // Process opt-out change idempotently (skip actual processing per Task #59)
+    // Process opt-out change idempotently
     result = await processWebhookIdempotently(
       messageSid,
       phoneNumber,
@@ -311,12 +433,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       timestamp,
       params,
       async () => {
-        // Task #59 will handle opt-out sync
-        // For now, just store the event
-        logEvent("info", "Twilio OptOutChange event received (will be processed in Task #59)", {
-          messageSid,
-          phoneNumber,
-        });
+        // Task #59: Handle opt-out sync
+        await handleOptOutSync(phoneNumber, params);
       }
     );
   } else if (eventType === "IncomingPhoneNumberUnprovisioned") {
