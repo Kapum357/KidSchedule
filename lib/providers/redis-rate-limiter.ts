@@ -33,6 +33,14 @@ export type RateLimitResult = {
  */
 let redisClient: UpstashRedis | ReturnType<typeof createRedisClient> | null = null;
 
+/**
+ * TESTING ONLY: Reset the redis client singleton
+ * This allows tests to get a fresh client instance
+ */
+export function __resetRedisClient() {
+  redisClient = null;
+}
+
 function initializeRedis() {
   if (redisClient) {
     return redisClient;
@@ -79,13 +87,15 @@ function initializeRedis() {
 /**
  * Check rate limit for a family
  *
- * Algorithm:
- * 1. Get current count from Redis
- * 2. If key has TTL > 0: check if count < limit, increment if yes
- * 3. If key expired or missing: reset counter to 1, set TTL to 60s
+ * Algorithm (atomic INCR-first pattern to prevent race conditions):
+ * 1. INCR the counter (atomic)
+ * 2. If result > 100: DECR (rollback) and reject
+ * 3. If result <= 100: Allow and optionally SET TTL on first request
  * 4. Calculate remaining quota and reset time
  *
- * Uses atomic INCR + EXPIRE operations for correctness.
+ * This pattern is atomic and prevents race conditions where concurrent requests
+ * at count=99 could both see 99 and both increment.
+ *
  * Fails open (allows request) if Redis is unavailable or times out.
  *
  * @param familyId - The family UUID (e.g., from SMS subscription)
@@ -118,52 +128,64 @@ export async function checkRateLimit(familyId: string): Promise<RateLimitResult>
       setTimeout(() => resolve(null), REDIS_TIMEOUT_MS);
     });
 
-    // Atomically:
-    // 1. Check current count and TTL
-    // 2. Increment count if under limit
-    // 3. Set TTL on first increment
-    const getResult = redis instanceof UpstashRedis
-      ? await Promise.race([redis.get(key), timeoutPromise])
-      : await Promise.race(
-          [(redis as ReturnType<typeof createRedisClient>).get(key), timeoutPromise]
-        );
-
-    // If Redis timeout, fail open
-    if (getResult === null && redis instanceof UpstashRedis === false) {
-      // Actual key missing or timeout
-      const ttlResult = redis instanceof UpstashRedis
-        ? await Promise.race([redis.ttl(key), timeoutPromise])
-        : await Promise.race([
-            (redis as ReturnType<typeof createRedisClient>).ttl(key),
-            timeoutPromise,
-          ]);
-
-      if (ttlResult === null) {
-        logEvent("warn", "Redis timeout during rate limit check, allowing request (fail-open)", {
-          operation: "check_rate_limit",
-          familyId,
-        });
-        return {
-          allowed: true,
-          remaining: LIMIT_PER_WINDOW,
-          resetAt,
-          shouldRetry: false,
-        };
-      }
-    }
-
-    // Get current count
-    let currentCount: number | null;
+    // ATOMIC INCR-FIRST PATTERN:
+    // 1. Increment counter atomically (this is the key operation)
+    let newCount: number | null;
     if (redis instanceof UpstashRedis) {
-      currentCount = (await redis.get(key)) as number | null;
+      newCount = (await Promise.race([
+        redis.incr(key),
+        timeoutPromise,
+      ])) as number | null;
     } else {
-      currentCount = (await (redis as ReturnType<typeof createRedisClient>).get(key)) as
-        | number
-        | null;
+      newCount = (await Promise.race([
+        (redis as ReturnType<typeof createRedisClient>).incr(key),
+        timeoutPromise,
+      ])) as number | null;
     }
 
-    // If key doesn't exist or expired, start fresh
-    if (currentCount === null || currentCount === undefined) {
+    // If timeout or error during INCR, fail open
+    if (newCount === null) {
+      logEvent("warn", "Redis timeout during increment, allowing request (fail-open)", {
+        operation: "check_rate_limit",
+        familyId,
+      });
+      return {
+        allowed: true,
+        remaining: LIMIT_PER_WINDOW,
+        resetAt,
+        shouldRetry: false,
+      };
+    }
+
+    // 2. Check if we exceeded the limit
+    if (newCount > LIMIT_PER_WINDOW) {
+      // Rate limit exceeded - rollback the increment
+      if (redis instanceof UpstashRedis) {
+        await Promise.race([redis.decr(key), timeoutPromise]);
+      } else {
+        await Promise.race([
+          (redis as ReturnType<typeof createRedisClient>).decr(key),
+          timeoutPromise,
+        ]);
+      }
+
+      logEvent("warn", "Twilio webhook rate limit exceeded", {
+        operation: "check_rate_limit",
+        familyId,
+        newCount,
+        limit: LIMIT_PER_WINDOW,
+      });
+
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt,
+        shouldRetry: false, // 429 is not retryable
+      };
+    }
+
+    // 3. Request is allowed. Set TTL on first request (when count == 1)
+    if (newCount === 1) {
       if (redis instanceof UpstashRedis) {
         await Promise.race([
           redis.set(key, 1, { ex: WINDOW_SECONDS }),
@@ -179,65 +201,13 @@ export async function checkRateLimit(familyId: string): Promise<RateLimitResult>
           timeoutPromise,
         ]);
       }
-      return {
-        allowed: true,
-        remaining: LIMIT_PER_WINDOW - 1,
-        resetAt,
-        shouldRetry: false,
-      };
     }
-
-    // Check if under limit
-    if (currentCount < LIMIT_PER_WINDOW) {
-      // Increment atomically
-      let newCount: number | null;
-      if (redis instanceof UpstashRedis) {
-        newCount = (await Promise.race([
-          redis.incr(key),
-          timeoutPromise,
-        ])) as number | null;
-      } else {
-        newCount = (await Promise.race([
-          (redis as ReturnType<typeof createRedisClient>).incr(key),
-          timeoutPromise,
-        ])) as number | null;
-      }
-
-      // If timeout or error, fail open
-      if (newCount === null) {
-        logEvent("warn", "Redis timeout during increment, allowing request (fail-open)", {
-          operation: "check_rate_limit",
-          familyId,
-        });
-        return {
-          allowed: true,
-          remaining: LIMIT_PER_WINDOW,
-          resetAt,
-          shouldRetry: false,
-        };
-      }
-
-      return {
-        allowed: true,
-        remaining: Math.max(0, LIMIT_PER_WINDOW - (newCount as number)),
-        resetAt,
-        shouldRetry: false,
-      };
-    }
-
-    // Rate limit exceeded
-    logEvent("warn", "Twilio webhook rate limit exceeded", {
-      operation: "check_rate_limit",
-      familyId,
-      currentCount,
-      limit: LIMIT_PER_WINDOW,
-    });
 
     return {
-      allowed: false,
-      remaining: 0,
+      allowed: true,
+      remaining: Math.max(0, LIMIT_PER_WINDOW - newCount),
       resetAt,
-      shouldRetry: false, // 429 is not retryable
+      shouldRetry: false,
     };
   } catch (error) {
     logEvent("error", "Redis error during rate limit check, allowing request (fail-open)", {
