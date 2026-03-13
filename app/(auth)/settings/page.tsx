@@ -7,8 +7,12 @@
 import { requireAuth } from "@/lib/auth";
 import { getDb } from "@/lib/persistence";
 import Link from "next/link";
-import type { DbParent, DbChild } from "@/lib/persistence/types";
+import type { DbParent, DbChild, DbParentInvitation } from "@/lib/persistence/types";
 import { ConflictWindowSettings } from "@/components/conflict-window-settings";
+import { ProfileSettingsForm } from "@/components/settings/profile-settings-form";
+import { FamilyManagementCard } from "@/components/settings/family-management-card";
+import { SecurityManagementCard } from "@/components/settings/security-management-card";
+import { addFamilyMemberAction, saveProfileSettingsAction } from "./actions";
 
 export const metadata = {
   title: "Settings — KidSchedule",
@@ -41,9 +45,14 @@ async function getConflictWindowValue(): Promise<number> {
   }
 }
 
-export default async function SettingsPage() {
+interface SettingsPageProps {
+  readonly searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function SettingsPage({ searchParams }: Readonly<SettingsPageProps>) {
   const user = await requireAuth();
   const db = getDb();
+  const params = await searchParams;
 
   // Fetch user profile
   const profile = await db.users.findById(user.userId);
@@ -53,10 +62,12 @@ export default async function SettingsPage() {
 
   let parents: DbParent[] = [];
   let children: DbChild[] = [];
+  let pendingInvitations: DbParentInvitation[] = [];
 
   if (family) {
     parents = await db.parents.findByFamilyId(family.id);
     children = await db.children.findByFamilyId(family.id);
+    pendingInvitations = await db.parentInvitations.findPendingByFamilyId(family.id);
   }
 
   const stripeCustomer = await db.stripeCustomers.findByUserId(user.userId);
@@ -69,6 +80,18 @@ export default async function SettingsPage() {
   const conflictWindowMins = await getConflictWindowValue();
 
   const otherParents = parents.filter((p) => p.userId !== user.userId);
+
+  const profileStatus =
+    typeof params?.profileStatus === "string" && (params.profileStatus === "success" || params.profileStatus === "error")
+      ? params.profileStatus
+      : undefined;
+  const profileMessage = typeof params?.profileMessage === "string" ? params.profileMessage : undefined;
+
+  const memberStatus =
+    typeof params?.memberStatus === "string" && (params.memberStatus === "success" || params.memberStatus === "error")
+      ? params.memberStatus
+      : undefined;
+  const memberMessage = typeof params?.memberMessage === "string" ? params.memberMessage : undefined;
 
   return (
     <div className="flex min-h-screen flex-col bg-background-light dark:bg-background-dark">
@@ -127,146 +150,21 @@ export default async function SettingsPage() {
 
           {/* Content Area */}
           <div className="flex max-w-3xl flex-1 flex-col gap-8">
-            {/* Profile Settings Section */}
-            <section
-              className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white shadow-sm dark:bg-neutral-dark"
-              id="profile"
-            >
-              <div className="border-b border-slate-200 dark:border-slate-700 p-6">
-                <h3 className="text-lg font-bold text-slate-600 dark:text-slate-900">Profile Settings</h3>
-                <p className="text-smtext-slate-500 text-slate-600 dark:text-slate-900">
-                  Update your personal identification and contact details.
-                </p>
-              </div>
-              <div className="flex flex-col gap-6 p-6">
-                <div className="flex flex-col gap-4 md:flex-row">
-                  <div className="flex flex-1 flex-col gap-2">
-                    <label className="text-sm font-semibold text-slate-600 dark:text-slate-900" htmlFor="fullName">Full Name</label>
-                    <input
-                      id="fullName"
-                      className={`w-full rounded-lg border border-slate-300 dark:border-slate-600
-                        bg-background-light p-3 focus:border-primary focus:ring-primary
-                        dark:bg-background-dark text-slate-700 dark:text-slate-800`}
-                      type="text"
-                      defaultValue={profile?.fullName ?? ""}
-                    />
-                  </div>
-                  <div className="flex flex-1 flex-col gap-2">
-                    <label className="text-sm font-semibold text-slate-600 dark:text-slate-900" htmlFor="emailAddress">Email Address</label>
-                    <input
-                      id="emailAddress"
-                      className={`w-full rounded-lg border border-slate-300 dark:border-slate-600
-                        bg-background-light p-3 focus:border-primary focus:ring-primary
-                        dark:bg-background-dark text-slate-700 dark:text-slate-800`}
-                      type="email"
-                      defaultValue={profile?.email ?? ""}
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold text-slate-600 dark:text-slate-900" htmlFor="phoneNumber">Phone Number (Verified via Twilio)</label>
-                  <div className="flex gap-2">
-                    <input
-                      id="phoneNumber"
-                      className={`flex-1 rounded-lg border border-slate-300 dark:border-slate-600
-                        bg-background-light p-3 focus:border-primary focus:ring-primary
-                        dark:bg-background-dark text-slate-700 dark:text-slate-800`}
-                      type="tel"
-                      defaultValue={profile?.phone ?? ""}
-                    />
-                    {profile?.phoneVerified && (
-                      <div className="flex items-center gap-1 rounded-lg bg-green-100 px-3 text-xs font-bold uppercase tracking-wider text-green-700">
-                        <span className="material-symbols-outlined text-sm">verified</span>
-                        Verified
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <button className="rounded-lg bg-primary px-6 py-2 font-bold text-white transition-colors hover:bg-primary/90">
-                    Save Changes
-                  </button>
-                </div>
-              </div>
-            </section>
+            <ProfileSettingsForm
+              message={profileMessage}
+              profile={profile}
+              status={profileStatus}
+              submitAction={saveProfileSettingsAction}
+            />
 
-            {/* Family Management Section */}
-            <section
-              className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white shadow-sm dark:bg-neutral-dark"
-              id="family"
-            >
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 p-6">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-600 dark:text-slate-900">Family Management</h3>
-                  <p className="text-sm text-slate-500">Manage children and co-parent access.</p>
-                </div>
-                <button className="flex items-center gap-1 rounded-lg p-2 text-sm font-semibold text-primary hover:bg-primary/10">
-                  <span className="material-symbols-outlined">add</span> Add Member
-                </button>
-              </div>
-              <div className="space-y-4 p-6">
-                {children.map((child) => (
-                  <div
-                    key={child.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-300 dark:border-slate-600 bg-background-light p-4 dark:bg-background-dark"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-primary">
-                        <span className="material-symbols-outlined">child_care</span>
-                      </div>
-                      <div>
-                        <p className="font-bold">{child.firstName} {child.lastName}</p>
-                      <p className="text-xs text-slate-600 dark:text-slate-300">
-                          Born: {new Date(child.dateOfBirth).toLocaleDateString("en-US", { 
-                            year: "numeric", 
-                            month: "long", 
-                            day: "numeric",
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    <button className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
-                      <span className="material-symbols-outlined">edit</span>
-                    </button>
-                  </div>
-                ))}
-                
-                {otherParents.map((parent) => {
-                  const isAccepted = parent.createdAt !== "";
-                  let statusText = "Pending";
-                  if (isAccepted) {
-                    statusText = "Invitation Accepted";
-                  }
-                  
-                  return (
-                    <div
-                      key={parent.id}
-                      className="flex items-center justify-between rounded-xl border border-slate-300 dark:border-slate-600 bg-background-light p-4 dark:bg-background-dark"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-primary">
-                          <span className="material-symbols-outlined">person</span>
-                        </div>
-                        <div>
-                          <p className="font-bold">
-                            {parent.name}{" "}
-                            <span className="ml-2 rounded-full bg-primary/20 px-2 py-0.5 text-[10px] uppercase text-primary">
-                              Co-Parent
-                            </span>
-                          </p>
-                        <p className="text-xs text-slate-600 dark:text-slate-300">
-                            Status: {statusText}
-                          </p>
-                        </div>
-                      </div>
-                      {isAccepted && (
-                        <span className="material-symbols-outlined text-primary">check_circle</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
+            <FamilyManagementCard
+              childMembers={children}
+              coParents={otherParents}
+              message={memberMessage}
+              pendingInvitations={pendingInvitations}
+              status={memberStatus}
+              submitAction={addFamilyMemberAction}
+            />
 
             {/* Notification Preferences Section */}
             <section
@@ -356,59 +254,7 @@ export default async function SettingsPage() {
               </div>
             </section>
 
-            {/* Security & Privacy Section */}
-            <section
-              className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white shadow-sm dark:bg-neutral-dark"
-              id="security"
-            >
-              <div className="border-b border-slate-200 dark:border-slate-700 p-6">
-                <h3 className="text-lg font-bold text-slate-600 dark:text-slate-900">Security &amp; Privacy</h3>
-                <p className="text-sm text-slate-500">Manage password and compliance settings.</p>
-              </div>
-              <div className="flex flex-col gap-6 p-6">
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold text-slate-600 dark:text-slate-900" htmlFor="twoFactor">Two-Factor Authentication</label>
-                  <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-primary/5 p-4">
-                    <span className="material-symbols-outlined text-primary">security</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-600 dark:text-slate-900">
-                        2FA is currently DISABLED
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Using Twilio-verified mobile number for login attempts.
-                      </p>
-                    </div>
-                    <button className="text-xs font-bold text-primary underline">Manage</button>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-900">GDPR &amp; Consent (FR-12)</p>
-                  <div className="space-y-3">
-                    <label className="flex items-start gap-3">
-                      <input
-                        defaultChecked
-                        className="mt-1 rounded text-primary focus:ring-primary"
-                        type="checkbox"
-                      />
-                      <span className="text-sm text-slate-700 dark:text-slate-800">
-                        I consent to the processing of my communication data for the purpose of
-                        mediation analysis.
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-3">
-                      <input
-                        defaultChecked
-                        className="mt-1 rounded text-primary focus:ring-primary"
-                        type="checkbox"
-                      />
-                      <span className="text-sm text-slate-700 dark:text-slate-800">
-                        Allow legal export of my communication logs for mediation purposes.
-                      </span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </section>
+            <SecurityManagementCard phone={profile?.phone} phoneVerified={Boolean(profile?.phoneVerified)} />
 
             {/* Billing & Subscription Section */}
             <section

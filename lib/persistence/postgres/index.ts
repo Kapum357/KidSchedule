@@ -15,6 +15,7 @@ import { createAuditLogRepository } from "./audit-log-repository";
 import { createRateLimitRepository } from "./rate-limit-repository";
 import { createFamilyRepository } from "./family-repository";
 import { createParentRepository } from "./parent-repository";
+import { createParentInvitationRepository } from "./parent-invitation-repository";
 import { createChildRepository } from "./child-repository";
 import { createCustodyScheduleRepository } from "./custody-schedule-repository";
 import { createCalendarEventRepository } from "./calendar-event-repository";
@@ -95,6 +96,7 @@ export function createPostgresUnitOfWork(tx?: SqlClient): UnitOfWork {
     rateLimits: createRateLimitRepository(tx),
     families: createFamilyRepository(tx),
     parents: createParentRepository(tx),
+    parentInvitations: createParentInvitationRepository(tx),
     children: createChildRepository(tx),
     custodySchedules: createCustodyScheduleRepository(tx),
     calendarEvents: createCalendarEventRepository(tx),

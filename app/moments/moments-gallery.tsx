@@ -310,7 +310,7 @@ function MemoryCard({
   // media
   return (
     <article className="group break-inside-avoid mb-6 overflow-hidden rounded-xl border border-slate-100 bg-surface-light shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-surface-dark">
-      <div className="relative overflow-hidden">
+      <div className="relative overflow-hidden aspect-video">
         <OptimizedImage
           src={item.imageUrl!}
           alt={item.title}
@@ -422,35 +422,9 @@ function MemoryCard({
 // ─── Gallery ──────────────────────────────────────────────────────────────────
 
 export function MomentsGallery() {
-  const [childFilter, setChildFilter] = useState<ChildFilter>(() => {
-    // Load from localStorage on client mount
-    if (typeof window === "undefined") return "all";
-    try {
-      const saved = localStorage.getItem("ks_moments_filters");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.child || "all";
-      }
-    } catch {
-      // ignore
-    }
-    return "all";
-  });
+  const [childFilter, setChildFilter] = useState<ChildFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortDesc, setSortDesc] = useState(() => {
-    // Load from localStorage on client mount
-    if (typeof window === "undefined") return true;
-    try {
-      const saved = localStorage.getItem("ks_moments_filters");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed.sortDesc === "boolean") return parsed.sortDesc;
-      }
-    } catch {
-      // ignore
-    }
-    return true;
-  });
+  const [sortDesc, setSortDesc] = useState(true);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [likedItems, setLikedItems] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>(() =>
@@ -465,6 +439,26 @@ export function MomentsGallery() {
   const mountedRef = useRef(false);
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem("ks_moments_filters");
+      if (saved) {
+        const parsed = JSON.parse(saved) as {
+          child?: ChildFilter;
+          sortDesc?: boolean;
+        };
+
+        if (parsed.child === "all" || parsed.child === "Leo" || parsed.child === "Maya") {
+          setChildFilter(parsed.child);
+        }
+
+        if (typeof parsed.sortDesc === "boolean") {
+          setSortDesc(parsed.sortDesc);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     mountedRef.current = true;
   }, []);
 

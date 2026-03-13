@@ -11,39 +11,66 @@ import { sql, type SqlClient } from "./client";
 
 type ExpenseRow = {
   id: string;
-  family_id: string;
+  familyId: string;
   title: string;
   description: string | null;
   category: string;
-  total_amount: number;
+  totalAmount: number;
   currency: string;
-  split_method: string;
-  split_ratio: Record<string, number> | null;
-  paid_by: string;
-  payment_status: string;
-  receipt_url: string | null;
-  date: string;
-  created_at: string;
-  updated_at: string;
+  splitMethod: string;
+  splitRatio: Record<string, number> | null;
+  paidBy: string;
+  paymentStatus: string;
+  receiptUrl: string | null;
+  date: string | Date;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 };
 
+function toIsoDate(value: string | Date): string {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  return value;
+}
+
+function toIsoDateTime(value: string | Date): string {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return value;
+}
+
 function rowToDb(row: ExpenseRow): DbExpense {
+  let totalAmountNum = row.totalAmount;
+  if (typeof row.totalAmount === "string") {
+    totalAmountNum = parseInt(row.totalAmount, 10);
+  }
+
+  let normalizedSplitRatio: Record<string, number> | undefined;
+  if (row.splitRatio) {
+    normalizedSplitRatio = {};
+    for (const [key, value] of Object.entries(row.splitRatio)) {
+      normalizedSplitRatio[key] = typeof value === "string" ? parseFloat(value) : value;
+    }
+  }
+
   return {
     id: row.id,
-    familyId: row.family_id,
+    familyId: row.familyId,
     title: row.title,
     description: row.description ?? undefined,
     category: row.category as DbExpense["category"],
-    totalAmount: row.total_amount,
+    totalAmount: totalAmountNum,
     currency: row.currency,
-    splitMethod: row.split_method as DbExpense["splitMethod"],
-    splitRatio: row.split_ratio ?? undefined,
-    paidBy: row.paid_by,
-    paymentStatus: row.payment_status as DbExpense["paymentStatus"],
-    receiptUrl: row.receipt_url ?? undefined,
-    date: row.date,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    splitMethod: row.splitMethod as DbExpense["splitMethod"],
+    splitRatio: normalizedSplitRatio,
+    paidBy: row.paidBy,
+    paymentStatus: row.paymentStatus as DbExpense["paymentStatus"],
+    receiptUrl: row.receiptUrl ?? undefined,
+    date: toIsoDate(row.date),
+    createdAt: toIsoDateTime(row.createdAt),
+    updatedAt: toIsoDateTime(row.updatedAt),
   };
 }
 

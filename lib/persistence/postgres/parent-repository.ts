@@ -2,7 +2,7 @@
  * KidSchedule – PostgreSQL Parent Repository
  */
 
-import type { ParentRepository } from "../repositories";
+import type { ParentRepository, ParentUpdateInput } from "../repositories";
 import type { DbParent } from "../types";
 import { sql, type SqlClient } from "./client";
 
@@ -62,17 +62,41 @@ export function createParentRepository(tx?: SqlClient): ParentRepository {
       return rowToDb(rows[0]);
     },
 
-    async update(id: string, data: Partial<DbParent>): Promise<DbParent | null> {
+    async update(id: string, data: ParentUpdateInput): Promise<DbParent | null> {
       const updates: string[] = [];
-      if (data.name !== undefined) updates.push(`name = '${data.name}'`);
-      if (data.phone !== undefined) updates.push(`phone = ${data.phone ? `'${data.phone}'` : "NULL"}`);
-      if (data.avatarUrl !== undefined) updates.push(`avatar_url = ${data.avatarUrl ? `'${data.avatarUrl}'` : "NULL"}`);
-      
+      const values: (string | null)[] = [];
+
+      if (data.name !== undefined) {
+        updates.push(`name = $${values.length + 1}`);
+        values.push(data.name);
+      }
+
+      if (data.email !== undefined) {
+        updates.push(`email = $${values.length + 1}`);
+        values.push(data.email.toLowerCase().trim());
+      }
+
+      if (data.phone !== undefined) {
+        updates.push(`phone = $${values.length + 1}`);
+        values.push(data.phone && data.phone.trim().length > 0 ? data.phone : null);
+      }
+
+      if (data.avatarUrl !== undefined) {
+        updates.push(`avatar_url = $${values.length + 1}`);
+        values.push(data.avatarUrl && data.avatarUrl.trim().length > 0 ? data.avatarUrl : null);
+      }
+
       if (updates.length === 0) return this.findById(id);
 
-      const rows = await query<ParentRow[]>`
-        UPDATE parents SET ${sql.unsafe(updates.join(", "))} WHERE id = ${id} RETURNING *
+      const idParamIndex = values.length + 1;
+      const statement = `
+        UPDATE parents
+        SET ${updates.join(", ")}
+        WHERE id = $${idParamIndex}
+        RETURNING *
       `;
+
+      const rows = await query.unsafe<ParentRow[]>(statement, [...values, id]);
       return rows[0] ? rowToDb(rows[0]) : null;
     },
   };

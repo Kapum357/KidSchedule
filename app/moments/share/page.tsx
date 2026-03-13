@@ -132,7 +132,7 @@ async function handleShareMoment(formData: FormData): Promise<void> {
     // Create moment in database
     await db.moments.create({
       familyId,
-      uploadedBy,
+      uploadedBy: parent.id,
       mediaUrl,
       // Persist a simplified media kind matching the DB contract ("photo" | "video").
       mediaType: input.mediaFileType?.startsWith("video/") ? "video" : "photo",
@@ -148,7 +148,12 @@ async function handleShareMoment(formData: FormData): Promise<void> {
     success.set("file", "1");
     redirect(`/moments/share?${success.toString()}`);
   } catch (error) {
-    console.error("[Moments] Failed to create moment:", error);
+    // Re-throw redirect errors so Next.js can handle them
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (error instanceof Error && (error as any).digest?.includes("NEXT_REDIRECT")) {
+      throw error;
+    }
+    console.info("[Moments] Failed to create moment:", error);
     const params = new URLSearchParams(baseParams);
     params.set("error", "Could not save this moment. Please try again.");
     redirect(`/moments/share?${params.toString()}`);
@@ -237,7 +242,7 @@ export default async function ShareMomentPage({
               </div>
             )}
 
-            <form action={handleShareMoment} className="space-y-8" method="post" encType="multipart/form-data">
+            <form action={handleShareMoment} className="space-y-8">
               <FileUploadZone />
 
               <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">

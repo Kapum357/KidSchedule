@@ -4,7 +4,7 @@
  * Implements UserRepository interface with PostgreSQL.
  */
 
-import type { UserRepository } from "../repositories";
+import type { UserRepository, UserUpdateInput } from "../repositories";
 import type { DbUser } from "../types";
 import { sql, type SqlClient } from "./client";
 
@@ -92,7 +92,7 @@ export function createUserRepository(tx?: SqlClient): UserRepository {
       return rowToDbUser(rows[0]);
     },
 
-    async update(id: string, data: Partial<DbUser>): Promise<DbUser | null> {
+    async update(id: string, data: UserUpdateInput): Promise<DbUser | null> {
       // Build dynamic update - only include provided fields
       const updates: string[] = [];
       const values: (string | boolean | Date | null)[] = [];
@@ -105,13 +105,25 @@ export function createUserRepository(tx?: SqlClient): UserRepository {
         updates.push("email_verified = $" + (values.length + 1));
         values.push(data.emailVerified);
       }
+      if (data.emailVerifiedAt !== undefined) {
+        updates.push("email_verified_at = $" + (values.length + 1));
+        values.push(data.emailVerifiedAt ? new Date(data.emailVerifiedAt) : null);
+      }
       if (data.fullName !== undefined) {
         updates.push("full_name = $" + (values.length + 1));
         values.push(data.fullName);
       }
       if (data.phone !== undefined) {
         updates.push("phone = $" + (values.length + 1));
-        values.push(data.phone ?? null);
+        values.push(data.phone && data.phone.trim().length > 0 ? data.phone : null);
+      }
+      if (data.phoneVerified !== undefined) {
+        updates.push("phone_verified = $" + (values.length + 1));
+        values.push(data.phoneVerified);
+      }
+      if (data.phoneVerifiedAt !== undefined) {
+        updates.push("phone_verified_at = $" + (values.length + 1));
+        values.push(data.phoneVerifiedAt ? new Date(data.phoneVerifiedAt) : null);
       }
       if (data.lastLoginAt !== undefined) {
         updates.push("last_login_at = $" + (values.length + 1));

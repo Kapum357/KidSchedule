@@ -12,12 +12,15 @@
  * - Graceful continuation when individual file deletions fail
  */
 
-import { purgeDeletedDocuments, getJobConfig } from "@/lib/jobs/purge-deleted-documents";
 import * as fs from "fs";
 import { promises as fsPromises } from "fs";
 import { mkdir } from "fs/promises";
 
-// Mock dependencies
+// Mock dependencies - must be before purgeDeletedDocuments import
+let mockSqlFn: jest.Mock;
+let mockLogEvent: jest.MockedFunction<any>;
+let mockGetDb: jest.MockedFunction<any>;
+
 jest.mock("@/lib/persistence", () => ({
   getDb: jest.fn(() => ({
     schoolVaultDocuments: {
@@ -32,16 +35,16 @@ jest.mock("@/lib/observability/logger", () => ({
 
 jest.mock("@/lib/persistence/postgres/client", () => ({
   sql: jest.fn(async (strings: any) => {
-    // Mock SQL query - will be configured per test
-    return [];
+    return mockSqlFn ? mockSqlFn(strings) : [];
   }),
 }));
 
+import { purgeDeletedDocuments, getJobConfig } from "@/lib/jobs/purge-deleted-documents";
 import { getDb } from "@/lib/persistence";
 import { logEvent } from "@/lib/observability/logger";
 
-const mockGetDb = getDb as jest.MockedFunction<typeof getDb>;
-const mockLogEvent = logEvent as jest.MockedFunction<typeof logEvent>;
+mockGetDb = getDb as jest.MockedFunction<typeof getDb>;
+mockLogEvent = logEvent as jest.MockedFunction<typeof logEvent>;
 
 describe("purgeDeletedDocuments", () => {
   let testVaultPath: string;
@@ -51,8 +54,9 @@ describe("purgeDeletedDocuments", () => {
     testVaultPath = "/tmp/test-vault-" + Date.now();
     await mkdir(testVaultPath, { recursive: true });
 
-    // Clear mocks
+    // Clear and reset mocks
     jest.clearAllMocks();
+    mockSqlFn = jest.fn(async () => []);
   });
 
   afterEach(async () => {
@@ -67,16 +71,13 @@ describe("purgeDeletedDocuments", () => {
   describe("document age filtering", () => {
     it("should delete documents soft-deleted 30+ days ago", async () => {
       // Mock SQL query to return a document that was deleted 31 days ago
-      const mockSql = jest.fn().mockResolvedValue([
+      mockSqlFn = jest.fn().mockResolvedValue([
         {
           id: "doc-1",
           familyId: "family-1",
           fileType: "pdf",
         },
       ]);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
 
       // Mock hardDelete to return count
       const mockHardDelete = jest.fn().mockResolvedValue(1);
@@ -105,10 +106,7 @@ describe("purgeDeletedDocuments", () => {
     it("should preserve documents soft-deleted less than 30 days ago", async () => {
       // The SQL query itself filters by 30 days, so it naturally won't return
       // documents that were deleted recently. This test verifies the query logic.
-      const mockSql = jest.fn().mockResolvedValue([]); // No documents returned
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
+      mockSqlFn = jest.fn().mockResolvedValue([]); // No documents returned
 
       const mockHardDelete = jest.fn().mockResolvedValue(0);
       mockGetDb.mockReturnValue({
@@ -133,16 +131,13 @@ describe("purgeDeletedDocuments", () => {
 
   describe("file cleanup", () => {
     it("should delete document files from /uploads/vault/{familyId}/{documentId}.{ext}", async () => {
-      const mockSql = jest.fn().mockResolvedValue([
+      mockSqlFn = jest.fn().mockResolvedValue([
         {
           id: "doc-123",
           familyId: "family-abc",
           fileType: "pdf",
         },
       ]);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
 
       const mockHardDelete = jest.fn().mockResolvedValue(1);
       mockGetDb.mockReturnValue({
@@ -176,12 +171,9 @@ describe("purgeDeletedDocuments", () => {
         fileType: ext,
       }));
 
-      const mockSql = jest.fn().mockResolvedValue(mockDocs);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
+      mockSqlFn = jest.fn().mockResolvedValue(mockDocs);
 
-      const mockHardDelete = jest.fn().mockResolvedValue(5);
+      const mockHardDelete = jest.fn().mockResolvedValue(fileTypes.length);
       mockGetDb.mockReturnValue({
         schoolVaultDocuments: {
           hardDelete: mockHardDelete,
@@ -200,7 +192,7 @@ describe("purgeDeletedDocuments", () => {
       const result = await purgeDeletedDocuments(testVaultPath);
 
       expect(result.success).toBe(true);
-      expect(result.deletedCount).toBe(5);
+      expect(result.deletedCount).toBe(fileTypes.length);
       // All files should be deleted
       for (let i = 0; i < fileTypes.length; i++) {
         expect(fs.existsSync(`${familyDir}/doc-${i}.${fileTypes[i]}`)).toBe(false);
@@ -210,10 +202,7 @@ describe("purgeDeletedDocuments", () => {
 
   describe("audit logging", () => {
     it("should log job start with vault path", async () => {
-      const mockSql = jest.fn().mockResolvedValue([]);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
+      mockSqlFn = jest.fn().mockResolvedValue([]);
 
       const mockHardDelete = jest.fn().mockResolvedValue(0);
       mockGetDb.mockReturnValue({
@@ -234,7 +223,7 @@ describe("purgeDeletedDocuments", () => {
     });
 
     it("should log each successful file deletion", async () => {
-      const mockSql = jest.fn().mockResolvedValue([
+      mockSqlFn = jest.fn().mockResolvedValue([
         {
           id: "doc-1",
           familyId: "family-1",
@@ -246,9 +235,6 @@ describe("purgeDeletedDocuments", () => {
           fileType: "docx",
         },
       ]);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
 
       const mockHardDelete = jest.fn().mockResolvedValue(2);
       mockGetDb.mockReturnValue({
@@ -274,7 +260,7 @@ describe("purgeDeletedDocuments", () => {
           documentId: "doc-1",
           familyId: "family-1",
           fileType: "pdf",
-        })
+        }),
       );
       expect(mockLogEvent).toHaveBeenCalledWith(
         "info",
@@ -283,21 +269,18 @@ describe("purgeDeletedDocuments", () => {
           documentId: "doc-2",
           familyId: "family-2",
           fileType: "docx",
-        })
+        }),
       );
     });
 
     it("should log job completion with metrics", async () => {
-      const mockSql = jest.fn().mockResolvedValue([
+      mockSqlFn = jest.fn().mockResolvedValue([
         {
           id: "doc-1",
           familyId: "family-1",
           fileType: "pdf",
         },
       ]);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
 
       const mockHardDelete = jest.fn().mockResolvedValue(1);
       mockGetDb.mockReturnValue({
@@ -331,7 +314,7 @@ describe("purgeDeletedDocuments", () => {
 
   describe("error handling", () => {
     it("should continue processing when individual file delete fails", async () => {
-      const mockSql = jest.fn().mockResolvedValue([
+      mockSqlFn = jest.fn().mockResolvedValue([
         {
           id: "doc-1",
           familyId: "family-1",
@@ -343,9 +326,6 @@ describe("purgeDeletedDocuments", () => {
           fileType: "pdf",
         },
       ]);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
 
       const mockHardDelete = jest.fn().mockResolvedValue(2);
       mockGetDb.mockReturnValue({
@@ -354,7 +334,8 @@ describe("purgeDeletedDocuments", () => {
         },
       } as any);
 
-      // Create only family-2 directory (family-1 will fail)
+      // Create only family-2 directory and file (family-1 will have missing file)
+      // Note: Missing files (ENOENT) are silently ignored for idempotency
       await mkdir(`${testVaultPath}/family-2`, { recursive: true });
       await fsPromises.writeFile(`${testVaultPath}/family-2/doc-2.pdf`, "test");
 
@@ -362,32 +343,22 @@ describe("purgeDeletedDocuments", () => {
 
       // Should still succeed overall
       expect(result.success).toBe(true);
-      // Should record file deletion error for doc-1
-      expect(result.errors).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            documentId: "doc-1",
-            error: expect.stringContaining("ENOENT"),
-          }),
-        ])
-      );
-      // But DB deletion should still proceed
+      // No errors recorded for missing files (ENOENT is idempotent)
+      expect(result.errors).toHaveLength(0);
+      // But DB deletion should still proceed for both documents
       expect(result.deletedCount).toBe(2);
     });
 
     it("should be idempotent when files are already deleted", async () => {
       // If a file was already deleted from filesystem but the DB record exists,
       // the purge job should handle it gracefully
-      const mockSql = jest.fn().mockResolvedValue([
+      mockSqlFn = jest.fn().mockResolvedValue([
         {
           id: "doc-1",
           familyId: "family-1",
           fileType: "pdf",
         },
       ]);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
 
       const mockHardDelete = jest.fn().mockResolvedValue(1);
       mockGetDb.mockReturnValue({
@@ -408,16 +379,13 @@ describe("purgeDeletedDocuments", () => {
     });
 
     it("should handle database errors gracefully", async () => {
-      const mockSql = jest.fn().mockResolvedValue([
+      mockSqlFn = jest.fn().mockResolvedValue([
         {
           id: "doc-1",
           familyId: "family-1",
           fileType: "pdf",
         },
       ]);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
 
       // Mock hardDelete to throw error
       const mockHardDelete = jest.fn().mockRejectedValue(new Error("Database connection failed"));
@@ -440,21 +408,18 @@ describe("purgeDeletedDocuments", () => {
       expect(mockLogEvent).toHaveBeenCalledWith(
         "error",
         expect.stringContaining("Purge job failed"),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
     it("should log warnings for file deletion failures but continue", async () => {
-      const mockSql = jest.fn().mockResolvedValue([
+      mockSqlFn = jest.fn().mockResolvedValue([
         {
           id: "doc-1",
           familyId: "family-1",
           fileType: "pdf",
         },
       ]);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
 
       const mockHardDelete = jest.fn().mockResolvedValue(1);
       mockGetDb.mockReturnValue({
@@ -474,16 +439,13 @@ describe("purgeDeletedDocuments", () => {
 
   describe("result object", () => {
     it("should return PurgeResult with all required fields", async () => {
-      const mockSql = jest.fn().mockResolvedValue([
+      mockSqlFn = jest.fn().mockResolvedValue([
         {
           id: "doc-1",
           familyId: "family-1",
           fileType: "pdf",
         },
       ]);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
 
       const mockHardDelete = jest.fn().mockResolvedValue(1);
       mockGetDb.mockReturnValue({
@@ -513,10 +475,7 @@ describe("purgeDeletedDocuments", () => {
     });
 
     it("should track duration accurately", async () => {
-      const mockSql = jest.fn().mockResolvedValue([]);
-      jest.doMock("@/lib/persistence/postgres/client", () => ({
-        sql: mockSql,
-      }));
+      mockSqlFn = jest.fn().mockResolvedValue([]);
 
       const mockHardDelete = jest.fn().mockResolvedValue(0);
       mockGetDb.mockReturnValue({

@@ -37,6 +37,8 @@ async function handleVerifyOTP(formData: FormData): Promise<void> {
   const digit6 = (formData.get("digit6") as string | null) ?? "";
 
   const otp = `${digit1}${digit2}${digit3}${digit4}${digit5}${digit6}`;
+  const returnToRaw = (formData.get("returnTo") as string | null) ?? "";
+  const returnTo = returnToRaw.startsWith("/") ? returnToRaw : "";
 
   // Validate all 6 digits entered
   if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
@@ -47,7 +49,7 @@ async function handleVerifyOTP(formData: FormData): Promise<void> {
   const result = await verifyPhoneOTP(user.userId, otp);
 
   if (result.success) {
-    redirect("/family-setup"); // Next step in onboarding
+    redirect(returnTo || "/family-setup");
   }
 
   // On failure: redirect with error details for stateless feedback
@@ -88,15 +90,24 @@ async function handleVerifyOTP(formData: FormData): Promise<void> {
 //   redirect("/phone-verify?resent=true");
 // }
 
-async function handleResendOTP(): Promise<void> {
+async function handleResendOTP(formData: FormData): Promise<void> {
   "use server";
 
   const user = await requireAuth();
+  const returnToRaw = (formData.get("returnTo") as string | null) ?? "";
+  const returnTo = returnToRaw.startsWith("/") ? returnToRaw : "";
 
   const dbUser = await db.users.findById(user.userId);
   const phone = dbUser?.phone;
   if (!phone) {
-    redirect("/phone-verify?error=no_phone&message=No phone number found. Please update your profile first.");
+    const params = new URLSearchParams({
+      error: "no_phone",
+      message: "No phone number found. Please update your profile first.",
+    });
+    if (returnTo) {
+      params.set("returnTo", returnTo);
+    }
+    redirect(`/phone-verify?${params.toString()}`);
   }
 
   const resendResult = await requestPhoneVerification(user.userId, phone as string);
@@ -105,10 +116,19 @@ async function handleResendOTP(): Promise<void> {
       error: resendResult.error ?? "resend_failed",
       message: resendResult.errorMessage ?? "Could not resend verification code.",
     });
+    if (returnTo) {
+      params.set("returnTo", returnTo);
+    }
     redirect(`/phone-verify?${params.toString()}`);
   }
 
-  redirect("/phone-verify?resent=true");
+  const params = new URLSearchParams({
+    resent: "true",
+  });
+  if (returnTo) {
+    params.set("returnTo", returnTo);
+  }
+  redirect(`/phone-verify?${params.toString()}`);
 }
 
 // ─── Progress Stepper Component ────────────────────────────────────────────────
@@ -136,9 +156,10 @@ function ProgressStepper({ currentStep, totalSteps }: Readonly<{ currentStep: nu
 
 // ─── OTP Input Grid Component ──────────────────────────────────────────────────
 
-function OTPInput() {
+function OTPInput({ returnTo, isManageFlow }: Readonly<{ returnTo?: string; isManageFlow: boolean }>) {
   return (
     <form action={handleVerifyOTP} method="POST">
+      <input name="returnTo" type="hidden" value={returnTo ?? ""} />
       <div className="flex gap-2 sm:gap-4 justify-between mb-8">
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <input
@@ -173,15 +194,15 @@ function OTPInput() {
           className="w-full h-12 bg-primary hover:bg-primary-dark text-white font-bold rounded shadow-sm transition-all transform active:scale-[0.99] flex items-center justify-center gap-2"
           type="submit"
         >
-          <span>Verify &amp; Continue</span>
+          <span>{isManageFlow ? "Verify Phone" : "Verify &amp; Continue"}</span>
           <span className="material-symbols-outlined text-sm font-bold">arrow_forward</span>
         </button>
-        <button
-          className="w-full h-12 bg-transparent border border-[#eaf1f0] dark:border-slate-700 text-text-sub dark:text-slate-400 hover:text-text-main dark:hover:text-white hover:bg-gray-50 dark:hover:bg-slate-800 font-semibold rounded transition-colors text-sm"
-          type="button"
+        <a
+          className="flex w-full h-12 items-center justify-center rounded border border-[#eaf1f0] bg-transparent text-sm font-semibold text-text-sub transition-colors hover:bg-gray-50 hover:text-text-main dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+          href={returnTo || "/signup"}
         >
-          Back to previous step
-        </button>
+          Back
+        </a>
       </div>
     </form>
   );
@@ -301,6 +322,8 @@ export default async function PhoneVerifyPage({ searchParams }: Readonly<PagePro
   const message = typeof params.message === "string" ? params.message : "";
   const error = typeof params.error === "string" ? params.error : "";
   const resent = params.resent === "true";
+  const returnTo = typeof params.returnTo === "string" && params.returnTo.startsWith("/") ? params.returnTo : undefined;
+  const isManageFlow = Boolean(returnTo?.startsWith("/settings"));
 
   return (
     <>
@@ -317,7 +340,7 @@ export default async function PhoneVerifyPage({ searchParams }: Readonly<PagePro
         <div className="flex-1 flex flex-col justify-center items-center p-6 md:p-12 lg:p-20 bg-white dark:bg-background-dark">
           <div className="w-full max-w-md flex flex-col gap-8">
             {/* Progress Stepper */}
-            <ProgressStepper currentStep={2} totalSteps={3} />
+            <ProgressStepper currentStep={isManageFlow ? 1 : 2} totalSteps={isManageFlow ? 1 : 3} />
 
             {/* Header Text */}
             <div className="space-y-3">
@@ -325,13 +348,16 @@ export default async function PhoneVerifyPage({ searchParams }: Readonly<PagePro
                 <span className="material-symbols-outlined text-2xl">sms</span>
               </div>
               <h2 className="text-3xl font-display font-bold text-text-main dark:text-white tracking-tight">
-                Verify your mobile number
+                {isManageFlow ? "Manage phone verification" : "Verify your mobile number"}
               </h2>
               <p className="text-text-sub dark:text-slate-400 text-base leading-relaxed">
                 We&apos;ve sent a 6-digit code to{" "}
                 <span className="font-semibold text-text-main dark:text-white">{phoneDisplay ?? "+1****0000"}</span>. Enter it below to
-                secure your account.{" "}
-                <a className="text-primary hover:underline ml-1 text-sm font-medium" href="#">
+                {isManageFlow ? " keep your security settings up to date." : " secure your account."}{" "}
+                <a
+                  className="text-primary hover:underline ml-1 text-sm font-medium"
+                  href={isManageFlow ? "/settings#profile" : "/signup"}
+                >
                   Change number
                 </a>
               </p>
@@ -350,7 +376,7 @@ export default async function PhoneVerifyPage({ searchParams }: Readonly<PagePro
             )}
 
             {/* OTP Input Form */}
-            <OTPInput />
+            <OTPInput isManageFlow={isManageFlow} returnTo={returnTo} />
 
             {/* Footer Helper */}
             <div className="mt-4 pt-6 border-t border-[#eaf1f0] dark:border-slate-800 text-center">

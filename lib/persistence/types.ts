@@ -142,6 +142,25 @@ export interface DbParent {
   createdAt: string;
 }
 
+export type DbParentInvitationStatus = "pending" | "accepted" | "revoked" | "expired";
+
+export interface DbParentInvitation {
+  id: string;
+  familyId: string;
+  invitedByUserId: string;
+  invitedName?: string;
+  email: string;
+  phone?: string;
+  role: "secondary";
+  status: DbParentInvitationStatus;
+  token: string;
+  expiresAt?: string;
+  acceptedByUserId?: string;
+  acceptedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DbChild {
   id: string;
   familyId: string;

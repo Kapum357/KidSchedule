@@ -20,6 +20,7 @@ import type {
   DbRateLimit,
   DbFamily,
   DbParent,
+  DbParentInvitation,
   DbChild,
   DbCustodySchedule,
   DbCalendarEvent,
@@ -71,12 +72,19 @@ export interface UserRepository {
   findById(id: string): Promise<DbUser | null>;
   findByEmail(email: string): Promise<DbUser | null>;
   create(user: Omit<DbUser, "id" | "createdAt" | "updatedAt">): Promise<DbUser>;
-  update(id: string, data: Partial<DbUser>): Promise<DbUser | null>;
+  update(id: string, data: UserUpdateInput): Promise<DbUser | null>;
   updatePassword(id: string, passwordHash: string): Promise<boolean>;
   markEmailVerified(id: string): Promise<boolean>;
   markPhoneVerified(id: string, phone: string): Promise<boolean>;
   disable(id: string, reason?: string): Promise<boolean>;
 }
+
+export type UserUpdateInput =
+  Partial<Omit<DbUser, "phone" | "emailVerifiedAt" | "phoneVerifiedAt">> & {
+    phone?: string | null;
+    emailVerifiedAt?: string | null;
+    phoneVerifiedAt?: string | null;
+  };
 
 // ─── Session Repository ───────────────────────────────────────────────────────
 
@@ -150,7 +158,26 @@ export interface ParentRepository {
   findByUserId(userId: string): Promise<DbParent | null>;
   findByFamilyId(familyId: string): Promise<DbParent[]>;
   create(parent: Omit<DbParent, "id" | "createdAt">): Promise<DbParent>;
-  update(id: string, data: Partial<DbParent>): Promise<DbParent | null>;
+  update(id: string, data: ParentUpdateInput): Promise<DbParent | null>;
+}
+
+export type ParentUpdateInput =
+  Partial<Omit<DbParent, "phone" | "avatarUrl">> & {
+    phone?: string | null;
+    avatarUrl?: string | null;
+  };
+
+export interface ParentInvitationRepository {
+  findById(id: string): Promise<DbParentInvitation | null>;
+  findByFamilyId(familyId: string): Promise<DbParentInvitation[]>;
+  findPendingByFamilyId(familyId: string): Promise<DbParentInvitation[]>;
+  create(
+    invitation: Omit<
+      DbParentInvitation,
+      "id" | "createdAt" | "updatedAt" | "acceptedAt" | "acceptedByUserId"
+    >
+  ): Promise<DbParentInvitation>;
+  updateStatus(id: string, status: DbParentInvitation["status"]): Promise<DbParentInvitation | null>;
 }
 
 // ─── Child Repository ─────────────────────────────────────────────────────────
@@ -782,6 +809,7 @@ export interface UnitOfWork {
   rateLimits: RateLimitRepository;
   families: FamilyRepository;
   parents: ParentRepository;
+  parentInvitations: ParentInvitationRepository;
   children: ChildRepository;
   custodySchedules: CustodyScheduleRepository;
   calendarEvents: CalendarEventRepository;

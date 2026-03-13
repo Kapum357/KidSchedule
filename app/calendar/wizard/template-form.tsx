@@ -16,28 +16,25 @@ export function TemplateForm({
   action,
   cancelAction,
 }: TemplateFormProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>(() => {
-    // Hydration: read from localStorage only on client mount
-    if (typeof window === "undefined") {
-      return defaultTemplateId;
-    }
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>(defaultTemplateId);
+
+  const mountedRef = useRef(false);
+
+  // Load persisted template from localStorage only after hydration to prevent mismatch
+  useEffect(() => {
     try {
       const saved = localStorage.getItem("ks_wizard_draft");
       if (saved) {
         const draft = JSON.parse(saved);
-        return draft.template || defaultTemplateId;
+        if (draft.template) {
+          setSelectedTemplate(draft.template);
+        }
       }
     } catch {
       // Ignore parse errors
     }
-    return defaultTemplateId;
-  });
-
-  const mountedRef = useRef(false);
-
-  useEffect(() => {
     mountedRef.current = true;
-  }, []);
+  }, [defaultTemplateId]);
 
   // Write to localStorage whenever template changes (only after mount)
   useEffect(() => {
