@@ -9,6 +9,11 @@ import { observeApiRequest } from "@/lib/observability/api-observability";
 import { logEvent } from "@/lib/observability/logger";
 import { getTwilioAuthToken, getTwilioAccountSid } from "@/lib/providers/sms/twilio-config";
 import { getDb } from "@/lib/persistence";
+import {
+  classifyError,
+  formatErrorLog,
+  getStatusCodeForError,
+} from "@/lib/providers/webhook-error-handler";
 
 export const runtime = "nodejs";
 
@@ -148,13 +153,16 @@ async function handleOptOutSync(
         phoneNumber,
         subscriptionId: subscription.id,
         familyId: subscription.familyId,
+        reason: "stop_message",
       });
     } catch (error) {
-      logEvent("error", "Twilio opt-out: Failed to mark subscription as opted-out", {
+      const classification = classifyError(error);
+      const errorLog = formatErrorLog(error, {
         phoneNumber,
         subscriptionId: subscription.id,
-        error: error instanceof Error ? error.message : "unknown",
-      });
+        operation: "mark_subscription_opted_out",
+      }, 500);
+      logEvent("error", "Twilio opt-out: Failed to mark subscription as opted-out", errorLog as unknown as Record<string, unknown>);
       // Continue to Twilio API call even if update fails
     }
   }
@@ -195,27 +203,33 @@ async function handleOptOutSync(
     } else if (response.status >= 400 && response.status < 500) {
       // 4xx: Client error - log but don't retry
       const responseText = await response.text();
-      logEvent("error", "Twilio opt-out: Client error from API", {
+      const error = new Error(`Twilio API returned ${response.status}`);
+      const errorLog = formatErrorLog(error, {
         phoneNumber,
         statusCode: response.status,
-        responseText: responseText.substring(0, 500), // Truncate for logging
-        reason: "Invalid phone number or already opted out",
-      });
+        responseText: responseText.substring(0, 500),
+        operation: "twilio_opt_out_api_4xx",
+      }, 500);
+      logEvent("error", "Twilio opt-out: Client error from API", errorLog as unknown as Record<string, unknown>);
       // Return 200 to Twilio (don't retry 4xx errors)
     } else if (response.status >= 500) {
       // 5xx: Server error - return 500 to Twilio for retry
-      logEvent("error", "Twilio opt-out: Server error from API", {
+      const error = new Error(`Twilio API returned ${response.status}`);
+      const errorLog = formatErrorLog(error, {
         phoneNumber,
         statusCode: response.status,
-      });
-      throw new Error(`Twilio API returned ${response.status}`);
+        operation: "twilio_opt_out_api_5xx",
+      }, 500);
+      logEvent("error", "Twilio opt-out: Server error from API", errorLog as unknown as Record<string, unknown>);
+      throw error;
     }
   } catch (error) {
-    logEvent("error", "Twilio opt-out: API call failed", {
+    const classification = classifyError(error);
+    const errorLog = formatErrorLog(error, {
       phoneNumber,
-      error: error instanceof Error ? error.message : "unknown",
-      reason: "Network error or auth failure",
-    });
+      operation: "twilio_opt_out_api_call",
+    }, 500);
+    logEvent("error", "Twilio opt-out: API call failed", errorLog as unknown as Record<string, unknown>);
     // Return 500 to Twilio for network errors
     throw new Error(`Failed to call Twilio opt-out API: ${error instanceof Error ? error.message : "unknown"}`);
   }
@@ -227,6 +241,8 @@ async function handleOptOutSync(
  * 2. If INSERT succeeds (new event): process the status update
  * 3. If duplicate: skip processing, return 200 OK
  * 4. Mark as processed or error after handling
+ *
+ * Includes enhanced error classification and structured logging.
  */
 async function processWebhookIdempotently(
   messageSid: string,
@@ -234,7 +250,8 @@ async function processWebhookIdempotently(
   eventType: string,
   timestamp: string,
   payload: Record<string, string>,
-  handler: (eventId: string) => Promise<void>
+  handler: (eventId: string) => Promise<void>,
+  requestId?: string
 ): Promise<{ success: boolean; statusCode: number; reason?: string }> {
   const db = getDb();
 
@@ -243,12 +260,13 @@ async function processWebhookIdempotently(
     const existingEvent = await db.twilioWebhookEvents.findByMessageSid(messageSid);
 
     if (existingEvent) {
-      // Duplicate event - already processed or in progress
+      // Duplicate event - already processed or in progress (expected, not an error)
       logEvent("info", "Twilio webhook already processed (duplicate)", {
         messageSid,
         eventType,
         phoneNumber,
         eventId: existingEvent.id,
+        requestId,
       });
       return { success: true, statusCode: 200, reason: "duplicate" };
     }
@@ -265,15 +283,25 @@ async function processWebhookIdempotently(
       });
     } catch (error) {
       if (error instanceof ZodError) {
-        logEvent("warn", "Twilio webhook validation failed", {
+        const errorLog = formatErrorLog(error, {
+          requestId,
           messageSid,
           eventType,
           phoneNumber,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          errors: (error as any).errors.map((e: any) => `${e.path.join(".")}: ${e.message}`),
-        });
+        }, 400);
+        logEvent("error", "Twilio webhook validation failed during event creation", errorLog as unknown as Record<string, unknown>);
         return { success: false, statusCode: 400, reason: "validation_error" };
       }
+      // For non-Zod errors, classify and rethrow
+      const classification = classifyError(error);
+      const errorLog = formatErrorLog(error, {
+        requestId,
+        messageSid,
+        eventType,
+        phoneNumber,
+        operation: "create_webhook_event",
+      }, 500);
+      logEvent("error", "Failed to store Twilio webhook event", errorLog as unknown as Record<string, unknown>);
       throw error;
     }
 
@@ -285,10 +313,14 @@ async function processWebhookIdempotently(
       try {
         await db.twilioWebhookEvents.markProcessed(event.id);
       } catch (error) {
-        logEvent("error", "Failed to mark Twilio webhook as processed", {
+        const errorLog = formatErrorLog(error, {
+          requestId,
           eventId: event.id,
-          error: error instanceof Error ? error.message : "unknown",
-        });
+          messageSid,
+          phoneNumber,
+          operation: "mark_webhook_processed",
+        }, 500);
+        logEvent("error", "Failed to mark Twilio webhook as processed", errorLog as unknown as Record<string, unknown>);
         return { success: false, statusCode: 500, reason: "mark_processed_failed" };
       }
 
@@ -297,45 +329,62 @@ async function processWebhookIdempotently(
         messageSid,
         eventType,
         phoneNumber,
+        requestId,
       });
 
       return { success: true, statusCode: 200, reason: "processed" };
     } catch (processingError) {
       // Step 4b: Mark as error on processing failure
-      const errorMessage = processingError instanceof Error ? processingError.message : "unknown error";
-      try {
-        await db.twilioWebhookEvents.markError(event.id, errorMessage);
-      } catch (markErrorError) {
-        logEvent("error", "Failed to mark Twilio webhook error", {
-          eventId: event.id,
-          originalError: errorMessage,
-          markErrorError: markErrorError instanceof Error ? markErrorError.message : "unknown",
-        });
-      }
-
-      logEvent("error", "Twilio webhook processing failed", {
+      const classification = classifyError(processingError);
+      const errorLog = formatErrorLog(processingError, {
+        requestId,
         eventId: event.id,
         messageSid,
-        eventType,
         phoneNumber,
-        error: errorMessage,
-      });
+        eventType,
+        operation: "process_webhook_handler",
+      }, 500);
 
-      return { success: false, statusCode: 500, reason: "processing_failed" };
+      logEvent("error", "Twilio webhook processing failed", errorLog as unknown as Record<string, unknown>);
+
+      // Try to mark event with error for audit trail
+      try {
+        const errorMessage = processingError instanceof Error
+          ? processingError.message
+          : "unknown error";
+        await db.twilioWebhookEvents.markError(event.id, errorMessage);
+      } catch (markErrorError) {
+        const markErrorLog = formatErrorLog(markErrorError, {
+          requestId,
+          eventId: event.id,
+          originalError: processingError instanceof Error ? processingError.message : "unknown",
+          operation: "mark_webhook_error",
+        }, 500);
+        logEvent("error", "Failed to mark Twilio webhook error in database", markErrorLog as unknown as Record<string, unknown>);
+      }
+
+      // Return appropriate status based on error classification
+      const statusCode = classification.isRetryable ? 500 : 400;
+      return { success: false, statusCode, reason: "processing_failed" };
     }
   } catch (error) {
-    logEvent("error", "Unexpected error in idempotent webhook processing", {
+    const classification = classifyError(error);
+    const errorLog = formatErrorLog(error, {
+      requestId,
       messageSid,
       eventType,
       phoneNumber,
-      error: error instanceof Error ? error.message : "unknown",
-    });
+      operation: "process_webhook_idempotently",
+    }, 500);
+    logEvent("error", "Unexpected error in idempotent webhook processing", errorLog as unknown as Record<string, unknown>);
     return { success: false, statusCode: 500, reason: "unexpected_error" };
   }
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
   const startedAt = Date.now();
+  const requestId = crypto.randomUUID();
+
   let authToken: string;
 
   try {
@@ -343,6 +392,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch {
     logEvent("error", "Twilio auth token is not configured", {
       route: "/api/webhooks/twilio",
+      requestId,
     });
     const response = NextResponse.json({ error: "twilio_auth_token_not_configured" }, { status: 500 });
     observeApiRequest({ route: "/api/webhooks/twilio", method: "POST", status: 500, durationMs: Date.now() - startedAt });
@@ -361,6 +411,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
 
   if (!validSignature) {
+    const error = new Error("Invalid Twilio signature");
+    const errorLog = formatErrorLog(error, { requestId }, 401);
+    logEvent("error", "Webhook signature verification failed", errorLog as unknown as Record<string, unknown>);
     const response = NextResponse.json({ error: "invalid_signature" }, { status: 401 });
     observeApiRequest({ route: "/api/webhooks/twilio", method: "POST", status: 401, durationMs: Date.now() - startedAt });
     return response;
@@ -373,30 +426,27 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // Basic validation
   if (!messageSid) {
-    logEvent("warn", "Twilio webhook missing MessageSid", {
-      params: Object.keys(params),
-    });
+    const error = new Error("Missing MessageSid in webhook payload");
+    const errorLog = formatErrorLog(error, { requestId }, 400);
+    logEvent("error", "Webhook validation failed: missing MessageSid", errorLog as unknown as Record<string, unknown>);
     const response = NextResponse.json({ error: "missing_message_sid" }, { status: 400 });
     observeApiRequest({ route: "/api/webhooks/twilio", method: "POST", status: 400, durationMs: Date.now() - startedAt });
     return response;
   }
 
   if (!phoneNumber) {
-    logEvent("warn", "Twilio webhook missing or invalid phone number", {
-      messageSid,
-      params: Object.keys(params),
-    });
+    const error = new Error("Missing or invalid phone number in webhook payload");
+    const errorLog = formatErrorLog(error, { requestId, messageSid }, 400);
+    logEvent("error", "Webhook validation failed: invalid phone number", errorLog as unknown as Record<string, unknown>);
     const response = NextResponse.json({ error: "missing_phone_number" }, { status: 400 });
     observeApiRequest({ route: "/api/webhooks/twilio", method: "POST", status: 400, durationMs: Date.now() - startedAt });
     return response;
   }
 
   if (!eventType) {
-    logEvent("warn", "Twilio webhook unable to determine event type", {
-      messageSid,
-      phoneNumber,
-      params: Object.keys(params),
-    });
+    const error = new Error("Unable to determine event type from webhook payload");
+    const errorLog = formatErrorLog(error, { requestId, messageSid, phoneNumber }, 400);
+    logEvent("error", "Webhook validation failed: unknown event type", errorLog as unknown as Record<string, unknown>);
     const response = NextResponse.json({ error: "unknown_event_type" }, { status: 400 });
     observeApiRequest({ route: "/api/webhooks/twilio", method: "POST", status: 400, durationMs: Date.now() - startedAt });
     return response;
@@ -415,14 +465,28 @@ export async function POST(request: Request): Promise<NextResponse> {
       timestamp,
       params,
       async () => {
-        updateSmsDeliveryStatus({
-          messageId: messageSid,
-          status: mapTwilioStatusToDeliveryStatus(messageStatus),
-          providerStatus: messageStatus,
-          errorCode: params.ErrorCode,
-          errorMessage: params.ErrorMessage,
-        });
-      }
+        try {
+          updateSmsDeliveryStatus({
+            messageId: messageSid,
+            status: mapTwilioStatusToDeliveryStatus(messageStatus),
+            providerStatus: messageStatus,
+            errorCode: params.ErrorCode,
+            errorMessage: params.ErrorMessage,
+          });
+        } catch (error) {
+          const classification = classifyError(error);
+          const errorLog = formatErrorLog(error, {
+            requestId,
+            messageSid,
+            phoneNumber,
+            eventType,
+            operation: "update_sms_delivery_status",
+          }, 500);
+          logEvent("error", "Failed to update SMS delivery status", errorLog as unknown as Record<string, unknown>);
+          throw error;
+        }
+      },
+      requestId
     );
   } else if (eventType === "OptOutChange") {
     // Process opt-out change idempotently
@@ -434,8 +498,22 @@ export async function POST(request: Request): Promise<NextResponse> {
       params,
       async () => {
         // Task #59: Handle opt-out sync
-        await handleOptOutSync(phoneNumber, params);
-      }
+        try {
+          await handleOptOutSync(phoneNumber, params);
+        } catch (error) {
+          const classification = classifyError(error);
+          const errorLog = formatErrorLog(error, {
+            requestId,
+            messageSid,
+            phoneNumber,
+            eventType,
+            operation: "handle_opt_out_sync",
+          }, 500);
+          logEvent("error", "Failed to handle opt-out sync", errorLog as unknown as Record<string, unknown>);
+          throw error;
+        }
+      },
+      requestId
     );
   } else if (eventType === "IncomingPhoneNumberUnprovisioned") {
     // Process phone unprovisioned (just log)
@@ -449,16 +527,21 @@ export async function POST(request: Request): Promise<NextResponse> {
         logEvent("info", "Twilio phone number unprovisioned", {
           messageSid,
           phoneNumber,
+          requestId,
         });
-      }
+      },
+      requestId
     );
   } else {
     // Unknown event type - skip processing but log
-    logEvent("warn", "Twilio webhook event type not explicitly handled", {
+    const error = new Error(`Unknown event type: ${eventType}`);
+    const errorLog = formatErrorLog(error, {
+      requestId,
       eventType,
       messageSid,
       phoneNumber,
-    });
+    }, 400);
+    logEvent("warn", "Twilio webhook event type not explicitly handled", errorLog as unknown as Record<string, unknown>);
     result = { success: true, statusCode: 200, reason: "event_type_not_handled" };
   }
 

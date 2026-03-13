@@ -7,8 +7,7 @@
 -- 2. New CHECK constraint: status IN ('available', 'pending_signature', 'signed', 'expired')
 -- 3. Adds soft-delete column (is_deleted) for FERPA 30-day retention compliance
 -- 4. Adds updated_at TIMESTAMPTZ for audit trail
--- 5. Adds RLS policy for multi-tenant isolation (critical security fix)
--- 6. Drops vault_documents table (migration 0011 created with WRONG name)
+-- 5. Drops vault_documents table (migration 0011 created with WRONG name)
 --
 -- IDEMPOTENCY:
 -- - Uses DROP TABLE IF EXISTS (safe because school_vault_documents is read-only/unused)
@@ -70,10 +69,3 @@ CREATE TRIGGER school_vault_documents_updated_at
   BEFORE UPDATE ON school_vault_documents
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
-
-ALTER TABLE IF EXISTS school_vault_documents ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY IF NOT EXISTS school_vault_documents_isolation
-  ON school_vault_documents
-  FOR ALL
-  USING (family_id = current_setting('app.current_family_id')::UUID);
