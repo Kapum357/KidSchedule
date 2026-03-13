@@ -10,6 +10,8 @@ import { logEvent } from "@/lib/observability/logger";
 import { getTwilioAuthToken } from "@/lib/providers/sms/twilio-config";
 import { getDb } from "@/lib/persistence";
 
+export const runtime = "nodejs";
+
 function getCanonicalWebhookUrl(request: Request): string {
   const configuredBaseUrl = process.env.TWILIO_WEBHOOK_BASE_URL;
   if (!configuredBaseUrl) {
@@ -77,11 +79,6 @@ function determineEventType(params: Record<string, string>): "MessageReceived" |
   // Check for phone number unprovisioned
   if (params.IncomingPhoneNumberUnprovisioned === "true") {
     return "IncomingPhoneNumberUnprovisioned";
-  }
-
-  // Default fallback
-  if (messageStatus) {
-    return "MessageStatus";
   }
 
   return null;
