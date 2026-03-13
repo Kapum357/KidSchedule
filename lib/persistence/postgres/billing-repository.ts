@@ -18,6 +18,7 @@ import type {
   SubscriptionStatus,
   InvoiceStatus,
 } from "../types";
+import { TwilioWebhookEventInputSchema } from "../types";
 import type {
   StripeCustomerRepository,
   PaymentMethodRepository,
@@ -27,6 +28,7 @@ import type {
   TwilioWebhookEventRepository,
   PlanTierRepository,
 } from "../repositories";
+import { HttpError } from "../repositories";
 import { sql, type SqlClient } from "./client";
 
 // ─── Stripe Customer impl ─────────────────────────────────────────────────────
@@ -590,12 +592,21 @@ export function createTwilioWebhookEventRepository(tx?: SqlClient): TwilioWebhoo
 
   return {
     async create(data) {
-      const rows = await q<TwilioWebhookRow[]>`
+      // Validate input before insert
+      const validated = TwilioWebhookEventInputSchema.parse(data);
+
+      // Handle timestamp - convert to Date if needed
+      const timestamp = typeof validated.timestamp === "string"
+        ? new Date(validated.timestamp)
+        : validated.timestamp;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = await (q as any)<TwilioWebhookRow[]>`
         INSERT INTO twilio_webhook_events (
           message_sid, phone_number, event_type, timestamp, payload
         ) VALUES (
-          ${data.messageSid}, ${data.phoneNumber}, ${data.eventType},
-          ${new Date(data.timestamp)}, ${JSON.stringify(data.payload)}
+          ${validated.messageSid}, ${validated.phoneNumber}, ${validated.eventType},
+          ${timestamp}, ${validated.payload}
         )
         RETURNING *
       `;
@@ -633,19 +644,29 @@ export function createTwilioWebhookEventRepository(tx?: SqlClient): TwilioWebhoo
     },
 
     async markProcessed(id, processedAt?) {
-      await q`
+      const rows = await q<TwilioWebhookRow[]>`
         UPDATE twilio_webhook_events
         SET processed_at = ${processedAt ? new Date(processedAt) : sql`NOW()`}
         WHERE id = ${id}
+        RETURNING *
       `;
+      if (rows.length === 0) {
+        throw new HttpError(`Twilio webhook event with id ${id} not found`, 404);
+      }
+      return twilioWebhookRowToDb(rows[0]);
     },
 
     async markError(id, errorMessage) {
-      await q`
+      const rows = await q<TwilioWebhookRow[]>`
         UPDATE twilio_webhook_events
         SET error_message = ${errorMessage}
         WHERE id = ${id}
+        RETURNING *
       `;
+      if (rows.length === 0) {
+        throw new HttpError(`Twilio webhook event with id ${id} not found`, 404);
+      }
+      return twilioWebhookRowToDb(rows[0]);
     },
 
     async findUnprocessed(limit = 50) {

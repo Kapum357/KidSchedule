@@ -10,6 +10,8 @@
  *   - IDs are opaque strings (UUIDs recommended)
  */
 
+import { z } from "zod";
+
 // ─── User & Auth Entities ─────────────────────────────────────────────────────
 
 export interface DbUser {
@@ -771,3 +773,22 @@ export interface DbMediationWarning {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── Validation Schemas ───────────────────────────────────────────────────────
+
+/**
+ * Zod schema for validating Twilio webhook event input before insert.
+ * Ensures messageSid, phoneNumber, and eventType meet required formats.
+ */
+export const TwilioWebhookEventInputSchema = z.object({
+  messageSid: z.string()
+    .min(1, "messageSid cannot be empty")
+    .regex(/^SM[a-z0-9]+$/i, "messageSid must be Twilio format (SM + alphanumeric)"),
+  phoneNumber: z.string()
+    .regex(/^\+[1-9]\d{1,14}$/, "phoneNumber must be E.164 format (+[1-9]\\d{1,14})"),
+  eventType: z.enum(["MessageReceived", "DeliveryReceipt", "OptOutChange", "IncomingPhoneNumberUnprovisioned", "MessageStatus"]),
+  timestamp: z.union([z.string(), z.date()]),
+  payload: z.record(z.string(), z.unknown()),
+});
+
+export type TwilioWebhookEventInput = z.infer<typeof TwilioWebhookEventInputSchema>;

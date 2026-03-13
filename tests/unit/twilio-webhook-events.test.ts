@@ -2,17 +2,20 @@
  * Twilio Webhook Events Repository Tests
  *
  * Tests cover:
- * - create() method for storing new webhook events
+ * - create() method for storing new webhook events with Zod validation
  * - findByMessageSid() for idempotency checks
  * - findByPhoneAndEventType() for dedup by phone + event type
- * - markProcessed() for tracking successful processing
- * - markError() for tracking failed processing
+ * - markProcessed() for tracking successful processing and returning updated row
+ * - markError() for tracking failed processing and returning updated row
  * - findUnprocessed() for retry/recovery
  * - findOlderThan() for log retention cleanup
+ * - Input validation: messageSid format, phoneNumber E.164, eventType enum
  */
 
 import type { TwilioWebhookEventRepository } from "@/lib/persistence/repositories";
 import type { DbTwilioWebhookEvent } from "@/lib/persistence/types";
+import { TwilioWebhookEventInputSchema } from "@/lib/persistence/types";
+import { ZodError } from "zod";
 
 // Mock the SQL client
 const mockRows: DbTwilioWebhookEvent[] = [];
@@ -22,13 +25,14 @@ let mockIdCounter = 0;
 function createMockTwilioRepository(): TwilioWebhookEventRepository {
   return {
     async create(data) {
+      // Mock doesn't validate - real repo will
       mockIdCounter++;
       const event: DbTwilioWebhookEvent = {
         id: `event_${mockIdCounter}`,
         messageSid: data.messageSid,
         phoneNumber: data.phoneNumber,
         eventType: data.eventType,
-        timestamp: data.timestamp,
+        timestamp: typeof data.timestamp === "string" ? data.timestamp : data.timestamp.toISOString(),
         payload: data.payload,
         processedAt: undefined,
         errorMessage: undefined,
@@ -65,16 +69,20 @@ function createMockTwilioRepository(): TwilioWebhookEventRepository {
 
     async markProcessed(id, processedAt?) {
       const event = mockRows.find((r) => r.id === id);
-      if (event) {
-        event.processedAt = processedAt ?? new Date().toISOString();
+      if (!event) {
+        throw new Error(`NOT_FOUND: Twilio webhook event with id ${id} not found`);
       }
+      event.processedAt = processedAt ?? new Date().toISOString();
+      return event;
     },
 
     async markError(id, errorMessage) {
       const event = mockRows.find((r) => r.id === id);
-      if (event) {
-        event.errorMessage = errorMessage;
+      if (!event) {
+        throw new Error(`NOT_FOUND: Twilio webhook event with id ${id} not found`);
       }
+      event.errorMessage = errorMessage;
+      return event;
     },
 
     async findUnprocessed(limit = 50) {
@@ -138,7 +146,7 @@ describe("TwilioWebhookEventRepository", () => {
 
     it("should assign unique IDs to events", async () => {
       const event1 = await repo.create({
-        messageSid: "SM0001",
+        messageSid: "SM000123456789abcd",
         phoneNumber: "+15551111111",
         eventType: "MessageReceived",
         timestamp: "2024-01-15T10:00:00Z",
@@ -146,7 +154,7 @@ describe("TwilioWebhookEventRepository", () => {
       });
 
       const event2 = await repo.create({
-        messageSid: "SM0002",
+        messageSid: "SM000223456789abcd",
         phoneNumber: "+15552222222",
         eventType: "DeliveryReceipt",
         timestamp: "2024-01-15T10:01:00Z",
@@ -167,7 +175,7 @@ describe("TwilioWebhookEventRepository", () => {
       };
 
       const event = await repo.create({
-        messageSid: "SM123",
+        messageSid: "SM123456789abcdef",
         phoneNumber: "+15551234567",
         eventType: "MessageReceived",
         timestamp: "2024-01-15T10:00:00Z",
@@ -176,33 +184,130 @@ describe("TwilioWebhookEventRepository", () => {
 
       expect(event.payload).toEqual(complexPayload);
     });
+
+    it("should reject messageSid without SM prefix", () => {
+      expect(() => {
+        TwilioWebhookEventInputSchema.parse({
+          messageSid: "INVALID_SID",
+          phoneNumber: "+15551234567",
+          eventType: "MessageReceived",
+          timestamp: "2024-01-15T10:00:00Z",
+          payload: {},
+        });
+      }).toThrow(ZodError);
+    });
+
+    it("should reject empty messageSid", () => {
+      expect(() => {
+        TwilioWebhookEventInputSchema.parse({
+          messageSid: "",
+          phoneNumber: "+15551234567",
+          eventType: "MessageReceived",
+          timestamp: "2024-01-15T10:00:00Z",
+          payload: {},
+        });
+      }).toThrow(ZodError);
+    });
+
+    it("should reject invalid E.164 phoneNumber (missing +)", () => {
+      expect(() => {
+        TwilioWebhookEventInputSchema.parse({
+          messageSid: "SM1234567890abcdef",
+          phoneNumber: "15551234567",
+          eventType: "MessageReceived",
+          timestamp: "2024-01-15T10:00:00Z",
+          payload: {},
+        });
+      }).toThrow(ZodError);
+    });
+
+    it("should reject invalid E.164 phoneNumber (leading zero)", () => {
+      expect(() => {
+        TwilioWebhookEventInputSchema.parse({
+          messageSid: "SM1234567890abcdef",
+          phoneNumber: "+01234567890",
+          eventType: "MessageReceived",
+          timestamp: "2024-01-15T10:00:00Z",
+          payload: {},
+        });
+      }).toThrow(ZodError);
+    });
+
+    it("should reject invalid eventType", () => {
+      expect(() => {
+        TwilioWebhookEventInputSchema.parse({
+          messageSid: "SM1234567890abcdef",
+          phoneNumber: "+15551234567",
+          eventType: "InvalidEventType",
+          timestamp: "2024-01-15T10:00:00Z",
+          payload: {},
+        });
+      }).toThrow(ZodError);
+    });
+
+    it("should accept valid E.164 phoneNumber formats", () => {
+      const validNumbers = [
+        "+15551234567",      // US 10 digits
+        "+4411234567890",    // UK 10 digits
+        "+33123456789",      // France 9 digits
+        "+8613912345678",    // China
+      ];
+
+      validNumbers.forEach((number) => {
+        expect(() => {
+          TwilioWebhookEventInputSchema.parse({
+            messageSid: "SM1234567890abcdef",
+            phoneNumber: number,
+            eventType: "MessageReceived",
+            timestamp: "2024-01-15T10:00:00Z",
+            payload: {},
+          });
+        }).not.toThrow();
+      });
+    });
+
+    it("should accept all valid eventType values", () => {
+      const validEventTypes = ["MessageReceived", "DeliveryReceipt", "OptOutChange", "IncomingPhoneNumberUnprovisioned", "MessageStatus"];
+
+      validEventTypes.forEach((eventType) => {
+        expect(() => {
+          TwilioWebhookEventInputSchema.parse({
+            messageSid: "SM1234567890abcdef",
+            phoneNumber: "+15551234567",
+            eventType,
+            timestamp: "2024-01-15T10:00:00Z",
+            payload: {},
+          });
+        }).not.toThrow();
+      });
+    });
   });
 
   describe("findByMessageSid()", () => {
     it("should find existing event by message_sid", async () => {
       const created = await repo.create({
-        messageSid: "SM_UNIQUE_ID",
+        messageSid: "SMuniqueid123456",
         phoneNumber: "+15551234567",
         eventType: "MessageReceived",
         timestamp: "2024-01-15T10:00:00Z",
         payload: {},
       });
 
-      const found = await repo.findByMessageSid("SM_UNIQUE_ID");
+      const found = await repo.findByMessageSid("SMuniqueid123456");
       expect(found).toBeDefined();
       expect(found?.id).toBe(created.id);
-      expect(found?.messageSid).toBe("SM_UNIQUE_ID");
+      expect(found?.messageSid).toBe("SMuniqueid123456");
     });
 
     it("should return null for non-existent message_sid", async () => {
-      const found = await repo.findByMessageSid("SM_DOES_NOT_EXIST");
+      const found = await repo.findByMessageSid("SMdoesnotexist123");
       expect(found).toBeNull();
     });
 
     it("should enable idempotency: detect duplicate message_sid", async () => {
       const payload1 = { Body: "First attempt" };
       const event1 = await repo.create({
-        messageSid: "SM_DUP_TEST",
+        messageSid: "SMduptest123456789",
         phoneNumber: "+15551234567",
         eventType: "MessageReceived",
         timestamp: "2024-01-15T10:00:00Z",
@@ -210,7 +315,7 @@ describe("TwilioWebhookEventRepository", () => {
       });
 
       // Simulate duplicate webhook reception
-      const existing = await repo.findByMessageSid("SM_DUP_TEST");
+      const existing = await repo.findByMessageSid("SMduptest123456789");
       expect(existing).not.toBeNull();
       expect(existing?.id).toBe(event1.id);
       // In production, we'd skip processing if event already exists
@@ -220,7 +325,7 @@ describe("TwilioWebhookEventRepository", () => {
   describe("findByPhoneAndEventType()", () => {
     it("should find event by phone + event_type", async () => {
       const created = await repo.create({
-        messageSid: "SM001",
+        messageSid: "SM001123456789abc",
         phoneNumber: "+15551234567",
         eventType: "DeliveryReceipt",
         timestamp: "2024-01-15T10:00:00Z",
@@ -238,7 +343,7 @@ describe("TwilioWebhookEventRepository", () => {
     it("should find event with timestamp for exact match", async () => {
       const timestamp = "2024-01-15T10:00:00Z";
       const created = await repo.create({
-        messageSid: "SM_EXACT",
+        messageSid: "SMexact123456789",
         phoneNumber: "+15551234567",
         eventType: "OptOutChange",
         timestamp,
@@ -267,7 +372,7 @@ describe("TwilioWebhookEventRepository", () => {
       const eventType = "DeliveryReceipt";
 
       await repo.create({
-        messageSid: "SM_OLD",
+        messageSid: "SMold123456789abc",
         phoneNumber: phone,
         eventType,
         timestamp: "2024-01-15T09:00:00Z",
@@ -275,7 +380,7 @@ describe("TwilioWebhookEventRepository", () => {
       });
 
       const newer = await repo.create({
-        messageSid: "SM_NEW",
+        messageSid: "SMnew123456789abc",
         phoneNumber: phone,
         eventType,
         timestamp: "2024-01-15T10:00:00Z",
@@ -284,7 +389,7 @@ describe("TwilioWebhookEventRepository", () => {
 
       const found = await repo.findByPhoneAndEventType(phone, eventType);
       expect(found?.id).toBe(newer.id);
-      expect(found?.messageSid).toBe("SM_NEW");
+      expect(found?.messageSid).toBe("SMnew123456789abc");
     });
 
     it("should support idempotency checks: same phone + event_type + timestamp", async () => {
@@ -293,7 +398,7 @@ describe("TwilioWebhookEventRepository", () => {
       const timestamp = "2024-01-15T10:00:00Z";
 
       const created = await repo.create({
-        messageSid: "SM_FIRST",
+        messageSid: "SMfirst123456789a",
         phoneNumber: phone,
         eventType,
         timestamp,
@@ -312,9 +417,9 @@ describe("TwilioWebhookEventRepository", () => {
   });
 
   describe("markProcessed()", () => {
-    it("should mark event as processed", async () => {
+    it("should mark event as processed and return updated row", async () => {
       const event = await repo.create({
-        messageSid: "SM_PROC",
+        messageSid: "SMproc123456789",
         phoneNumber: "+15551234567",
         eventType: "MessageReceived",
         timestamp: "2024-01-15T10:00:00Z",
@@ -323,14 +428,15 @@ describe("TwilioWebhookEventRepository", () => {
 
       expect(event.processedAt).toBeUndefined();
 
-      await repo.markProcessed(event.id);
-      const updated = await repo.findByMessageSid("SM_PROC");
-      expect(updated?.processedAt).toBeDefined();
+      const updated = await repo.markProcessed(event.id);
+      expect(updated).toBeDefined();
+      expect(updated.id).toBe(event.id);
+      expect(updated.processedAt).toBeDefined();
     });
 
     it("should allow custom processedAt timestamp", async () => {
       const event = await repo.create({
-        messageSid: "SM_PROC_CUSTOM",
+        messageSid: "SMproccustom1234567",
         phoneNumber: "+15551234567",
         eventType: "MessageReceived",
         timestamp: "2024-01-15T10:00:00Z",
@@ -338,16 +444,21 @@ describe("TwilioWebhookEventRepository", () => {
       });
 
       const customTime = "2024-01-15T10:30:00Z";
-      await repo.markProcessed(event.id, customTime);
-      const updated = await repo.findByMessageSid("SM_PROC_CUSTOM");
+      const updated = await repo.markProcessed(event.id, customTime);
       expect(updated?.processedAt).toBe(customTime);
+    });
+
+    it("should throw error if event not found", async () => {
+      await expect(repo.markProcessed("nonexistent_id")).rejects.toThrow(
+        "Twilio webhook event with id nonexistent_id not found"
+      );
     });
   });
 
   describe("markError()", () => {
-    it("should mark event with error message", async () => {
+    it("should mark event with error message and return updated row", async () => {
       const event = await repo.create({
-        messageSid: "SM_ERR",
+        messageSid: "SMetr123456789abcd",
         phoneNumber: "+15551234567",
         eventType: "MessageReceived",
         timestamp: "2024-01-15T10:00:00Z",
@@ -355,17 +466,24 @@ describe("TwilioWebhookEventRepository", () => {
       });
 
       const errorMsg = "Failed to find phone number in system";
-      await repo.markError(event.id, errorMsg);
+      const updated = await repo.markError(event.id, errorMsg);
 
-      const updated = await repo.findByMessageSid("SM_ERR");
+      expect(updated).toBeDefined();
+      expect(updated.id).toBe(event.id);
       expect(updated?.errorMessage).toBe(errorMsg);
+    });
+
+    it("should throw error if event not found", async () => {
+      await expect(repo.markError("nonexistent_id", "error")).rejects.toThrow(
+        "Twilio webhook event with id nonexistent_id not found"
+      );
     });
   });
 
   describe("findUnprocessed()", () => {
     it("should find only unprocessed events", async () => {
       await repo.create({
-        messageSid: "SM_PROC",
+        messageSid: "SMproc123456789",
         phoneNumber: "+15551111111",
         eventType: "MessageReceived",
         timestamp: "2024-01-15T10:00:00Z",
@@ -373,7 +491,7 @@ describe("TwilioWebhookEventRepository", () => {
       });
 
       const unproc = await repo.create({
-        messageSid: "SM_UNPROC",
+        messageSid: "SMunproc12345678a",
         phoneNumber: "+15552222222",
         eventType: "DeliveryReceipt",
         timestamp: "2024-01-15T10:01:00Z",
@@ -391,7 +509,7 @@ describe("TwilioWebhookEventRepository", () => {
 
     it("should return empty array when all events processed", async () => {
       const event = await repo.create({
-        messageSid: "SM_ALL_DONE",
+        messageSid: "SMalldone123456789",
         phoneNumber: "+15551234567",
         eventType: "MessageReceived",
         timestamp: "2024-01-15T10:00:00Z",
@@ -407,7 +525,7 @@ describe("TwilioWebhookEventRepository", () => {
     it("should respect limit parameter", async () => {
       for (let i = 0; i < 10; i++) {
         await repo.create({
-          messageSid: `SM_LIMIT_${i}`,
+          messageSid: `SMlimit${String(i).padStart(3, '0')}abcdef`,
           phoneNumber: `+1555123456${i}`,
           eventType: "MessageReceived",
           timestamp: `2024-01-15T10:0${i % 10}:00Z`,
@@ -421,7 +539,7 @@ describe("TwilioWebhookEventRepository", () => {
 
     it("should sort by created_at ASC (oldest first)", async () => {
       const event1 = await repo.create({
-        messageSid: "SM_OLD",
+        messageSid: "SMold123456789abc",
         phoneNumber: "+15551234567",
         eventType: "MessageReceived",
         timestamp: "2024-01-15T10:00:00Z",
@@ -432,7 +550,7 @@ describe("TwilioWebhookEventRepository", () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       const event2 = await repo.create({
-        messageSid: "SM_NEW",
+        messageSid: "SMnew123456789abc",
         phoneNumber: "+15559876543",
         eventType: "DeliveryReceipt",
         timestamp: "2024-01-15T10:01:00Z",
@@ -452,7 +570,7 @@ describe("TwilioWebhookEventRepository", () => {
       const oldIso = oldDate.toISOString();
 
       const old = await repo.create({
-        messageSid: "SM_OLD_10",
+        messageSid: "SMold10456789abcd",
         phoneNumber: "+15551234567",
         eventType: "MessageReceived",
         timestamp: oldIso,
@@ -460,7 +578,7 @@ describe("TwilioWebhookEventRepository", () => {
       });
 
       await repo.create({
-        messageSid: "SM_RECENT",
+        messageSid: "SMrecent123456789a",
         phoneNumber: "+15559876543",
         eventType: "DeliveryReceipt",
         timestamp: new Date().toISOString(),
@@ -478,7 +596,7 @@ describe("TwilioWebhookEventRepository", () => {
 
     it("should return empty array when no old events", async () => {
       await repo.create({
-        messageSid: "SM_FRESH",
+        messageSid: "SMfresh123456789ab",
         phoneNumber: "+15551234567",
         eventType: "MessageReceived",
         timestamp: new Date().toISOString(),
@@ -495,7 +613,7 @@ describe("TwilioWebhookEventRepository", () => {
 
       for (let i = 0; i < 20; i++) {
         await repo.create({
-          messageSid: `SM_CLEANUP_${i}`,
+          messageSid: `SMcleanup${String(i).padStart(3, '0')}abcd`,
           phoneNumber: `+1555${i}${i}${i}${i}`,
           eventType: "MessageReceived",
           timestamp: oldDate.toISOString(),

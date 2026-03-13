@@ -690,8 +690,8 @@ export interface TwilioWebhookEventRepository {
     eventType: string,
     timestamp?: string
   ): Promise<DbTwilioWebhookEvent | null>;
-  markProcessed(id: string, processedAt?: string): Promise<void>;
-  markError(id: string, errorMessage: string): Promise<void>;
+  markProcessed(id: string, processedAt?: string): Promise<DbTwilioWebhookEvent>;
+  markError(id: string, errorMessage: string): Promise<DbTwilioWebhookEvent>;
   findUnprocessed(limit?: number): Promise<DbTwilioWebhookEvent[]>;
   findOlderThan(daysOld: number, limit?: number): Promise<DbTwilioWebhookEvent[]>;
 }
